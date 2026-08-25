@@ -1,0 +1,25 @@
+schema_version: 1
+id: REVIEW-M0-AUTHORIZATION
+scope: "Maintainer 对 HANDOFF-M0-REVIEW 与 implementation authorization 的最终决定"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: explicit-maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-25 明确批准 HANDOFF-M0-REVIEW，并授权项目进入实现阶段。"
+  - id: m0-exit-evidence
+    status: passed
+    evidence: "Architecture、Security、Interop、Final Gate、External Baseline 与 Baseline Reassessment review 全部为 passed。"
+  - id: authorization-transition
+    status: passed
+    evidence: "M0/WI-M0-REVIEW 转为 done，M1/WI-M1-SHELL 转为 ready，project implementation_authorized 转为 true。"
+findings: []
+evidence:
+  - "tracking/handoffs/HANDOFF-M0-REVIEW.yaml"
+  - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
+  - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
+next_action: "按根 AGENTS.md 启动独立 M1 session，认领 WI-M1-SHELL 后再创建实现变更。"
+created_at: "2026-08-25T13:12:46Z"
+updated_at: "2026-08-25T13:12:46Z"

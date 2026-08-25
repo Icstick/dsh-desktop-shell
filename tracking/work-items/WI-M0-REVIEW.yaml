@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M0-REVIEW
 title: "Review and freeze M0"
-status: review
+status: done
 milestone: M0
 module: MOD-CAPABILITY-CONTRACTS
 owner_role: architecture-owner
@@ -25,7 +25,8 @@ evidence:
   - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
   - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
   - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
+  - "tracking/reviews/REVIEW-M0-AUTHORIZATION.yaml"
 blocked_by: []
-next_action: "Maintainer 审阅重新确定的 HANDOFF-M0-REVIEW，并明确批准或拒绝 implementation_authorization。"
+next_action: "已完成；后续工作转入 WI-M1-SHELL。"
 handoff: HANDOFF-M0-REVIEW
-updated_at: "2026-08-25T12:55:14Z"
+updated_at: "2026-08-25T13:12:46Z"

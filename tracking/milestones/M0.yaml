@@ -1,7 +1,7 @@
 schema_version: 1
 id: M0
 title: "Architecture Freeze"
-status: review
+status: done
 relative_weeks: "pre-start"
 depends_on: []
 exit_criteria:
@@ -17,4 +17,5 @@ evidence:
   - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
   - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
   - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
-updated_at: "2026-08-25T12:55:14Z"
+  - "tracking/reviews/REVIEW-M0-AUTHORIZATION.yaml"
+updated_at: "2026-08-25T13:12:46Z"

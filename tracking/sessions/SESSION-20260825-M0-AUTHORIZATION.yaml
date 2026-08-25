@@ -1,0 +1,17 @@
+schema_version: 1
+id: SESSION-20260825-M0-AUTHORIZATION
+status: closed
+agent_or_human: "maintainer decision; codex-primary recorder"
+work_items:
+  - WI-M0-REVIEW
+branch_or_worktree: review/wi-m0-review
+started_at: "2026-08-25T13:12:46Z"
+ended_at: "2026-08-25T13:12:46Z"
+summary: "记录 Maintainer 对 HANDOFF-M0-REVIEW 的批准，关闭 M0 并授权项目进入 M1 实现阶段。"
+artifacts:
+  - "tracking/reviews/REVIEW-M0-AUTHORIZATION.yaml"
+  - "tracking/handoffs/HANDOFF-M0-REVIEW.yaml"
+  - "tracking/project.yaml"
+  - "tracking/milestones/M0.yaml"
+  - "tracking/milestones/M1.yaml"
+next_action: "另开 M1 实现 session 与 branch/worktree，认领 WI-M1-SHELL；本 session 不开始代码实现。"

@@ -2,9 +2,9 @@
 
 DSH Desktop Shell 是面向用户自有 DeepSeek Harness 的跨平台桌面工作台与本地能力宿主。它不分发、不升级、不修改用户的 DSH Core 或 `DSH_HOME`，而是在外层提供稳定的桌面窗口、进程监督、原生能力、兼容适配与恢复体验。
 
-> 当前阶段：`documentation-foundation` / M0 Architecture Freeze review。
+> 当前阶段：`shell-mvp` / M1 Shell MVP ready。
 >
-> 当前仓库仅含文档、规范、跟踪记录和未来代码目录镜像。`implementation_authorized: false`，不得添加项目源码或构建清单。
+> 当前仓库仍仅含文档、规范、跟踪记录和未来代码目录镜像。Maintainer 已将 `implementation_authorized` 设为 `true`；代码实现必须从已认领的 `WI-M1-SHELL` 独立 session/branch 开始。
 
 ## 一句话架构
 

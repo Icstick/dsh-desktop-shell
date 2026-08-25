@@ -1,10 +1,10 @@
 schema_version: 1
 project: dsh-desktop-shell
-phase: documentation-foundation
-current_milestone: M0
-status: in_review
-implementation_authorized: false
-start_date: null
+phase: shell-mvp
+current_milestone: M1
+status: ready
+implementation_authorized: true
+start_date: "2026-08-25"
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-25T12:55:14Z"
-next_action: "Maintainer 审阅重新确定的 HANDOFF-M0-REVIEW，明确批准或拒绝 implementation_authorized；当前保持 false。"
+updated_at: "2026-08-25T13:12:46Z"
+next_action: "启动独立 M1 session 与 branch/worktree，认领 WI-M1-SHELL 后按接口优先顺序实施 Shell MVP。"
