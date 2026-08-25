@@ -1,0 +1,24 @@
+schema_version: 1
+id: HANDOFF-M0-REVIEW
+work_item: WI-M0-REVIEW
+from: codex-primary
+to: maintainer
+status: open
+completed:
+  - "Architecture owner role review passed；ownership、deployment direction 与 code map 已闭合。"
+  - "Security owner role review passed；threat/control/owner/test mapping 与 trust boundary 已闭合。"
+  - "Interop owner role review passed；message contract、strictness、compatibility fallback 与 spec routing 已闭合。"
+  - "全仓质量门禁通过，审查修正均有独立可追溯 commit。"
+remaining:
+  - "Maintainer 明确记录批准或拒绝 implementation authorization 的决定。"
+  - "若批准，单独提交 project/M0/work-item 状态转换；若拒绝，创建带 owner 的 WI-* 修正项。"
+verification:
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+  - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
+risks:
+  - "RISK-DSH-CHURN 与 RISK-STD-CHURN 持续存在；实现开始前需刷新外部 baseline。"
+  - "实现授权不得由 review passed 隐式推导。"
+next_action: "Maintainer 审阅 HANDOFF-M0-REVIEW 并明确决定 implementation_authorized。"
+created_at: "2026-08-25T09:28:09Z"

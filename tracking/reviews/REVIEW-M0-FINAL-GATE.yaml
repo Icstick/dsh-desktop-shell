@@ -1,0 +1,37 @@
+schema_version: 1
+id: REVIEW-M0-FINAL-GATE
+scope: "WI-M0-REVIEW 全仓质量门禁、审查证据闭合与实现授权前置条件"
+status: passed
+reviewers:
+  - codex-primary-automated-validator
+checks:
+  - id: parse-schema-xref
+    status: passed
+    evidence: "写入 handoff 前的 20 个 JSON Schema 与 69 条 tracking 记录可解析且符合 Schema；68 个记录 ID 唯一，跨引用闭合。"
+  - id: documentation-integrity
+    status: passed
+    evidence: "179 份受控 Markdown 的相对链接、锚点、标题层级、fence 与占位符规则通过；28 个叶模块具备 84 份接手文档。"
+  - id: protocol-contract
+    status: passed
+    evidence: "Envelope 的 6 个正例与 5 个反例按预期接受或拒绝；空 lease scope、Usage period 扩展字段与缺失 error correlation 被拒绝。"
+  - id: research-integrity
+    status: passed
+    evidence: "三份输入快照与原文件逐字节一致，文件大小和 SHA-256 均匹配 SOURCE_INDEX。"
+  - id: no-code-license-format
+    status: passed
+    evidence: "无源码、构建清单、锁文件或 workflow；Apache-2.0、NOTICE、UTF-8/LF、受控文件末行与 whitespace 门禁通过。"
+  - id: semantic-review
+    status: passed
+    evidence: "Architecture、Security 与 Interop 三份角色审查均为 passed，所有已发现问题均已通过独立 commit 修正。"
+findings:
+  - "accepted exception: 三份逐字节保留的调研输入没有末尾换行；不得为格式一致性改写并破坏来源哈希。"
+  - "pending decision: 本门禁不代表 maintainer 授权实现，implementation_authorized 继续为 false。"
+evidence:
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+  - "tracking/reviews/REVIEW-M0-STRUCTURE.yaml"
+  - "docs/research/SOURCE_INDEX.md"
+next_action: "Maintainer 明确决定是否批准实现；批准前不得修改 implementation_authorized。"
+created_at: "2026-08-25T09:28:09Z"
+updated_at: "2026-08-25T09:28:09Z"

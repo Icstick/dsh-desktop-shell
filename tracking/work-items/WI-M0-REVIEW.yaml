@@ -1,14 +1,14 @@
 schema_version: 1
 id: WI-M0-REVIEW
 title: "Review and freeze M0"
-status: in_progress
+status: review
 milestone: M0
 module: MOD-CAPABILITY-CONTRACTS
 owner_role: architecture-owner
-claimed_by: codex-primary
-session: SESSION-20260825-M0-REVIEW
-branch_or_worktree: review/wi-m0-review
-claim_expires_at: "2026-08-26T08:52:11Z"
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
 dependencies:
   - WI-M0-FOUNDATION
 acceptance_criteria:
@@ -22,7 +22,8 @@ evidence:
   - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
   - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
   - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+  - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
 blocked_by: []
-next_action: "Run complete M0 quality gates and prepare maintainer authorization decision."
-handoff: null
-updated_at: "2026-08-25T09:14:05Z"
+next_action: "Maintainer explicitly decides whether to set implementation_authorized=true; until then M0 remains in_review."
+handoff: HANDOFF-M0-REVIEW
+updated_at: "2026-08-25T09:28:09Z"

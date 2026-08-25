@@ -11,4 +11,8 @@ exit_criteria:
   - "Maintainer 明确决定 implementation_authorized"
 evidence:
   - "tracking/reviews/REVIEW-M0-STRUCTURE.yaml"
-updated_at: "2026-08-25T07:42:17Z"
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+  - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
+updated_at: "2026-08-25T09:28:09Z"

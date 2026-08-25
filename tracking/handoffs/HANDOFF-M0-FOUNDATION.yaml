@@ -3,18 +3,21 @@ id: HANDOFF-M0-FOUNDATION
 work_item: WI-M0-FOUNDATION
 from: codex-primary
 to: null
-status: open
+status: accepted
 completed:
   - "建立根级入口、专题文档、10 个 ADR、规范与 GitHub 治理模板。"
   - "建立 28 个叶模块及其 84 份模块接手文档。"
   - "归档三份原始调研输入，登记 SHA-256、来源与 clean-room 声明。"
+  - "Architecture、Security 与 Interop owner role review 已完成并通过。"
 remaining:
-  - "Architecture、Security 与 Interop owner 完成 M0 语义审查。"
   - "Maintainer 明确批准后才可把 implementation_authorized 改为 true。"
 verification:
   - "tracking/reviews/REVIEW-M0-STRUCTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
 risks:
   - "DSH 与 dsh-std 外部状态会变化，实现前必须刷新 verified_on 基线。"
   - "Browser provider 与三平台签名仍需后续 milestone PoC。"
-next_action: "认领 WI-M0-REVIEW 并完成三角色 review。"
+next_action: "由 HANDOFF-M0-REVIEW 承接 maintainer implementation authorization decision。"
 created_at: "2026-08-25T07:42:17Z"
