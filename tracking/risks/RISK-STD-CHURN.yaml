@@ -8,8 +8,10 @@ owner_role: interop-owner
 mitigation:
   - "Optional adapter"
   - "No alpha type in core"
+  - "Track latest and rc dist-tags independently with exact artifact integrity"
 triggers:
   - "Protocol proposal/package changes"
+  - "@dsh-std/core latest or rc dist-tag changes"
 related_modules:
   - MOD-ADAPTER-DSH-STD
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T12:36:09Z"

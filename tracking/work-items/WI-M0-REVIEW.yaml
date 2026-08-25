@@ -23,7 +23,8 @@ evidence:
   - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
   - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
   - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
+  - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
 blocked_by: []
 next_action: "Maintainer explicitly decides whether to set implementation_authorized=true; until then M0 remains in_review."
 handoff: HANDOFF-M0-REVIEW
-updated_at: "2026-08-25T09:28:09Z"
+updated_at: "2026-08-25T12:36:09Z"

@@ -8,9 +8,11 @@ owner_role: interop-owner
 mitigation:
   - "Keep coupling in adapter"
   - "Maintain latest/N-1/main fixtures"
+  - "Pin exact npm integrity and repository revision in the external baseline"
 triggers:
   - "Official CLI/Web/adapter behavior changes"
+  - "@deepseek-ai/dsh latest dist-tag changes"
 related_modules:
   - MOD-ADAPTER-DSH
   - MOD-SUPERVISOR
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T12:36:09Z"

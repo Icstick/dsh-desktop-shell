@@ -1,12 +1,16 @@
 schema_version: 1
 id: SESSION-20260825-M0-BASELINE-REFRESH
-status: active
+status: handoff
 agent_or_human: codex-primary
 work_items:
   - WI-M0-BASELINE-REFRESH
 branch_or_worktree: review/wi-m0-review
 started_at: "2026-08-25T12:19:55Z"
-ended_at: null
-summary: "从官方 GitHub、npm registry 与 Tauri 文档刷新 M0 external baseline。"
-artifacts: []
-next_action: "将精确 revision、package/release coordinate、事实证据和影响分析写入仓库真源。"
+ended_at: "2026-08-25T12:36:09Z"
+summary: "M0 external baseline 已绑定官方 revision、release、registry artifact 与许可证证据，并通过质量门禁。"
+artifacts:
+  - "docs/compliance/SOURCE_REGISTER.yaml"
+  - "docs/research/EXTERNAL_BASELINE.md"
+  - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "tracking/handoffs/HANDOFF-M0-BASELINE-REFRESH.yaml"
+next_action: "Maintainer 接受 baseline handoff，并继续 HANDOFF-M0-REVIEW 的 implementation authorization decision。"

@@ -5,11 +5,7 @@
 - Status：`in_review`
 - Implementation authorized：`false`
 - External baseline verified：2026-08-25
-- Last updated：2026-08-25T12:19:55Z
-
-## 进行中
-
-- [WI-M0-BASELINE-REFRESH](work-items/WI-M0-BASELINE-REFRESH.yaml)：重新核验 DSH、dsh-std、Tauri 与 Desktop reference 的精确 revision、发行坐标和官方证据。
+- Last updated：2026-08-25T12:36:09Z
 
 ## 已完成
 
@@ -21,6 +17,7 @@
 - 结构化质量门禁通过；证据见 [REVIEW-M0-STRUCTURE](reviews/REVIEW-M0-STRUCTURE.yaml)。
 - Architecture、Security、Interop 语义审查通过；证据分别见 [REVIEW-M0-ARCHITECTURE](reviews/REVIEW-M0-ARCHITECTURE.yaml)、[REVIEW-M0-SECURITY](reviews/REVIEW-M0-SECURITY.yaml)、[REVIEW-M0-INTEROP](reviews/REVIEW-M0-INTEROP.yaml)。
 - 全仓最终门禁通过；证据见 [REVIEW-M0-FINAL-GATE](reviews/REVIEW-M0-FINAL-GATE.yaml)。
+- 外部 baseline 已刷新并固定 repository revision、registry artifact、Tauri security 语义与许可边界；证据见 [REVIEW-M0-EXTERNAL-BASELINE](reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml)。
 
 ## 当前门禁
 
@@ -28,4 +25,4 @@ M0 文档与质量门禁已通过，但 maintainer 尚未明确授权实现。�
 
 ## 下一动作
 
-完成 `WI-M0-BASELINE-REFRESH` 后，Maintainer 审阅 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)，明确批准或拒绝实现授权。批准时必须以独立提交更新 project、M0 与 work item 状态；不得从 review passed 隐式推导授权。
+Maintainer 审阅 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)，明确批准或拒绝实现授权。批准时必须以独立提交更新 project、M0 与 work item 状态；不得从 review passed 或 baseline refresh 隐式推导授权。

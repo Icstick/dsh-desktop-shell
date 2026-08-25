@@ -1,0 +1,39 @@
+schema_version: 1
+id: REVIEW-M0-EXTERNAL-BASELINE
+scope: "M0 external repository、package、platform security 与 license baseline refresh"
+status: passed
+reviewers:
+  - codex-primary-interop-review
+  - codex-primary-compliance-review
+checks:
+  - id: immutable-source-coordinates
+    status: passed
+    evidence: "四个 GitHub repository 均记录 default ref、40 位 commit、commit 时间、immutable evidence URL 与 blob SHA。"
+  - id: package-artifacts
+    status: passed
+    evidence: "DSH latest/N-1 与 dsh-std latest/rc 均记录精确 version、发布时间、SHA-1 shasum 与 SHA-512 integrity。"
+  - id: platform-security
+    status: passed
+    evidence: "Tauri v2 capability 的 window/webview targeting、permission merge、remote opt-in 与 unmatched no-IPC 语义由官方文档重新确认。"
+  - id: license-boundary
+    status: passed
+    evidence: "Desktop reference 的 MIT 顶层许可证和限制商业二次开发附加条款均绑定到精确 blob；继续执行 architecture-reference-only/no-copy。"
+  - id: architecture-impact
+    status: passed
+    evidence: "没有证据要求替代 ADR-0001、ADR-0003、ADR-0004 或 ADR-0006；implementation authorization 未改变。"
+  - id: repository-quality
+    status: passed
+    evidence: "写入 handoff 前 290 个文件、20 个 JSON Schema、81 个 YAML、73 条 tracking 记录、72 个唯一 ID 与 10 份变更 Markdown 通过零错误门禁。"
+findings:
+  - "npm metadata does not expose gitHead for the recorded DSH/dsh-std artifacts; package-to-HEAD binding is deliberately not asserted."
+  - "dsh-std rc dist-tag points to 0.1.1-rc.1 while latest points to 0.1.0-rc1; consumers must not infer tag policy from semver order."
+  - "Desktop reference remains unsuitable for copying because LICENSE.details adds a noncommercial secondary-development restriction."
+evidence:
+  - "docs/compliance/SOURCE_REGISTER.yaml"
+  - "docs/research/EXTERNAL_BASELINE.md"
+  - "docs/compatibility/MATRIX.md"
+  - "docs/compatibility/DSH_STD_POLICY.md"
+  - "docs/decisions/ADR-0006-dsh-std-optional.md"
+next_action: "Monitor recorded refresh triggers; Maintainer may now evaluate HANDOFF-M0-REVIEW with the refreshed baseline."
+created_at: "2026-08-25T12:36:09Z"
+updated_at: "2026-08-25T12:36:09Z"
