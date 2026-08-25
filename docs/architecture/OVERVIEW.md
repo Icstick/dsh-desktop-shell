@@ -2,6 +2,7 @@
 id: DOC-ARCH-OVERVIEW
 status: review
 verified_on: 2026-08-25
+external_baseline: ../research/EXTERNAL_BASELINE.md
 ---
 
 # Architecture Overview
@@ -84,3 +85,4 @@ Shared Browser 通过 shell-neutral Browser Capability 连接 Chromium/Edge/CDP 
 - 运行拓扑：[RUNTIME_TOPOLOGY.md](RUNTIME_TOPOLOGY.md)
 - 决策：[ADR Index](../decisions/README.md)
 - 接口：[Specifications](../../specs/README.md)
+- 外部事实：[External Baseline](../research/EXTERNAL_BASELINE.md)

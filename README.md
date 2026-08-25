@@ -50,12 +50,14 @@ flowchart LR
 
 ## 外部基线
 
-`verified_on: 2026-08-25`
+`verified_on: 2026-08-25` · `verified_at: 2026-08-25T12:19:55Z`
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)：Developer Preview，存在 compatibility-breaking changes。
-- [dsh-std](https://github.com/Yan-Zero/dsh-std)：代码与提案仍为 early drafts。
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/README.md)：Developer Preview；npm `latest` 为 `@deepseek-ai/dsh@0.1.1-rc.2`。
+- [dsh-std](https://github.com/Yan-Zero/dsh-std/blob/bb194ad53a72f4fa7da1286c88dcebb488b43eb9/README.md)：代码与提案仍为 early drafts，`latest` 与 `rc` dist-tag 必须分别处理。
 - [Tauri 2 Capabilities](https://v2.tauri.app/security/capabilities/)：按 window/webview 授权；多 capability 权限会合并。
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)：本项目许可证。
+
+精确 commit、release、registry integrity、许可证附加条款和影响分析见 [External Baseline](docs/research/EXTERNAL_BASELINE.md)。
 
 ## 许可证与来源
 
