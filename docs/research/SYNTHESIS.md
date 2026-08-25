@@ -24,4 +24,4 @@
 
 ## 证据政策
 
-研究报告中的第三方数字、状态和许可证描述不会自动成为当前事实。规范只引用已在 2026-08-25 重新核验的官方 DSH、dsh-std、Tauri 与 Apache 来源。
+研究报告中的第三方数字、状态和许可证描述不会自动成为当前事实。规范只引用已在 2026-08-25 重新核验的官方 DSH、dsh-std、Tauri 与 Apache 来源；精确 revision、发行坐标和影响分析见 [External Baseline](EXTERNAL_BASELINE.md)。

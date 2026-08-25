@@ -44,3 +44,4 @@
 - [Diagnostics](operations/DIAGNOSTICS.md)
 - [Clean-room Policy](compliance/CLEAN_ROOM.md)
 - [Research Synthesis](research/SYNTHESIS.md)
+- [External Baseline](research/EXTERNAL_BASELINE.md)
