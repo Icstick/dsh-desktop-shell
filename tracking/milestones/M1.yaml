@@ -1,0 +1,13 @@
+schema_version: 1
+id: M1
+title: "Shell MVP"
+status: proposed
+relative_weeks: "1-4"
+depends_on:
+  - M0
+exit_criteria:
+  - "Environment discovery/validation 可用"
+  - "Managed/Attached UX 与行为通过 acceptance"
+  - "原版 DSH Surface 无 privileged bridge"
+evidence: []
+updated_at: "2026-08-25T06:49:34Z"

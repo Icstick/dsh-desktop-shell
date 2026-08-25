@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/protocol-coordinate.schema.json",
+  "title": "ProtocolCoordinate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+/v[0-9]+(alpha[0-9]+|beta[0-9]+)?$"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]+$"
+    }
+  }
+}

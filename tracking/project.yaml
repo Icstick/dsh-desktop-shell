@@ -1,0 +1,10 @@
+schema_version: 1
+project: dsh-desktop-shell
+phase: documentation-foundation
+current_milestone: M0
+status: in_review
+implementation_authorized: false
+start_date: null
+verified_external_baseline: "2026-08-25"
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "Architecture、Security 与 Interop owner review M0 文档并决定是否冻结。"

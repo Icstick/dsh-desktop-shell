@@ -1,0 +1,13 @@
+schema_version: 1
+id: MOD-SHELL-UI
+name: "shell-ui"
+path: "apps/desktop/features/shell-ui"
+owner_role: ui-owner
+status: proposed
+milestone: M1
+interfaces:
+  - IF-RUNTIME-STATUS
+depends_on: []
+security_review: not_required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

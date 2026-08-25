@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/tracking/interface.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "owner_module",
+    "api_version",
+    "status",
+    "implementation_status",
+    "test_status",
+    "security_review",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "pattern": "^IF-[A-Z0-9-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "owner_module": {
+      "pattern": "^MOD-[A-Z0-9-]+$"
+    },
+    "api_version": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "ready",
+        "in_progress",
+        "blocked",
+        "review",
+        "verified",
+        "done",
+        "superseded"
+      ]
+    },
+    "implementation_status": {
+      "enum": [
+        "not_authorized",
+        "not_started",
+        "in_progress",
+        "implemented",
+        "deprecated"
+      ]
+    },
+    "test_status": {
+      "enum": [
+        "planned",
+        "in_progress",
+        "passed",
+        "failed"
+      ]
+    },
+    "security_review": {
+      "enum": [
+        "not_required",
+        "required",
+        "in_progress",
+        "passed",
+        "failed"
+      ]
+    },
+    "spec": {
+      "type": "string"
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

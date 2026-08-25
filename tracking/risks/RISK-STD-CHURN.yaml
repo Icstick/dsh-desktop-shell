@@ -1,0 +1,15 @@
+schema_version: 1
+id: RISK-STD-CHURN
+title: "dsh-std early draft churn"
+status: mitigating
+probability: high
+impact: medium
+owner_role: interop-owner
+mitigation:
+  - "Optional adapter"
+  - "No alpha type in core"
+triggers:
+  - "Protocol proposal/package changes"
+related_modules:
+  - MOD-ADAPTER-DSH-STD
+updated_at: "2026-08-25T06:49:34Z"

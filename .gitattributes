@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.md text diff=markdown
+*.yaml text
+*.yml text
+*.json text
+LICENSE text
+NOTICE text
+# Immutable research snapshots are byte-preserved reference data.
+docs/research/inputs/** -text -whitespace

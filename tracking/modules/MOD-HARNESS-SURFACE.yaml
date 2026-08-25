@@ -1,0 +1,14 @@
+schema_version: 1
+id: MOD-HARNESS-SURFACE
+name: "harness-surface"
+path: "apps/desktop/features/harness-surface"
+owner_role: ui-owner
+status: proposed
+milestone: M1
+interfaces:
+  - IF-RUNTIME-STATUS
+depends_on:
+  - MOD-SHELL-UI
+security_review: not_required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

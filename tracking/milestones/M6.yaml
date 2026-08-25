@@ -1,0 +1,14 @@
+schema_version: 1
+id: M6
+title: "Daemon"
+status: proposed
+relative_weeks: "20-24"
+depends_on:
+  - M4
+  - M5
+exit_criteria:
+  - "Shell restart 不影响 DSH/PTY"
+  - "Daemon split-brain/upgrade tests"
+  - "Scheduler wake policy 可审计"
+evidence: []
+updated_at: "2026-08-25T06:49:34Z"

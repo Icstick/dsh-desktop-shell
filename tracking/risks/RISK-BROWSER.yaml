@@ -1,0 +1,17 @@
+schema_version: 1
+id: RISK-BROWSER
+title: "Browser credential or bridge exposure"
+status: mitigating
+probability: medium
+impact: critical
+owner_role: browser-and-security-owner
+mitigation:
+  - "Isolated profile"
+  - "No raw CDP/WebView IPC"
+  - "Human takeover"
+triggers:
+  - "Provider PoC or permission change"
+related_modules:
+  - MOD-BROWSER-PROVIDER
+  - MOD-BROWSER-AGENT-ADAPTER
+updated_at: "2026-08-25T06:49:34Z"

@@ -1,0 +1,13 @@
+schema_version: 1
+id: M2
+title: "Reliable Runtime"
+status: proposed
+relative_weeks: "5-8"
+depends_on:
+  - M1
+exit_criteria:
+  - "Supervisor/process ownership/health/restart 通过 chaos"
+  - "Native IPC 与 fallback 通过 security tests"
+  - "Safe Stop 与 diagnostics 可用"
+evidence: []
+updated_at: "2026-08-25T06:49:34Z"

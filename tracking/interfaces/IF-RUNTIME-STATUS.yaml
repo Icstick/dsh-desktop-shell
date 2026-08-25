@@ -1,0 +1,14 @@
+schema_version: 1
+id: IF-RUNTIME-STATUS
+name: "RuntimeStatus"
+owner_module: MOD-SUPERVISOR
+api_version: "runtime.dsh-desktop.local/v1alpha1"
+status: review
+implementation_status: not_authorized
+test_status: planned
+security_review: not_required
+spec: "specs/protocol/runtime-capability.schema.json"
+operations:
+  - "status"
+  - "health"
+updated_at: "2026-08-25T06:49:34Z"

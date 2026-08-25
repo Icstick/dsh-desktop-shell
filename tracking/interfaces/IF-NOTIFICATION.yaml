@@ -1,0 +1,13 @@
+schema_version: 1
+id: IF-NOTIFICATION
+name: "Notification"
+owner_module: MOD-SHELL-UI
+api_version: "notification.dsh-desktop.local/v1alpha1"
+status: review
+implementation_status: not_authorized
+test_status: planned
+security_review: not_required
+spec: "specs/protocol/notification-capability.schema.json"
+operations:
+  - "notify"
+updated_at: "2026-08-25T06:49:34Z"

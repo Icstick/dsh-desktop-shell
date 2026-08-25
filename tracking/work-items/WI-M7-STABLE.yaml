@@ -1,0 +1,22 @@
+schema_version: 1
+id: WI-M7-STABLE
+title: "Stable candidate release"
+status: proposed
+milestone: M7
+module: MOD-TEST-E2E
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M6-DAEMON
+acceptance_criteria:
+  - "Release matrix, signing, SBOM and provenance pass"
+security_impact: "Release security"
+compatibility_impact: "Published compatibility claims"
+evidence: []
+blocked_by: []
+next_action: "Complete release evidence review."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

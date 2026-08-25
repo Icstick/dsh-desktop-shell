@@ -1,0 +1,22 @@
+schema_version: 1
+id: WI-M4-BROWSER
+title: "Deliver shared browser"
+status: proposed
+milestone: M4
+module: MOD-BROWSER-PROVIDER
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M3-WORKBENCH
+acceptance_criteria:
+  - "Browser provider/security acceptance pass"
+security_impact: "Critical browser/profile"
+compatibility_impact: "Browser provider compatibility"
+evidence: []
+blocked_by: []
+next_action: "Run provider PoCs and select default."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

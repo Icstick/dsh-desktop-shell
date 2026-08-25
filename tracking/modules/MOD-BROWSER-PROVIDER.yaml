@@ -1,0 +1,13 @@
+schema_version: 1
+id: MOD-BROWSER-PROVIDER
+name: "browser-provider"
+path: "crates/browser-provider"
+owner_role: browser-and-security-owner
+status: proposed
+milestone: M4
+interfaces:
+  - IF-BROWSER
+depends_on: []
+security_review: required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

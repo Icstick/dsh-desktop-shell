@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/tracking/risk.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "probability",
+    "impact",
+    "owner_role",
+    "mitigation",
+    "triggers",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "pattern": "^RISK-[A-Z0-9-]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "mitigating",
+        "accepted",
+        "closed"
+      ]
+    },
+    "probability": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "impact": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "owner_role": {
+      "type": "string"
+    },
+    "mitigation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "triggers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "related_modules": {
+      "type": "array",
+      "items": {
+        "pattern": "^MOD-[A-Z0-9-]+$"
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

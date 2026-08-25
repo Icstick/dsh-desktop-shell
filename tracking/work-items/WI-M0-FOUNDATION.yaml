@@ -1,0 +1,25 @@
+schema_version: 1
+id: WI-M0-FOUNDATION
+title: "Create documentation foundation"
+status: verified
+milestone: M0
+module: MOD-PROTOCOL-SCHEMAS
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Required repository documents exist"
+  - "Schemas parse"
+  - "No source/build files exist"
+security_impact: "High: establishes security policy"
+compatibility_impact: "High: freezes initial contracts"
+evidence:
+  - "tracking/reviews/REVIEW-M0-STRUCTURE.yaml"
+  - "docs/research/SOURCE_INDEX.md"
+blocked_by: []
+next_action: "Independent owners execute WI-M0-REVIEW."
+handoff: HANDOFF-M0-FOUNDATION
+updated_at: "2026-08-25T07:42:17Z"

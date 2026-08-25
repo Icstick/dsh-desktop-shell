@@ -1,0 +1,38 @@
+schema_version: 1
+id: REVIEW-M0-STRUCTURE
+scope: "M0 documentation foundation structural quality gate"
+status: passed
+reviewers:
+  - codex-primary-automated-validator
+checks:
+  - id: parse-and-schema
+    status: passed
+    evidence: "16 JSON 与 70 YAML 文件可解析；tracking 记录符合对应 JSON Schema。"
+  - id: cross-reference
+    status: passed
+    evidence: "61 个带 ID 记录唯一；milestone、module、interface、work-item 交叉引用闭合。"
+  - id: module-coverage
+    status: passed
+    evidence: "28 个叶模块均含 README.md、DEVELOPMENT.md、AGENTS.md，共 84 份接手文档。"
+  - id: documentation-structure
+    status: passed
+    evidence: "内部 Markdown 相对链接目标、标题层级与 fenced block 结构检查通过。"
+  - id: no-code
+    status: passed
+    evidence: "无 Rust、TypeScript、构建清单、锁文件或可执行 GitHub workflow。"
+  - id: research-integrity
+    status: passed
+    evidence: "三份输入快照的字节数与 SHA-256 与来源索引一致。"
+  - id: license-and-encoding
+    status: passed
+    evidence: "Apache-2.0 完整文本、NOTICE clean-room 声明、UTF-8/LF 门禁通过；原样输入快照不做换行改写。"
+findings: []
+evidence:
+  - "280 files"
+  - "182 Markdown documents"
+  - "73 YAML records and templates"
+  - "19 JSON Schemas"
+  - "65 machine-readable tracking records including project"
+next_action: "执行 WI-M0-REVIEW；本记录不替代 Architecture、Security 与 Interop owner 的语义审查。"
+created_at: "2026-08-25T07:42:17Z"
+updated_at: "2026-08-25T07:42:17Z"

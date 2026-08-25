@@ -1,0 +1,15 @@
+schema_version: 1
+id: IF-LEASE
+name: "CapabilityLease"
+owner_module: MOD-CAPABILITY-CONTRACTS
+api_version: "interop.dsh-desktop.local/v1alpha1"
+status: review
+implementation_status: not_authorized
+test_status: planned
+security_review: required
+spec: "specs/protocol/capability-lease.schema.json"
+operations:
+  - "grant"
+  - "revoke"
+  - "expire"
+updated_at: "2026-08-25T06:49:34Z"

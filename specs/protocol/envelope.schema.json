@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/envelope.schema.json",
+  "title": "ProtocolEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "id",
+    "kind",
+    "participant",
+    "timestamp",
+    "generation",
+    "payload"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "interop.dsh-desktop.local/v1alpha1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "kind": {
+      "enum": [
+        "Hello",
+        "Agreement",
+        "Invocation",
+        "Result",
+        "Event"
+      ]
+    },
+    "replyTo": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "facet"
+      ],
+      "properties": {
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "facet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activationId": {
+          "type": "string"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capability": {
+      "$ref": "protocol-coordinate.schema.json"
+    },
+    "method": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]+$"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "UNAVAILABLE",
+            "UNAUTHORIZED",
+            "UNSUPPORTED_VERSION",
+            "NOT_PROCESS_OWNER",
+            "USER_GESTURE_REQUIRED",
+            "USER_DENIED",
+            "STALE_GENERATION",
+            "MALFORMED_MESSAGE",
+            "CONFLICT",
+            "TIMEOUT",
+            "SAFE_STOP"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "correlationId": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "Invocation",
+              "Result",
+              "Event"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "capability",
+          "method"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "Result"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "replyTo"
+        ]
+      }
+    }
+  ]
+}

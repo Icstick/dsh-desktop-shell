@@ -1,0 +1,15 @@
+schema_version: 1
+id: MOD-ADAPTER-DSH
+name: "adapter-dsh"
+path: "packages/adapter-dsh"
+owner_role: interop-owner
+status: proposed
+milestone: M2
+interfaces:
+  - IF-NEGOTIATION
+  - IF-INVOCATION
+depends_on:
+  - MOD-CAPABILITY-CONTRACTS
+security_review: not_required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

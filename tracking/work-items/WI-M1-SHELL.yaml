@@ -1,0 +1,22 @@
+schema_version: 1
+id: WI-M1-SHELL
+title: "Deliver Shell MVP"
+status: proposed
+milestone: M1
+module: MOD-SHELL-UI
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M0-REVIEW
+acceptance_criteria:
+  - "Setup and DSH Surface acceptance pass"
+security_impact: "WebView boundary"
+compatibility_impact: "DSH launch and UI compatibility"
+evidence: []
+blocked_by: []
+next_action: "Start only after implementation_authorized=true."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

@@ -1,0 +1,14 @@
+schema_version: 1
+id: IF-ENVIRONMENT
+name: "DshEnvironment"
+owner_module: MOD-SUPERVISOR
+api_version: "config/v1alpha1"
+status: review
+implementation_status: not_authorized
+test_status: planned
+security_review: not_required
+spec: "specs/config/dsh-environment.schema.json"
+operations:
+  - "validate"
+  - "resolve"
+updated_at: "2026-08-25T06:49:34Z"

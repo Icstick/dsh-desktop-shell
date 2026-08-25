@@ -1,0 +1,22 @@
+schema_version: 1
+id: WI-M2-RUNTIME
+title: "Deliver reliable runtime"
+status: proposed
+milestone: M2
+module: MOD-SUPERVISOR
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M1-SHELL
+acceptance_criteria:
+  - "Runtime/ownership/IPC chaos acceptance pass"
+security_impact: "Critical native lifecycle"
+compatibility_impact: "High DSH/platform impact"
+evidence: []
+blocked_by: []
+next_action: "Freeze P0 state machine and carrier PoCs."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

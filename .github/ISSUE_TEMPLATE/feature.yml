@@ -1,0 +1,41 @@
+name: Feature proposal
+description: Propose an outcome without bypassing architecture boundaries.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome and acceptance criteria
+    validations:
+      required: true
+  - type: dropdown
+    id: ownership
+    attributes:
+      label: Primary ownership domain
+      options:
+        - Shell UI
+        - Supervisor
+        - DSH / Adapter
+        - Capability Provider
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security, privacy and compatibility impact
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundaries
+      options:
+        - label: This proposal does not require bundling Core, patching upstream UI or exposing raw native APIs.
+          required: true

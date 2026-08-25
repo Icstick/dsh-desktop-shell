@@ -1,0 +1,13 @@
+schema_version: 1
+id: MOD-PROTOCOL-COMPAT
+name: "protocol-compatibility"
+path: "protocol/compatibility"
+owner_role: interop-owner
+status: proposed
+milestone: M5
+interfaces: []
+depends_on:
+  - MOD-PROTOCOL-FIXTURES
+security_review: not_required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

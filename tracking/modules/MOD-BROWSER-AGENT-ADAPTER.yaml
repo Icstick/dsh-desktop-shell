@@ -1,0 +1,15 @@
+schema_version: 1
+id: MOD-BROWSER-AGENT-ADAPTER
+name: "browser-agent-adapter"
+path: "packages/browser-agent-adapter"
+owner_role: interop-and-security-owner
+status: proposed
+milestone: M4
+interfaces:
+  - IF-BROWSER
+depends_on:
+  - MOD-ADAPTER-DSH
+  - MOD-BROWSER-PROVIDER
+security_review: required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

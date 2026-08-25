@@ -1,0 +1,37 @@
+schema_version: 1
+verified_on: "2026-08-25"
+sources:
+  - id: SRC-DEEPSEEK-HARNESS
+    project: deepseek-ai/deepseek-harness
+    url: https://github.com/deepseek-ai/deepseek-harness
+    purpose: behavior-and-interop-authority
+    license: MIT
+    code_copied: false
+    assets_copied: false
+    review_required_before_copy: true
+  - id: SRC-DSH-STD
+    project: Yan-Zero/dsh-std
+    url: https://github.com/Yan-Zero/dsh-std
+    purpose: protocol-architecture-reference
+    license: MIT
+    status: early-drafts
+    code_copied: false
+    assets_copied: false
+    review_required_before_copy: true
+  - id: SRC-TAURI
+    project: tauri-apps/tauri
+    url: https://v2.tauri.app/
+    purpose: platform-and-security-documentation
+    license: Apache-2.0-or-MIT
+    code_copied: false
+    assets_copied: false
+    review_required_before_copy: true
+  - id: SRC-DESKTOP-REFERENCE
+    project: dsh-tauri-desk/deepseek-harness-desktop
+    url: https://github.com/dsh-tauri-desk/deepseek-harness-desktop
+    purpose: architecture-reference-only
+    license: requires-special-review
+    additional_terms: reported-in-research-inputs
+    code_copied: false
+    assets_copied: false
+    commercial_review_required: true

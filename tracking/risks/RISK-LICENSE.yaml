@@ -1,0 +1,15 @@
+schema_version: 1
+id: RISK-LICENSE
+title: "License contamination"
+status: mitigating
+probability: medium
+impact: critical
+owner_role: maintainer
+mitigation:
+  - "Clean-room"
+  - "Source register"
+  - "No copy without review"
+triggers:
+  - "Third-party code/assets introduced"
+related_modules: []
+updated_at: "2026-08-25T06:49:34Z"

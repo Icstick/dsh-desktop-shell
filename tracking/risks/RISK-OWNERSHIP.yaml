@@ -1,0 +1,17 @@
+schema_version: 1
+id: RISK-OWNERSHIP
+title: "Wrong process ownership or orphan tree"
+status: mitigating
+probability: medium
+impact: critical
+owner_role: runtime-and-security-owner
+mitigation:
+  - "Managed/Attached explicit"
+  - "Job Object/process group"
+  - "Identity beyond PID"
+triggers:
+  - "Foreign port, PID reuse, force kill"
+related_modules:
+  - MOD-SUPERVISOR
+  - MOD-PROCESS-MANAGER
+updated_at: "2026-08-25T06:49:34Z"

@@ -1,0 +1,9 @@
+DSH Desktop Shell
+Copyright 2026 DSH Desktop Shell contributors
+
+This product is licensed under the Apache License, Version 2.0.
+
+This repository is an independent clean-room project. References to DeepSeek
+Harness, dsh-std, Tauri, and community projects identify interoperability or
+architecture research inputs and do not imply endorsement, affiliation, or the
+inclusion of third-party source code or assets.

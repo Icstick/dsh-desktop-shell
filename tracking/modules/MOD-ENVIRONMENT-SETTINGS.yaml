@@ -1,0 +1,13 @@
+schema_version: 1
+id: MOD-ENVIRONMENT-SETTINGS
+name: "environment-settings"
+path: "apps/desktop/features/environment-settings"
+owner_role: ui-and-runtime-owner
+status: proposed
+milestone: M1
+interfaces:
+  - IF-ENVIRONMENT
+depends_on: []
+security_review: not_required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

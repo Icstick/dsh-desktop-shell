@@ -1,0 +1,16 @@
+schema_version: 1
+id: RISK-DSH-CHURN
+title: "DSH breaking changes"
+status: mitigating
+probability: high
+impact: high
+owner_role: interop-owner
+mitigation:
+  - "Keep coupling in adapter"
+  - "Maintain latest/N-1/main fixtures"
+triggers:
+  - "Official CLI/Web/adapter behavior changes"
+related_modules:
+  - MOD-ADAPTER-DSH
+  - MOD-SUPERVISOR
+updated_at: "2026-08-25T06:49:34Z"

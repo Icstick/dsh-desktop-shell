@@ -1,0 +1,14 @@
+schema_version: 1
+id: MOD-BROWSER-UI
+name: "browser-ui"
+path: "apps/desktop/features/browser-ui"
+owner_role: ui-owner
+status: proposed
+milestone: M4
+interfaces:
+  - IF-BROWSER
+depends_on:
+  - MOD-BROWSER-PROVIDER
+security_review: required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

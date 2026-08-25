@@ -1,0 +1,14 @@
+schema_version: 1
+id: MOD-TERMINAL-UI
+name: "terminal-ui"
+path: "apps/desktop/features/terminal-ui"
+owner_role: ui-owner
+status: proposed
+milestone: M3
+interfaces:
+  - IF-TERMINAL
+depends_on:
+  - MOD-TERMINAL-PROVIDER
+security_review: required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

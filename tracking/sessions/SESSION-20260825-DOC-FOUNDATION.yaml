@@ -1,0 +1,15 @@
+schema_version: 1
+id: SESSION-20260825-DOC-FOUNDATION
+status: closed
+agent_or_human: codex-primary
+work_items:
+  - WI-M0-FOUNDATION
+branch_or_worktree: main
+started_at: "2026-08-25T06:49:34Z"
+ended_at: "2026-08-25T07:42:17Z"
+summary: "建立文档型仓库、规范、跟踪记录、未来模块镜像并完成结构验证。"
+artifacts:
+  - "tracking/reviews/REVIEW-M0-STRUCTURE.yaml"
+  - "tracking/handoffs/HANDOFF-M0-FOUNDATION.yaml"
+  - "docs/research/SOURCE_INDEX.md"
+next_action: "由独立 Architecture、Security 与 Interop owner 执行 WI-M0-REVIEW。"

@@ -1,0 +1,14 @@
+schema_version: 1
+id: MOD-USAGE-COLLECTOR
+name: "usage-collector"
+path: "packages/usage-collector"
+owner_role: interop-owner
+status: proposed
+milestone: M3
+interfaces:
+  - IF-USAGE
+depends_on:
+  - MOD-ADAPTER-DSH
+security_review: not_required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/capability-lease.schema.json",
+  "title": "CapabilityLease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "participantId",
+    "activationId",
+    "capability",
+    "owner",
+    "generation",
+    "scope"
+  ],
+  "properties": {
+    "leaseId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "participantId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capability": {
+      "$ref": "protocol-coordinate.schema.json"
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "workspace": {
+          "type": "string"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

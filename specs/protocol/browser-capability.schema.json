@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/browser-capability.schema.json",
+  "title": "BrowserCapability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "method",
+    "mode",
+    "params"
+  ],
+  "properties": {
+    "method": {
+      "enum": [
+        "create",
+        "navigate",
+        "snapshot",
+        "interact",
+        "take_over",
+        "close"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "human_surface",
+        "agent_automation"
+      ]
+    },
+    "snapshotMode": {
+      "enum": [
+        "accessibility",
+        "text",
+        "screenshot"
+      ]
+    },
+    "params": {
+      "type": "object"
+    },
+    "resourceId": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/tracking/session.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "status",
+    "agent_or_human",
+    "work_items",
+    "started_at",
+    "summary",
+    "artifacts",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^SESSION-[A-Z0-9-]+$" },
+    "status": { "enum": ["active", "handoff", "closed"] },
+    "agent_or_human": { "type": "string", "minLength": 1 },
+    "work_items": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^WI-[A-Z0-9-]+$" },
+      "uniqueItems": true
+    },
+    "branch_or_worktree": { "type": ["string", "null"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": ["string", "null"], "format": "date-time" },
+    "summary": { "type": "string", "minLength": 1 },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "next_action": { "type": "string", "minLength": 1 }
+  }
+}

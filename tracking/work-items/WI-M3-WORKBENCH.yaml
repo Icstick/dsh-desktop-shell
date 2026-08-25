@@ -1,0 +1,22 @@
+schema_version: 1
+id: WI-M3-WORKBENCH
+title: "Deliver workbench"
+status: proposed
+milestone: M3
+module: MOD-TERMINAL-PROVIDER
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M2-RUNTIME
+acceptance_criteria:
+  - "PTY/Usage/Notification acceptance pass"
+security_impact: "High PTY/privacy"
+compatibility_impact: "Adapter data contracts"
+evidence: []
+blocked_by: []
+next_action: "Complete Terminal Surface/Automation separation."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

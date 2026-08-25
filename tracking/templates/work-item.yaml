@@ -1,0 +1,21 @@
+schema_version: 1
+id: WI-EXAMPLE
+title: "Replace with concise outcome"
+status: proposed
+milestone: M0
+module: MOD-EXAMPLE
+owner_role: owner-role
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Observable, testable criterion"
+security_impact: "Describe trust/permission/data impact."
+compatibility_impact: "Describe DSH/protocol/platform impact."
+evidence: []
+blocked_by: []
+next_action: "One exact next step."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

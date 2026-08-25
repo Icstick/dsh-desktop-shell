@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/tracking/work-item.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "milestone",
+    "module",
+    "owner_role",
+    "dependencies",
+    "acceptance_criteria",
+    "security_impact",
+    "compatibility_impact",
+    "evidence",
+    "blocked_by",
+    "next_action",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "pattern": "^WI-[A-Z0-9-]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "ready",
+        "in_progress",
+        "blocked",
+        "review",
+        "verified",
+        "done",
+        "superseded"
+      ]
+    },
+    "milestone": {
+      "pattern": "^M[0-7]$"
+    },
+    "module": {
+      "pattern": "^MOD-[A-Z0-9-]+$"
+    },
+    "owner_role": {
+      "type": "string"
+    },
+    "claimed_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "session": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "branch_or_worktree": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "claim_expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "pattern": "^WI-[A-Z0-9-]+$"
+      },
+      "uniqueItems": true
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "security_impact": {
+      "type": "string"
+    },
+    "compatibility_impact": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_action": {
+      "type": "string"
+    },
+    "handoff": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

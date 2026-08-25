@@ -1,0 +1,13 @@
+# Replace role placeholders with real GitHub users/teams before renaming to CODEOWNERS.
+*                                      @maintainers
+/apps/desktop/                         @ui-maintainers
+/crates/supervisor/                    @runtime-maintainers
+/crates/process-manager/               @runtime-maintainers @security-maintainers
+/crates/local-transport/               @runtime-maintainers @security-maintainers
+/crates/terminal-provider/             @runtime-maintainers @security-maintainers
+/crates/browser-provider/              @browser-maintainers @security-maintainers
+/packages/capability-contracts/        @architecture-maintainers
+/packages/adapter-dsh/                 @interop-maintainers
+/packages/adapter-dsh-std/             @interop-maintainers
+/specs/                                @architecture-maintainers @security-maintainers
+/.github/                              @maintainers

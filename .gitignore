@@ -1,0 +1,14 @@
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*.tmp
+*.bak
+~$*
+*.orig
+*.rej
+.markdownlint-cache
+docs/.rendered/

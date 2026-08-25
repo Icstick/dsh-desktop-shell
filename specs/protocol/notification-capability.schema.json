@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/notification-capability.schema.json",
+  "title": "NotificationCapability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event",
+    "title",
+    "contentPolicy"
+  ],
+  "properties": {
+    "event": {
+      "enum": [
+        "turn_completed",
+        "approval_required",
+        "question_required",
+        "runtime_changed",
+        "schedule_result"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "contentPolicy": {
+      "enum": [
+        "title_only",
+        "redacted_summary",
+        "explicit_body"
+      ]
+    },
+    "dedupeKey": {
+      "type": "string"
+    }
+  }
+}

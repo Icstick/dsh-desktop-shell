@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/tracking/project.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "phase",
+    "current_milestone",
+    "status",
+    "implementation_authorized",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "project": {
+      "const": "dsh-desktop-shell"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "current_milestone": {
+      "pattern": "^M[0-7]$"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "ready",
+        "in_progress",
+        "blocked",
+        "in_review",
+        "review",
+        "verified",
+        "done",
+        "superseded"
+      ]
+    },
+    "implementation_authorized": {
+      "type": "boolean"
+    },
+    "start_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "verified_external_baseline": {
+      "type": "string",
+      "format": "date"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_action": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+schema_version: 1
+id: M0
+title: "Architecture Freeze"
+status: review
+relative_weeks: "pre-start"
+depends_on: []
+exit_criteria:
+  - "10 个 ADR 完成 review"
+  - "Protocol/config/tracking Schema 可验证"
+  - "Threat model 与 clean-room/source register 通过 review"
+  - "Maintainer 明确决定 implementation_authorized"
+evidence:
+  - "tracking/reviews/REVIEW-M0-STRUCTURE.yaml"
+updated_at: "2026-08-25T07:42:17Z"

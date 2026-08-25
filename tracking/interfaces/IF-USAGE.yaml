@@ -1,0 +1,14 @@
+schema_version: 1
+id: IF-USAGE
+name: "UsageTelemetry"
+owner_module: MOD-USAGE-COLLECTOR
+api_version: "usage.dsh-desktop.local/v1alpha1"
+status: review
+implementation_status: not_authorized
+test_status: planned
+security_review: not_required
+spec: "specs/protocol/usage-capability.schema.json"
+operations:
+  - "observe"
+  - "snapshot"
+updated_at: "2026-08-25T06:49:34Z"

@@ -1,0 +1,13 @@
+schema_version: 1
+id: MOD-TERMINAL-PROVIDER
+name: "terminal-provider"
+path: "crates/terminal-provider"
+owner_role: runtime-and-security-owner
+status: proposed
+milestone: M3
+interfaces:
+  - IF-TERMINAL
+depends_on: []
+security_review: required
+updated_at: "2026-08-25T06:49:34Z"
+next_action: "在所属 milestone 开始前完成 module contract review。"

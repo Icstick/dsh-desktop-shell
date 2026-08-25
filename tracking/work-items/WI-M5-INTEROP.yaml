@@ -1,0 +1,22 @@
+schema_version: 1
+id: WI-M5-INTEROP
+title: "Deliver optional dsh-std adapter"
+status: proposed
+milestone: M5
+module: MOD-ADAPTER-DSH-STD
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M2-RUNTIME
+acceptance_criteria:
+  - "Absent/known/unknown conformance matrix passes"
+security_impact: "Protocol boundary"
+compatibility_impact: "High spec churn"
+evidence: []
+blocked_by: []
+next_action: "Refresh dsh-std baseline before implementation."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

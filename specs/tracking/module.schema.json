@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/tracking/module.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "path",
+    "owner_role",
+    "status",
+    "milestone",
+    "interfaces",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "pattern": "^MOD-[A-Z0-9-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "owner_role": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "ready",
+        "in_progress",
+        "blocked",
+        "review",
+        "verified",
+        "done",
+        "superseded"
+      ]
+    },
+    "milestone": {
+      "pattern": "^M[0-7]$"
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "pattern": "^IF-[A-Z0-9-]+$"
+      },
+      "uniqueItems": true
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "pattern": "^MOD-[A-Z0-9-]+$"
+      },
+      "uniqueItems": true
+    },
+    "security_review": {
+      "enum": [
+        "not_required",
+        "required",
+        "in_progress",
+        "passed",
+        "failed"
+      ]
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_action": {
+      "type": "string"
+    }
+  }
+}

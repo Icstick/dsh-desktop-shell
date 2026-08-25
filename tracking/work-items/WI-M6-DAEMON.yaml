@@ -1,0 +1,23 @@
+schema_version: 1
+id: WI-M6-DAEMON
+title: "Daemonize Supervisor"
+status: proposed
+milestone: M6
+module: MOD-SUPERVISOR
+owner_role: milestone-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - WI-M4-BROWSER
+  - WI-M5-INTEROP
+acceptance_criteria:
+  - "Shell restart and split-brain acceptance pass"
+security_impact: "Critical service ownership"
+compatibility_impact: "Transport/resource migration"
+evidence: []
+blocked_by: []
+next_action: "Create daemon migration ADR."
+handoff: null
+updated_at: "2026-08-25T06:49:34Z"

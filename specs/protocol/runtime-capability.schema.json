@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/runtime-capability.schema.json",
+  "title": "RuntimeCapability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "method",
+    "params"
+  ],
+  "properties": {
+    "method": {
+      "enum": [
+        "status",
+        "start",
+        "stop",
+        "restart",
+        "health"
+      ]
+    },
+    "params": {
+      "type": "object"
+    },
+    "reloadPolicy": {
+      "enum": [
+        "none",
+        "client_reload",
+        "plugin_reload",
+        "core_restart",
+        "runtime_restart"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "user_requested",
+        "core_changed",
+        "plugin_requires_restart",
+        "health_failure",
+        "environment_changed",
+        "recovery"
+      ]
+    }
+  }
+}
