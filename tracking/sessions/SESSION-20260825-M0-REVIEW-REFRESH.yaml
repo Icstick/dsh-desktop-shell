@@ -1,0 +1,12 @@
+schema_version: 1
+id: SESSION-20260825-M0-REVIEW-REFRESH
+status: active
+agent_or_human: codex-primary
+work_items:
+  - WI-M0-REVIEW
+branch_or_worktree: review/wi-m0-review
+started_at: "2026-08-25T12:41:58Z"
+ended_at: null
+summary: "使用刷新后的 external baseline 重新执行 WI-M0-REVIEW，并重新确定 HANDOFF-M0-REVIEW。"
+artifacts: []
+next_action: "复核 DSH launch/profile、Tauri custom command ACL、dsh-std tag 与 clean-room 对 M0 门禁的影响。"

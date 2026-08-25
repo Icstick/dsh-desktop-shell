@@ -5,7 +5,11 @@
 - Status：`in_review`
 - Implementation authorized：`false`
 - External baseline verified：2026-08-25
-- Last updated：2026-08-25T12:36:09Z
+- Last updated：2026-08-25T12:41:58Z
+
+## 进行中
+
+- [WI-M0-REVIEW](work-items/WI-M0-REVIEW.yaml)：使用刷新后的外部 baseline 复核 M0，并重新确定 `HANDOFF-M0-REVIEW`。
 
 ## 已完成
 
@@ -25,4 +29,4 @@ M0 文档与质量门禁已通过，但 maintainer 尚未明确授权实现。�
 
 ## 下一动作
 
-Maintainer 审阅 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)，明确批准或拒绝实现授权。批准时必须以独立提交更新 project、M0 与 work item 状态；不得从 review passed 或 baseline refresh 隐式推导授权。
+完成 `WI-M0-REVIEW` baseline-aware 复审并重写 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)；复审期间不得授权实现。
