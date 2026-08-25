@@ -10,5 +10,5 @@ interfaces:
 depends_on:
   - MOD-SHELL-UI
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+updated_at: "2026-08-25T12:52:20Z"
+next_action: "M1 实现前建立 DSH WebView 对完整 custom command inventory 的 negative invocation evidence，并验证 no-remote ACL。"

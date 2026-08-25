@@ -9,5 +9,5 @@ interfaces:
   - IF-RUNTIME-STATUS
 depends_on: []
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+updated_at: "2026-08-25T12:52:20Z"
+next_action: "M1 实现前冻结 AppManifest command inventory、最小 permission、精确 Shell label 与最终 capability merge review。"
