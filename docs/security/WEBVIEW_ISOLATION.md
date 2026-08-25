@@ -8,6 +8,8 @@
 
 Tauri capability 合并会扩大权限，因此一个 WebView 不得同时落入宽泛 capability 集合。配置 review 必须列出每个 window/webview 的最终合并权限。
 
+Transport credential、Adapter token、Named Pipe/UDS name 与 raw loopback endpoint 不得注入任何 WebView。WebView 不能以“同机页面”为由绕过 Origin、navigation 或 capability grant。
+
 ## 禁止 API
 
 `exec(command)`、`spawn(anything)`、`readFile(path)`、raw shell/fs scope、raw CDP socket、raw local transport handle。

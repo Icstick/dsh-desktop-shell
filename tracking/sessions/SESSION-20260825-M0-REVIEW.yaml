@@ -10,4 +10,5 @@ ended_at: null
 summary: "执行 M0 Architecture、Security、Interop 三阶段语义审查与冻结门禁。"
 artifacts:
   - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
-next_action: "完成 Security/trust-boundary/threat-model review。"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+next_action: "完成 Interop/protocol/compatibility review。"

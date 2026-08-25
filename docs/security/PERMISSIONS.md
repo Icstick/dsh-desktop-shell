@@ -15,3 +15,5 @@
 | Arbitrary PID kill/raw IPC | deny | deny | deny |
 
 Grant 必须绑定 participant、activation、resource、scope、generation 和可选 expiry。
+
+Schema 合法、transport 已认证或 capability 已协商都不等于授权。Broker 在每次 mutation dispatch 前重新验证 Desktop grant 与 lease；disconnect、unload、human takeover、expiry 和 generation change 都必须撤销相关 authority。

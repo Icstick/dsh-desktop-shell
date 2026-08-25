@@ -1,0 +1,33 @@
+schema_version: 1
+id: REVIEW-M0-SECURITY
+scope: "M0 threat model、trust boundaries、permission、IPC/WebView 与 security review routing"
+status: passed
+reviewers:
+  - codex-primary-security-review
+checks:
+  - id: threat-control-owner
+    status: passed
+    evidence: "Threat Model 为 ownership、IPC、Web、plugin、command、path、Browser、PTY、logging、supply chain 建立稳定 ID、control、owner 与 verification。"
+  - id: webview-loopback
+    status: passed
+    evidence: "WebView isolation 与 IPC policy 明确 credential 不入 Web、Origin policy、DNS rebinding/loopback CSRF negative tests。"
+  - id: authorization
+    status: passed
+    evidence: "Permission policy 明确 contract、authentication、negotiation 均不构成授权，并定义 lease revocation events。"
+  - id: implementation-routing
+    status: passed
+    evidence: "所有持有关键 security boundary 的模块均标记 security_review: required；M0 不将其提前标记 passed。"
+findings:
+  - "resolved: threat table lacked stable IDs, explicit owners and acceptance mappings."
+  - "resolved: command injection, loopback browser access, resource exhaustion and lease revocation were not explicit."
+  - "resolved: multiple privileged modules were incorrectly marked security_review: not_required."
+  - "resolved: SECURITY.md described the configured remote as absent."
+evidence:
+  - "docs/security/THREAT_MODEL.md"
+  - "docs/security/IPC_SECURITY.md"
+  - "docs/security/WEBVIEW_ISOLATION.md"
+  - "docs/security/PERMISSIONS.md"
+  - "docs/testing/ACCEPTANCE.md"
+next_action: "执行 M0 Interop/protocol/compatibility review。"
+created_at: "2026-08-25T09:00:51Z"
+updated_at: "2026-08-25T09:00:51Z"
