@@ -5,7 +5,11 @@
 - Status：`in_review`
 - Implementation authorized：`false`
 - External baseline verified：2026-08-25
-- Last updated：2026-08-25T09:28:09Z
+- Last updated：2026-08-25T12:19:55Z
+
+## 进行中
+
+- [WI-M0-BASELINE-REFRESH](work-items/WI-M0-BASELINE-REFRESH.yaml)：重新核验 DSH、dsh-std、Tauri 与 Desktop reference 的精确 revision、发行坐标和官方证据。
 
 ## 已完成
 
@@ -24,4 +28,4 @@ M0 文档与质量门禁已通过，但 maintainer 尚未明确授权实现。�
 
 ## 下一动作
 
-Maintainer 审阅 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)，明确批准或拒绝实现授权。批准时必须以独立提交更新 project、M0 与 work item 状态；不得从 review passed 隐式推导授权。
+完成 `WI-M0-BASELINE-REFRESH` 后，Maintainer 审阅 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)，明确批准或拒绝实现授权。批准时必须以独立提交更新 project、M0 与 work item 状态；不得从 review passed 隐式推导授权。

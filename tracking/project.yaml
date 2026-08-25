@@ -6,5 +6,5 @@ status: in_review
 implementation_authorized: false
 start_date: null
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-25T09:28:09Z"
-next_action: "Maintainer 审阅 HANDOFF-M0-REVIEW 并明确决定是否授权实现；决定前 implementation_authorized 保持 false。"
+updated_at: "2026-08-25T12:19:55Z"
+next_action: "完成 WI-M0-BASELINE-REFRESH，再由 Maintainer 审阅 HANDOFF-M0-REVIEW；决定前 implementation_authorized 保持 false。"

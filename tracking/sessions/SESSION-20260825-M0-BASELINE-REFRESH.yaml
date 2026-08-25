@@ -1,0 +1,12 @@
+schema_version: 1
+id: SESSION-20260825-M0-BASELINE-REFRESH
+status: active
+agent_or_human: codex-primary
+work_items:
+  - WI-M0-BASELINE-REFRESH
+branch_or_worktree: review/wi-m0-review
+started_at: "2026-08-25T12:19:55Z"
+ended_at: null
+summary: "从官方 GitHub、npm registry 与 Tauri 文档刷新 M0 external baseline。"
+artifacts: []
+next_action: "将精确 revision、package/release coordinate、事实证据和影响分析写入仓库真源。"

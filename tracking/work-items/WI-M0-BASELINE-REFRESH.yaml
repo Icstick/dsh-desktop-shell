@@ -1,0 +1,25 @@
+schema_version: 1
+id: WI-M0-BASELINE-REFRESH
+title: "Refresh M0 external baseline"
+status: in_progress
+milestone: M0
+module: MOD-CAPABILITY-CONTRACTS
+owner_role: interop-owner
+claimed_by: codex-primary
+session: SESSION-20260825-M0-BASELINE-REFRESH
+branch_or_worktree: review/wi-m0-review
+claim_expires_at: "2026-08-26T12:19:55Z"
+dependencies:
+  - WI-M0-FOUNDATION
+acceptance_criteria:
+  - "All registered external sources have an exact ref, revision or release coordinate and UTC verification timestamp"
+  - "Developer Preview, early-draft and Tauri capability facts are reverified from official sources with immutable evidence links"
+  - "Current package/release coordinates and their compatibility impact are documented without copying upstream code or assets"
+  - "Tracking, Markdown links, YAML parsing and no-code gates pass"
+security_impact: "Revalidates Tauri WebView capability and remote-content trust assumptions"
+compatibility_impact: "Refreshes DSH and optional dsh-std versions used for future fixtures"
+evidence: []
+blocked_by: []
+next_action: "Record official repository revisions, registry coordinates and architecture impact in the external baseline source of truth."
+handoff: null
+updated_at: "2026-08-25T12:19:55Z"
