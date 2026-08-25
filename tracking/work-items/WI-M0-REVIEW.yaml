@@ -21,7 +21,8 @@ compatibility_impact: "Critical compatibility gate"
 evidence:
   - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
   - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
 blocked_by: []
-next_action: "Execute Interop/protocol/compatibility review and record evidence."
+next_action: "Run complete M0 quality gates and prepare maintainer authorization decision."
 handoff: null
-updated_at: "2026-08-25T09:00:51Z"
+updated_at: "2026-08-25T09:14:05Z"

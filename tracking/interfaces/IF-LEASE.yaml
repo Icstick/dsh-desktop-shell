@@ -3,7 +3,7 @@ id: IF-LEASE
 name: "CapabilityLease"
 owner_module: MOD-CAPABILITY-CONTRACTS
 api_version: "interop.dsh-desktop.local/v1alpha1"
-status: review
+status: verified
 implementation_status: not_authorized
 test_status: planned
 security_review: required
@@ -12,4 +12,4 @@ operations:
   - "grant"
   - "revoke"
   - "expire"
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T09:14:05Z"

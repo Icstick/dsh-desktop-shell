@@ -11,4 +11,5 @@ summary: "执行 M0 Architecture、Security、Interop 三阶段语义审查与�
 artifacts:
   - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
   - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
-next_action: "完成 Interop/protocol/compatibility review。"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+next_action: "运行完整 M0 quality gates，并准备 maintainer authorization decision。"

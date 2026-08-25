@@ -10,6 +10,7 @@ Release matrix 维度：
 - Profile：clean、mature、plugin-heavy、broken boot。
 - Port/process：free、occupied、hijacked、delayed release、stale PID、orphan child。
 - Adapter：absent、legacy、known std、unknown std。
+- Protocol：Hello/Agreement required/optional、success/error Result、unknown field/version、stale generation、lease revoke/expiry。
 - Transport：native、fallback、invalid/replay。
 - Provider：PTY/Browser crash/reconnect。
 

@@ -9,6 +9,8 @@
 
 Compatibility 是 additive。Adapter 失效不得破坏低层级能力。
 
+L2 只表示已知 dsh-std 版本通过 adapter/conformance，不表示采用其未稳定 wire，也不允许跳过 Legacy/L0 fallback。每次 activation 单独协商，不能把上一次 Agreement 缓存为新 generation 的事实。
+
 ## 变化吸收点
 
 - DSH launch/internal API -> `adapter-dsh` / discovery。
