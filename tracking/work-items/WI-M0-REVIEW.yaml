@@ -1,14 +1,14 @@
 schema_version: 1
 id: WI-M0-REVIEW
 title: "Review and freeze M0"
-status: ready
+status: in_progress
 milestone: M0
 module: MOD-CAPABILITY-CONTRACTS
 owner_role: architecture-owner
-claimed_by: null
-session: null
-branch_or_worktree: null
-claim_expires_at: null
+claimed_by: codex-primary
+session: SESSION-20260825-M0-REVIEW
+branch_or_worktree: review/wi-m0-review
+claim_expires_at: "2026-08-26T08:52:11Z"
 dependencies:
   - WI-M0-FOUNDATION
 acceptance_criteria:
@@ -20,6 +20,6 @@ security_impact: "Critical review gate"
 compatibility_impact: "Critical compatibility gate"
 evidence: []
 blocked_by: []
-next_action: "Assign Architecture, Security and Interop reviewers."
+next_action: "Execute Architecture/ADR/module-boundary review and record evidence."
 handoff: null
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T08:52:11Z"
