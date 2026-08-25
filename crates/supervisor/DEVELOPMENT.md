@@ -18,7 +18,7 @@ validated StartSpec + runtime requests + health/process events
 
 ## Security
 
-Attached mutation hard deny；状态转换幂等；bounded recovery。
+Attached mutation hard deny；状态转换幂等；bounded recovery。P0 Broker 必须在 dispatch 前同时验证已协商 capability、Desktop grant、lease、scope、owner 与 generation；Adapter 认证或 Schema 合法均不能单独授予 native authority。
 
 ## Compatibility
 

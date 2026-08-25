@@ -17,3 +17,4 @@
 13. Local transport 默认不可从 LAN 访问；authentication 不塞入业务 envelope。
 14. 日志、诊断和 tracking 不存 credential、token 或原始 session 内容。
 15. Compatibility failure 必须显式 degraded/unavailable，不猜测成功。
+16. P0 Capability Broker 归 Desktop Supervisor boundary；Adapter 不能直接拥有 provider，也不能把 contract validation 当作授权。

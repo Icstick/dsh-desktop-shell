@@ -8,5 +8,6 @@ branch_or_worktree: review/wi-m0-review
 started_at: "2026-08-25T08:52:11Z"
 ended_at: null
 summary: "执行 M0 Architecture、Security、Interop 三阶段语义审查与冻结门禁。"
-artifacts: []
-next_action: "完成 Architecture/ADR/module-boundary review。"
+artifacts:
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+next_action: "完成 Security/trust-boundary/threat-model review。"

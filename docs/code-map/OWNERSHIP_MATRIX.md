@@ -14,3 +14,5 @@
 | adapter-dsh | Interop Owner | DSH mapping | high | M2/M5 |
 | adapter-dsh-std | Interop Owner | standard mapping | protocol | M5 |
 | usage-collector | Interop Owner | Usage events | privacy | M3 |
+
+P0 Capability Broker 是 `MOD-SUPERVISOR` 的子组件，不建立第二份 module state；`MOD-PROTOCOL-SCHEMAS` 在 M0 冻结规范，`MOD-CAPABILITY-CONTRACTS` 在 M2 实现跨语言 consumer contract。两者不得合并状态或相互冒充 owner。

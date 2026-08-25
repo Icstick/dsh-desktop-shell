@@ -18,8 +18,9 @@ acceptance_criteria:
   - "Maintainer explicitly decides implementation authorization"
 security_impact: "Critical review gate"
 compatibility_impact: "Critical compatibility gate"
-evidence: []
+evidence:
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
 blocked_by: []
-next_action: "Execute Architecture/ADR/module-boundary review and record evidence."
+next_action: "Execute Security/trust-boundary/threat-model review and record evidence."
 handoff: null
-updated_at: "2026-08-25T08:52:11Z"
+updated_at: "2026-08-25T08:56:11Z"

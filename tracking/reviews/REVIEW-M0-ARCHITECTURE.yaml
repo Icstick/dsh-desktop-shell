@@ -1,0 +1,32 @@
+schema_version: 1
+id: REVIEW-M0-ARCHITECTURE
+scope: "M0 ADR、architecture invariants、component ownership 与 code map"
+status: passed
+reviewers:
+  - codex-primary-architecture-review
+checks:
+  - id: adr-completeness
+    status: passed
+    evidence: "ADR-0001 至 ADR-0010 均包含背景、决策、替代方案、后果、验证门禁与受影响模块。"
+  - id: ownership-closure
+    status: passed
+    evidence: "Capability Broker 明确归 MOD-SUPERVISOR；contract、Adapter 与 authorization enforcement 分权。"
+  - id: deployment-direction
+    status: passed
+    evidence: "Architecture Overview 明确 DSH -> Adapter -> transport -> Broker -> provider 调用方向。"
+  - id: code-map-consistency
+    status: passed
+    evidence: "Interface catalog owner 已与 tracking/interfaces 的 MOD-* owner 对齐。"
+findings:
+  - "resolved: Capability Broker previously had no explicit module owner."
+  - "resolved: Overview previously implied Desktop-side Adapter placement."
+  - "resolved: System context incorrectly stated that the repository had no remote."
+evidence:
+  - "docs/architecture/OVERVIEW.md"
+  - "docs/architecture/COMPONENTS.md"
+  - "docs/architecture/INVARIANTS.md"
+  - "docs/code-map/INTERFACE_CATALOG.md"
+  - "crates/supervisor/README.md"
+next_action: "执行 M0 Security/trust-boundary/threat-model review。"
+created_at: "2026-08-25T08:56:11Z"
+updated_at: "2026-08-25T08:56:11Z"
