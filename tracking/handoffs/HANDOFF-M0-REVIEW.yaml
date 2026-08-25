@@ -5,11 +5,12 @@ from: codex-primary
 to: maintainer
 status: open
 completed:
-  - "Architecture owner role review passed；ownership、deployment direction 与 code map 已闭合。"
-  - "Security owner role review passed；threat/control/owner/test mapping 与 trust boundary 已闭合。"
-  - "Interop owner role review passed；message contract、strictness、compatibility fallback 与 spec routing 已闭合。"
-  - "全仓质量门禁通过，审查修正均有独立可追溯 commit。"
-  - "外部 baseline 已刷新并绑定精确 revision、package integrity 与 license evidence。"
+  - "Architecture、Security、Interop 与最终 M0 review gate 已通过；原有证据继续有效。"
+  - "使用 2026-08-25T12:19:55Z external baseline 完成重新审查，确认现有 ADR 无需替代。"
+  - "修正 Managed DSH launch：loopback、--no-open、--port 0、candidate endpoint validation 与 user-prebuilt source boundary。"
+  - "修正 Tauri custom command ACL：完整 AppManifest inventory、最小 permission、精确 Shell label、no-remote 与 DSH/Browser negative tests。"
+  - "dsh-std latest/rc fixture 分离与 Desktop reference clean-room/no-copy policy 均保持不变。"
+  - "每个复审步骤均由独立 commit 记录；全仓结构、Schema、链接、ID、编码和禁止代码工件门禁重新通过。"
 remaining:
   - "Maintainer 明确记录批准或拒绝 implementation authorization 的决定。"
   - "若批准，单独提交 project/M0/work-item 状态转换；若拒绝，创建带 owner 的 WI-* 修正项。"
@@ -19,8 +20,15 @@ verification:
   - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
   - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
   - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
+  - "docs/research/EXTERNAL_BASELINE.md"
+  - "docs/security/WEBVIEW_ISOLATION.md"
+  - "docs/testing/ACCEPTANCE.md"
 risks:
-  - "RISK-DSH-CHURN 与 RISK-STD-CHURN 持续存在；当前 baseline 固定于 2026-08-25T12:19:55Z，触发器变化时需再次刷新。"
+  - "DSH 仍是 Developer Preview；launch parser、Web profile 或已固定 fixture 坐标变化时必须重新刷新 baseline。"
+  - "Tauri invoke_handler/AppManifest/capability 语义必须在实现期通过 command inventory 与负向调用测试再次验证。"
+  - "dsh-std latest/rc tag split 继续存在；只按登记 fixture 验证，不从 semver 顺序猜 dist-tag policy。"
+  - "Source checkout 由用户拥有并预构建；Desktop 不安装、构建、自更新或 bootstrap DSH。"
   - "实现授权不得由 review passed 隐式推导。"
-next_action: "Maintainer 审阅 HANDOFF-M0-REVIEW 并明确决定 implementation_authorized。"
+next_action: "Maintainer 基于重新确定的 handoff 明确批准或拒绝 implementation_authorized；在该决定提交前保持 false。"
 created_at: "2026-08-25T09:28:09Z"

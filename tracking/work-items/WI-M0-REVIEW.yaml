@@ -1,14 +1,14 @@
 schema_version: 1
 id: WI-M0-REVIEW
 title: "Review and freeze M0"
-status: in_progress
+status: review
 milestone: M0
 module: MOD-CAPABILITY-CONTRACTS
 owner_role: architecture-owner
-claimed_by: codex-primary
-session: SESSION-20260825-M0-REVIEW-REFRESH
-branch_or_worktree: review/wi-m0-review
-claim_expires_at: "2026-08-26T12:41:58Z"
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
 dependencies:
   - WI-M0-FOUNDATION
 acceptance_criteria:
@@ -24,7 +24,8 @@ evidence:
   - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
   - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
   - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
 blocked_by: []
-next_action: "Re-run Architecture/Security/Interop gates against the refreshed baseline and redetermine HANDOFF-M0-REVIEW."
+next_action: "Maintainer 审阅重新确定的 HANDOFF-M0-REVIEW，并明确批准或拒绝 implementation_authorization。"
 handoff: HANDOFF-M0-REVIEW
-updated_at: "2026-08-25T12:41:58Z"
+updated_at: "2026-08-25T12:55:14Z"
