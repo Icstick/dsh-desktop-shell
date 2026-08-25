@@ -127,6 +127,7 @@ sources:
       - "Capabilities target windows/webviews and grant or deny permissions."
       - "Multiple matching capabilities merge their security boundaries and permissions."
       - "Remote API access is opt-in; unmatched windows/webviews have no IPC access according to the capability reference."
+      - "Custom application commands registered only through invoke_handler are allowed by default; AppManifest command registration is required to enforce capability permissions."
     review:
       reviewer_role: security-owner
       decision: use-official-platform-security-reference

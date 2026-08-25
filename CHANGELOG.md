@@ -17,3 +17,5 @@
 - 收紧 v1alpha1 Envelope：Hello/Agreement payload 结构化，Agreement 绑定 replyTo，Invocation/Result/Event kind 字段受限，Result success/error 互斥且 error 强制 correlation ID。
 - CapabilityLease 禁止空 scope；Usage period 拒绝未知字段。
 - 将 M1 DSH fixtures 固定为 `0.1.1-rc.2`/`0.1.1-rc.1`，并显式区分 dsh-std 的 `latest` 与 `rc` 标签。
+- Managed DSH launch 固定 loopback、`--no-open` 与可验证的 auto-port 流程；source checkout 仅接受用户预构建产物。
+- 收紧 Tauri 自定义命令门禁：完整 AppManifest inventory、最小 permission、精确 Shell label，并禁止 invoke-handler-only command。
