@@ -42,6 +42,10 @@ sources:
       source_revision_binding: "not-asserted; registry metadata omits gitHead"
     status: developer-preview
     compatibility_statement: "Official README explicitly expects compatibility-breaking changes."
+    review:
+      reviewer_role: interop-owner
+      decision: use-official-behavior-reference
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
@@ -81,6 +85,10 @@ sources:
       source_revision_binding: "not-asserted; registry metadata omits gitHead"
     status: early-drafts
     compatibility_statement: "Repository states that code and proposals are early drafts; package tag selection must be explicit."
+    review:
+      reviewer_role: interop-owner
+      decision: optional-protocol-reference-only
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
@@ -111,6 +119,10 @@ sources:
       - "Capabilities target windows/webviews and grant or deny permissions."
       - "Multiple matching capabilities merge their security boundaries and permissions."
       - "Remote API access is opt-in; unmatched windows/webviews have no IPC access according to the capability reference."
+    review:
+      reviewer_role: security-owner
+      decision: use-official-platform-security-reference
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
@@ -137,6 +149,10 @@ sources:
     license: MIT-with-additional-noncommercial-secondary-development-restriction
     license_review_status: requires-special-review
     compatibility_statement: "Release metadata is observational only and is not a DSH compatibility authority."
+    review:
+      reviewer_role: compliance-owner
+      decision: architecture-reference-only-no-copy
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     text_copied: false
@@ -152,3 +168,7 @@ sources:
     content_sha256: CFC7749B96F63BD31C3C42B5C471BF756814053E847C10F3EB003417BC523D30
     content_bytes: 11358
     local_license_outer_whitespace_normalized_match: true
+    review:
+      reviewer_role: compliance-owner
+      decision: project-license-authority
+      reviewed_at: "2026-08-25T12:19:55Z"
