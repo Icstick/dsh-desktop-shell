@@ -34,6 +34,12 @@ verified_at: 2026-08-25T12:19:55Z
 4. Tauri 事实继续支持 DSH WebView/Browser WebView 无 privileged IPC、精确 label allowlist 和最终权限合并审查。
 5. Desktop reference 的发行速度、renderer patch 或产品实现不构成本项目需求；附加条款进一步要求保持 clean-room、禁止复制。
 
+## Current DSH Launch Contract
+
+在冻结的 DSH revision 中，Web profile 明确接受 `--host`、`--port`、`--trusted-host` 与 `--no-open`；`--port 0` 表示由 OS 分配空闲端口，`--host 0.0.0.0` 被上游以安全原因为由拒绝。本地启动默认会打开系统浏览器，因此 Desktop Managed launch 必须显式提供 `--no-open`。来源见机器可读 Source Register 中的 `launch_contract` 与 `launch_parser` evidence。
+
+从 source checkout 启动时，上游要求先构建产物；本项目只接受用户已准备好的 launch recipe，不运行安装或构建。npm artifact 没有 `gitHead`，所以 published-package 与 source-checkout fixture 继续分开验证。
+
 ## 架构结论
 
 没有发现需要替代 ADR-0001、ADR-0003、ADR-0004 或 ADR-0006 的证据。User-owned External Core、optional dsh-std adapter、Tauri WebView 隔离和 clean-room boundary 继续有效；`implementation_authorized` 不因 baseline 刷新而改变。

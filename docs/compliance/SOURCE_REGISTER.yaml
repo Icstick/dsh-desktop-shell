@@ -23,6 +23,14 @@ sources:
       path: README.md
       blob_sha: 9ccd27b8934449bd0d2311317dc38aee5a5c0cdc
       url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/README.md
+      launch_contract:
+        path: packages/bundle/web-app/README.md
+        blob_sha: c8a6874bc01696fc7c9ca65faf772da81ac1e964
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/web-app/README.md
+      launch_parser:
+        path: packages/bundle/web-app/src/startup.ts
+        blob_sha: 9faad244ddb0f7e431c672ba413146da731793af
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/web-app/src/startup.ts
     distribution:
       registry: https://registry.npmjs.org/
       package: "@deepseek-ai/dsh"

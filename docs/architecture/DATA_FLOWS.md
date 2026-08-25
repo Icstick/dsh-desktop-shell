@@ -3,12 +3,13 @@
 ## Start Managed DSH
 
 1. Shell 选择 `DshEnvironment`。
-2. Supervisor canonicalize paths，验证 executable/repository、`DSH_HOME`、Profile 和 endpoint。
+2. Supervisor canonicalize paths，验证 executable/repository、`DSH_HOME`、Profile 和 endpoint；source checkout 必须已由用户构建。
 3. 生成 launch identity、instance ID、generation 和 ephemeral transport credential。
 4. Process Manager 建立 Windows Job Object 或 Unix process group。
-5. 启动 DSH，执行 readiness probe。
-6. 可用时 Adapter negotiation；无 Adapter 时进入 baseline。
-7. Shell 导航到 loopback DSH Web endpoint。
+5. 以结构化 argv 启动 DSH；Managed Web profile 强制 loopback、`--no-open`，auto port 映射为 `--port 0`。
+6. 从启动输出取得 endpoint candidate，再验证 process identity、loopback host 与 readiness，发布 canonical endpoint。
+7. 可用时 Adapter negotiation；无 Adapter 时进入 baseline。
+8. Shell 导航到 loopback DSH Web endpoint。
 
 ## Capability Invocation
 

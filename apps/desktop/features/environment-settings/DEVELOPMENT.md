@@ -18,11 +18,11 @@ DshEnvironment schema + discovery candidates
 
 ## Security
 
-路径、命令与秘密分离；Attached 不提供 mutation UI。
+路径、命令与秘密分离；Attached 不提供 mutation UI。Managed Web launch 的 `--host`、`--port`、`--no-open` 为 Supervisor-owned reserved args，UI 不允许用户通过 extra args 覆盖。Source checkout 缺少已构建产物时只报告 `UNAVAILABLE`，不提供安装或构建按钮。
 
 ## Compatibility
 
-DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得使用版本号或品牌环境变量猜 capability。
+DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得使用版本号或品牌环境变量猜 capability。Environment 预览必须显示最终 executable、cwd、profile、ownership、endpoint policy 与经过脱敏的 argv 分类，但不显示 credential。
 
 ## Tests
 
@@ -30,6 +30,7 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 - Invalid state、unavailable、unauthorized 和 cleanup。
 - 所属 M1 acceptance catalog。
 - Security/reliability 边界的 negative tests。
+- Reserved arg collision、Managed `--no-open`、auto port 与 missing prebuilt source checkout。
 
 ## Milestone exit
 
