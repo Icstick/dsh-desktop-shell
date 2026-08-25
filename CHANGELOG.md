@@ -13,4 +13,5 @@
 
 ### Changed
 
-- 收紧 v1alpha1 Envelope：Hello/Agreement payload 结构化，Agreement 绑定 replyTo，Invocation/Result/Event kind 字段受限，Result success/error 互斥。
+- 收紧 v1alpha1 Envelope：Hello/Agreement payload 结构化，Agreement 绑定 replyTo，Invocation/Result/Event kind 字段受限，Result success/error 互斥且 error 强制 correlation ID。
+- CapabilityLease 禁止空 scope；Usage period 拒绝未知字段。

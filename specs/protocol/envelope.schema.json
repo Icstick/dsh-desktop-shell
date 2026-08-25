@@ -192,7 +192,8 @@
       "required": [
         "code",
         "message",
-        "retryable"
+        "retryable",
+        "correlationId"
       ],
       "properties": {
         "code": {
@@ -218,7 +219,9 @@
           "type": "boolean"
         },
         "correlationId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
         }
       }
     }

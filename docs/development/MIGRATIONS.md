@@ -14,6 +14,6 @@ P0 不迁移 DSH_HOME/Profile。未来 daemonization、transport 与 Environment
 ## M0 v1alpha1 Pre-implementation Correction
 
 - Source：初始 permissive Envelope draft；Target：kind-specific Hello/Agreement/Invocation/Result/Event constraints。
-- Forward：Agreement 增加 `replyTo`；Result success payload 与 error 改为互斥；ScheduleWake 改用独立 Schema。
+- Forward：Agreement 增加 `replyTo`；Result success payload 与 error 改为互斥；error 强制 correlation ID；CapabilityLease 禁止空 scope；ScheduleWake 改用独立 Schema。
 - Rollback：M0 尚无 implementation/persisted message，不提供运行时 rollback；旧 fixture 必须显式标记 superseded。
 - Validation：按 `protocol/fixtures/README.md` 的 valid/invalid matrix 校验，且不迁移 `DSH_HOME`。
