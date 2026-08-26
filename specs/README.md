@@ -16,6 +16,7 @@
 - [Browser](protocol/browser-capability.schema.json)
 - [Usage](protocol/usage-capability.schema.json)
 - [Notification](protocol/notification-capability.schema.json)
+- [Schedule Wake](protocol/schedule-wake-capability.schema.json)
 
 ## Tracking
 

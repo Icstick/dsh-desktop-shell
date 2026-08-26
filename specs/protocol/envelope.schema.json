@@ -4,14 +4,125 @@
   "title": "ProtocolEnvelope",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinate",
+        "required"
+      ],
+      "properties": {
+        "coordinate": {
+          "$ref": "protocol-coordinate.schema.json"
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "helloPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "supports",
+        "requires"
+      ],
+      "properties": {
+        "instanceId": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "supports": {
+          "type": "array",
+          "items": {
+            "$ref": "protocol-coordinate.schema.json"
+          },
+          "uniqueItems": true
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirement"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "unavailableCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinate",
+        "reason"
+      ],
+      "properties": {
+        "coordinate": {
+          "$ref": "protocol-coordinate.schema.json"
+        },
+        "reason": {
+          "enum": [
+            "unavailable",
+            "unsupported_version",
+            "policy_denied",
+            "provider_failed"
+          ]
+        }
+      }
+    },
+    "agreementPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activationId",
+        "granted",
+        "unavailable"
+      ],
+      "properties": {
+        "activationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "granted": {
+          "type": "array",
+          "items": {
+            "$ref": "protocol-coordinate.schema.json"
+          },
+          "uniqueItems": true
+        },
+        "unavailable": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unavailableCapability"
+          },
+          "uniqueItems": true
+        },
+        "leaseConstraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxSeconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "approvalRequired": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  },
   "required": [
     "protocol",
     "id",
     "kind",
     "participant",
     "timestamp",
-    "generation",
-    "payload"
+    "generation"
   ],
   "properties": {
     "protocol": {
@@ -81,7 +192,8 @@
       "required": [
         "code",
         "message",
-        "retryable"
+        "retryable",
+        "correlationId"
       ],
       "properties": {
         "code": {
@@ -107,7 +219,9 @@
           "type": "boolean"
         },
         "correlationId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
         }
       }
     }
@@ -117,19 +231,112 @@
       "if": {
         "properties": {
           "kind": {
-            "enum": [
-              "Invocation",
-              "Result",
-              "Event"
-            ]
+            "const": "Hello"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/helloPayload"
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "replyTo"
+              ]
+            },
+            {
+              "required": [
+                "capability"
+              ]
+            },
+            {
+              "required": [
+                "method"
+              ]
+            },
+            {
+              "required": [
+                "error"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "Agreement"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "replyTo",
+          "payload"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/agreementPayload"
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "capability"
+              ]
+            },
+            {
+              "required": [
+                "method"
+              ]
+            },
+            {
+              "required": [
+                "error"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "Invocation"
           }
         }
       },
       "then": {
         "required": [
           "capability",
-          "method"
-        ]
+          "method",
+          "payload"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "replyTo"
+              ]
+            },
+            {
+              "required": [
+                "error"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -142,8 +349,53 @@
       },
       "then": {
         "required": [
-          "replyTo"
+          "replyTo",
+          "capability",
+          "method"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "payload"
+            ],
+            "not": {
+              "required": [
+                "error"
+              ]
+            }
+          },
+          {
+            "required": [
+              "error"
+            ],
+            "not": {
+              "required": [
+                "payload"
+              ]
+            }
+          }
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "Event"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "capability",
+          "method",
+          "payload"
+        ],
+        "not": {
+          "required": [
+            "error"
+          ]
+        }
       }
     }
   ]

@@ -1,0 +1,46 @@
+schema_version: 1
+id: REVIEW-M0-BASELINE-REASSESSMENT
+scope: "使用 2026-08-25 refreshed external baseline 重新审查 WI-M0-REVIEW 的 architecture、security、interop 与 authorization gates"
+status: passed
+reviewers:
+  - codex-primary-architecture-review
+  - codex-primary-security-review
+  - codex-primary-interop-review
+checks:
+  - id: dsh-managed-launch
+    status: passed
+    evidence: "Pinned DSH launch contract 要求 Desktop Managed recipe 显式 loopback、--no-open 与 --port 0 auto-port；endpoint 输出只作 candidate，并在 commit a193005 中补齐验证与负向测试要求。"
+  - id: source-checkout-boundary
+    status: passed
+    evidence: "Source checkout 仅接受用户预构建产物；Desktop 禁止 package install、source build、self-update 和隐式 bootstrap，缺失产物返回 UNAVAILABLE。"
+  - id: tauri-custom-command-acl
+    status: passed
+    evidence: "Capability absence alone不足以隔离 invoke-handler-only custom commands；commit ddccdd8 增加完整 AppManifest inventory、最小 permission、精确 Shell label、no-remote 与 negative invocation gate。"
+  - id: dsh-std-tag-policy
+    status: passed
+    evidence: "dsh-std latest 与 rc dist-tag 继续作为不同 fixture 坐标，optional adapter 与 legacy fallback 决策不变。"
+  - id: clean-room-license
+    status: passed
+    evidence: "未复制 DSH、dsh-std、Tauri 或 Desktop reference 的代码、资产或产品文案；Desktop reference 继续仅作 architecture reference。"
+  - id: adr-impact
+    status: passed
+    evidence: "新证据细化 ADR-0004、ADR-0009 与 ADR-0010 的实现门禁，不改变 ownership、stack、interop 或 deployment decision，当前无需替代 ADR。"
+  - id: authorization-gate
+    status: passed
+    evidence: "Review passed 不隐含实现授权；tracking/project.yaml 继续保持 implementation_authorized: false。"
+findings:
+  - "已修正：Managed DSH 若未显式 --no-open 会打开系统浏览器，且 auto port 必须映射到当前 recipe 的 --port 0。"
+  - "已修正：source checkout 缺少构建产物时不得由 Desktop 安装或构建。"
+  - "已修正：invoke-handler-only custom Tauri command 可绕过预期 capability ACL，必须由 AppManifest inventory 覆盖。"
+  - "保留风险：DSH Developer Preview、dsh-std tag split 与 Tauri ACL 语义变化仍触发新的 baseline refresh。"
+evidence:
+  - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "docs/research/EXTERNAL_BASELINE.md"
+  - "docs/compliance/SOURCE_REGISTER.yaml"
+  - "docs/compatibility/DISCOVERY.md"
+  - "docs/security/WEBVIEW_ISOLATION.md"
+  - "docs/security/THREAT_MODEL.md"
+  - "docs/testing/ACCEPTANCE.md"
+next_action: "以本复审结论重新确定 HANDOFF-M0-REVIEW；Maintainer 仍需明确批准或拒绝 implementation authorization。"
+created_at: "2026-08-25T12:52:20Z"
+updated_at: "2026-08-25T12:52:20Z"

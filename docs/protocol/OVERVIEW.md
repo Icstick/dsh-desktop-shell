@@ -34,3 +34,4 @@
 - Unknown field 按 Schema fail closed。
 - Accepted restart 在旧进程退出前返回。
 - High-risk capability 需要 lease、scope 和 audit。
+- ScheduleWake 只表达 Supervisor wake guarantee，不承载 cron、Agent task 或 Scheduler ownership；这些语义继续属于 DSH。

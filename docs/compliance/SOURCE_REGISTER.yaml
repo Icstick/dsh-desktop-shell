@@ -1,37 +1,183 @@
 schema_version: 1
 verified_on: "2026-08-25"
+verified_at: "2026-08-25T12:19:55Z"
+verification_policy:
+  repository_metadata: "GitHub REST API and immutable commit permalinks"
+  package_metadata: "npm registry metadata; dist-tags are recorded independently from semantic version order"
+  web_documentation: "official versioned documentation and its source revision"
+  copy_policy: "Metadata and facts only; no third-party code, assets or product text copied"
 sources:
   - id: SRC-DEEPSEEK-HARNESS
+    source_kind: git-repository-and-package
     project: deepseek-ai/deepseek-harness
     url: https://github.com/deepseek-ai/deepseek-harness
     purpose: behavior-and-interop-authority
+    normative: true
     license: MIT
+    repository:
+      default_ref: master
+      revision: b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
+      committed_at: "2026-08-21T12:03:37Z"
+      revision_url: https://github.com/deepseek-ai/deepseek-harness/commit/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
+    evidence:
+      path: README.md
+      blob_sha: 9ccd27b8934449bd0d2311317dc38aee5a5c0cdc
+      url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/README.md
+      launch_contract:
+        path: packages/bundle/web-app/README.md
+        blob_sha: c8a6874bc01696fc7c9ca65faf772da81ac1e964
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/web-app/README.md
+      launch_parser:
+        path: packages/bundle/web-app/src/startup.ts
+        blob_sha: 9faad244ddb0f7e431c672ba413146da731793af
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/web-app/src/startup.ts
+    distribution:
+      registry: https://registry.npmjs.org/
+      package: "@deepseek-ai/dsh"
+      dist_tags:
+        latest: 0.1.1-rc.2
+        next: 0.1.1-rc.2
+      latest:
+        version: 0.1.1-rc.2
+        published_at: "2026-08-21T12:42:19.422Z"
+        shasum: 1a5112369f1c46b13a6e6f21de8af5e6afd45074
+        integrity: "sha512-UP1UIh6q3Gme/yXRn/QL2P8IsVlv8Shpg22TRJIZPsCRWLm4CBiA1MUvXmJAfsOEETBMLAl+xWPtFw6ICsN3wg=="
+      previous_fixture:
+        version: 0.1.1-rc.1
+        published_at: "2026-08-21T06:49:18.639Z"
+        shasum: aa9953e6b9ae3f09dc28d6520510909108314566
+        integrity: "sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w=="
+      source_revision_binding: "not-asserted; registry metadata omits gitHead"
+    status: developer-preview
+    compatibility_statement: "Official README explicitly expects compatibility-breaking changes."
+    review:
+      reviewer_role: interop-owner
+      decision: use-official-behavior-reference
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
+
   - id: SRC-DSH-STD
+    source_kind: git-repository-and-package
     project: Yan-Zero/dsh-std
     url: https://github.com/Yan-Zero/dsh-std
     purpose: protocol-architecture-reference
+    normative: false
     license: MIT
+    repository:
+      default_ref: main
+      revision: bb194ad53a72f4fa7da1286c88dcebb488b43eb9
+      committed_at: "2026-08-23T17:39:18Z"
+      revision_url: https://github.com/Yan-Zero/dsh-std/commit/bb194ad53a72f4fa7da1286c88dcebb488b43eb9
+    evidence:
+      path: README.md
+      blob_sha: d9db9823cc933654aa2eb83adac6ecb2daa44f23
+      url: https://github.com/Yan-Zero/dsh-std/blob/bb194ad53a72f4fa7da1286c88dcebb488b43eb9/README.md
+    distribution:
+      registry: https://registry.npmjs.org/
+      package: "@dsh-std/core"
+      dist_tags:
+        latest: 0.1.0-rc1
+        rc: 0.1.1-rc.1
+      latest:
+        version: 0.1.0-rc1
+        published_at: "2026-08-18T12:15:35.262Z"
+        shasum: daac9403f16ab7a15f838dd398cbe5edef00269e
+        integrity: "sha512-jzr2BpH0wQ+peq0ywA+QazjeO6hRpuXLKd4x3EupozUYzynVkXJzf07xk89c9DzO9yfB1WNh9T+LCGcpxRq8PA=="
+      rc:
+        version: 0.1.1-rc.1
+        published_at: "2026-08-23T10:38:04.967Z"
+        shasum: 1d696871515d2e1ba184312227f15d3408001ffe
+        integrity: "sha512-I2tZEYk0V5QjlvkLvqKkAj/Fsvz0bTe0oDF2YFzL8EpmOS9KNcILrLBGSdVrt1qZnlBZP+9Zzh2byJzG0dJiOQ=="
+      source_revision_binding: "not-asserted; registry metadata omits gitHead"
     status: early-drafts
+    compatibility_statement: "Repository states that code and proposals are early drafts; package tag selection must be explicit."
+    review:
+      reviewer_role: interop-owner
+      decision: optional-protocol-reference-only
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
+
   - id: SRC-TAURI
-    project: tauri-apps/tauri
-    url: https://v2.tauri.app/
+    source_kind: versioned-official-documentation
+    project: tauri-apps/tauri-docs
+    url: https://v2.tauri.app/security/capabilities/
     purpose: platform-and-security-documentation
+    normative: true
     license: Apache-2.0-or-MIT
+    repository:
+      default_ref: v2
+      revision: 1eb8f13f5961301ee46e8376e0b31c23fa927e81
+      committed_at: "2026-08-23T01:02:29Z"
+      revision_url: https://github.com/tauri-apps/tauri-docs/commit/1eb8f13f5961301ee46e8376e0b31c23fa927e81
+    evidence:
+      path: src/content/docs/security/capabilities.mdx
+      blob_sha: 6d55713d3c2788ef3d0611ca357b25f79622ece8
+      page_last_updated_on: "2025-08-01"
+      url: https://github.com/tauri-apps/tauri-docs/blob/1eb8f13f5961301ee46e8376e0b31c23fa927e81/src/content/docs/security/capabilities.mdx
+      capability_reference_url: https://v2.tauri.app/reference/acl/capability/
+    framework_release:
+      version: tauri-v2.11.5
+      published_at: "2026-07-01T13:56:43Z"
+      url: https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.11.5
+    security_statements:
+      - "Capabilities target windows/webviews and grant or deny permissions."
+      - "Multiple matching capabilities merge their security boundaries and permissions."
+      - "Remote API access is opt-in; unmatched windows/webviews have no IPC access according to the capability reference."
+      - "Custom application commands registered only through invoke_handler are allowed by default; AppManifest command registration is required to enforce capability permissions."
+    review:
+      reviewer_role: security-owner
+      decision: use-official-platform-security-reference
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
+
   - id: SRC-DESKTOP-REFERENCE
+    source_kind: non-normative-git-repository
     project: dsh-tauri-desk/deepseek-harness-desktop
     url: https://github.com/dsh-tauri-desk/deepseek-harness-desktop
     purpose: architecture-reference-only
-    license: requires-special-review
-    additional_terms: reported-in-research-inputs
+    normative: false
+    repository:
+      default_ref: main
+      revision: 2a06026018fc498e4b2b52cd7e7bfdaae610ba10
+      committed_at: "2026-08-25T11:52:32Z"
+      revision_url: https://github.com/dsh-tauri-desk/deepseek-harness-desktop/commit/2a06026018fc498e4b2b52cd7e7bfdaae610ba10
+    release:
+      version: v0.8.2
+      published_at: "2026-08-25T11:53:12Z"
+      url: https://github.com/dsh-tauri-desk/deepseek-harness-desktop/releases/tag/v0.8.2
+    evidence:
+      readme_blob_sha: 6391301584a502d090b24bc1ab996b30b60c8517
+      additional_terms_blob_sha: 065c949d1a9efd211f466bbe74bd6c1b1c102e89
+      additional_terms_url: https://github.com/dsh-tauri-desk/deepseek-harness-desktop/blob/2a06026018fc498e4b2b52cd7e7bfdaae610ba10/LICENSE.details
+    license: MIT-with-additional-noncommercial-secondary-development-restriction
+    license_review_status: requires-special-review
+    compatibility_statement: "Release metadata is observational only and is not a DSH compatibility authority."
+    review:
+      reviewer_role: compliance-owner
+      decision: architecture-reference-only-no-copy
+      reviewed_at: "2026-08-25T12:19:55Z"
     code_copied: false
     assets_copied: false
+    text_copied: false
     commercial_review_required: true
+
+  - id: SRC-APACHE-2-0
+    source_kind: official-license-text
+    project: Apache Software Foundation
+    url: https://www.apache.org/licenses/LICENSE-2.0.txt
+    purpose: project-license-authority
+    normative: true
+    verified_at: "2026-08-25T12:19:55Z"
+    content_sha256: CFC7749B96F63BD31C3C42B5C471BF756814053E847C10F3EB003417BC523D30
+    content_bytes: 11358
+    local_license_outer_whitespace_normalized_match: true
+    review:
+      reviewer_role: compliance-owner
+      decision: project-license-authority
+      reviewed_at: "2026-08-25T12:19:55Z"

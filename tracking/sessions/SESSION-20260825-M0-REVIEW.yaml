@@ -1,0 +1,17 @@
+schema_version: 1
+id: SESSION-20260825-M0-REVIEW
+status: handoff
+agent_or_human: codex-primary
+work_items:
+  - WI-M0-REVIEW
+branch_or_worktree: review/wi-m0-review
+started_at: "2026-08-25T08:52:11Z"
+ended_at: "2026-08-25T09:28:09Z"
+summary: "M0 Architecture、Security、Interop 三阶段语义审查与全仓质量门禁已通过；实现授权留待 maintainer 明确决定。"
+artifacts:
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+  - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
+  - "tracking/handoffs/HANDOFF-M0-REVIEW.yaml"
+next_action: "Maintainer 接受 handoff，并明确批准或拒绝 implementation authorization。"

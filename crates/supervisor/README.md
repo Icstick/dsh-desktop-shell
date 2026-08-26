@@ -13,11 +13,13 @@
 - state machine
 - generation/instance
 - restart coordination
+- P0 Capability Broker 的 grant/lease/scope/generation enforcement 与 provider dispatch
 - P2 wake
 
 ## Does not own
 
 - DSH update/Profile mutation
+- DSH tool/policy 决策与 Adapter mapping
 - arbitrary process control
 
 ## Inputs

@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M1-SHELL
 title: "Deliver Shell MVP"
-status: proposed
+status: ready
 milestone: M1
 module: MOD-SHELL-UI
 owner_role: milestone-owner
@@ -17,6 +17,6 @@ security_impact: "WebView boundary"
 compatibility_impact: "DSH launch and UI compatibility"
 evidence: []
 blocked_by: []
-next_action: "Start only after implementation_authorized=true."
+next_action: "创建独立 M1 branch/worktree 与 session，认领本工作项并阅读目标模块文档后开始实现。"
 handoff: null
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T13:12:46Z"

@@ -10,9 +10,9 @@
 
 ## 报告漏洞
 
-在配置 GitHub 远端后，优先使用 GitHub Private Vulnerability Reporting 或私有 Security Advisory。不要在公开 Issue 中提交 API key、凭据、完整 `DSH_HOME`、原始 session、未经脱敏的日志或可直接复现本机 RCE 的敏感材料。
+本仓库已有 private GitHub 远端。若仓库启用了 Private Vulnerability Reporting，使用该入口；否则先通过维护者认可的私有渠道请求 Security Advisory 协作，不要把漏洞细节写入普通 Issue。任何渠道都不得附带与问题无关的用户数据。
 
-远端尚未配置时，请直接联系项目维护者，通过私有渠道提交：影响版本、平台、最小复现、攻击前提、影响范围和建议缓解。不要附带与问题无关的用户数据。
+不要在公开或普通协作区提交 API key、凭据、完整 `DSH_HOME`、原始 session、未经脱敏的日志或可直接复现本机 RCE 的敏感材料。
 
 ## 范围
 

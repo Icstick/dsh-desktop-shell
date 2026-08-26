@@ -8,6 +8,6 @@ milestone: M1
 interfaces:
   - IF-ENVIRONMENT
 depends_on: []
-security_review: not_required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+security_review: required
+updated_at: "2026-08-25T12:52:20Z"
+next_action: "M1 实现前冻结 reserved launch args、最终 launch preview 与 prebuilt source checkout validation，并覆盖 AC-RUN-003/004。"

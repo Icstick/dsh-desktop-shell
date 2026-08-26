@@ -6,9 +6,9 @@ api_version: "runtime.dsh-desktop.local/v1alpha1"
 status: review
 implementation_status: not_authorized
 test_status: planned
-security_review: not_required
+security_review: required
 spec: "specs/protocol/runtime-capability.schema.json"
 operations:
   - "status"
   - "health"
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T09:14:05Z"

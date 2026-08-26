@@ -3,13 +3,13 @@ id: MOD-PROTOCOL-SCHEMAS
 name: "protocol-schemas"
 path: "protocol/schemas"
 owner_role: architecture-owner
-status: proposed
+status: verified
 milestone: M0
 interfaces:
   - IF-NEGOTIATION
   - IF-INVOCATION
   - IF-LEASE
 depends_on: []
-security_review: not_required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+security_review: required
+updated_at: "2026-08-25T09:14:05Z"
+next_action: "维护 v1alpha1 Schema/fixture/migration 一致性；implementation 仍未授权。"

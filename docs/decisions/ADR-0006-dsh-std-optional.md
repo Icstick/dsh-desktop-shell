@@ -9,7 +9,7 @@ owner_role: architecture-owner
 
 ## 背景
 
-dsh-std 的 meta-protocol、adapter、facet 与独立版本方向契合，但截至 2026-08-25 仍为 early drafts，wire/auth/reconnect 等尚不稳定。
+dsh-std 的 meta-protocol、adapter、facet 与独立版本方向契合。2026-08-25 的 [External Baseline](../research/EXTERNAL_BASELINE.md) 再次确认其代码与提案仍为 early drafts，且 registry 的 `latest` 与 `rc` 指向不同版本；wire/auth/reconnect 等不能视为稳定契约。
 
 ## 决策
 
@@ -28,6 +28,7 @@ Core contracts 不 import dsh-std alpha types。建立独立 adapter-dsh-std，�
 ## 验证门禁
 
 - dsh-std absent/known/unknown 三类 fixture。
+- known fixture 绑定精确版本与 artifact integrity，不仅绑定 dist-tag。
 - alpha type 不出现在 core/public UI。
 - adapter 失败时 baseline 可用。
 

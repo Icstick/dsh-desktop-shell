@@ -1,0 +1,16 @@
+schema_version: 1
+id: SESSION-20260825-M0-REVIEW-REFRESH
+status: handoff
+agent_or_human: codex-primary
+work_items:
+  - WI-M0-REVIEW
+branch_or_worktree: review/wi-m0-review
+started_at: "2026-08-25T12:41:58Z"
+ended_at: "2026-08-25T12:55:14Z"
+summary: "使用刷新后的 external baseline 重新执行 WI-M0-REVIEW；修正 DSH Managed launch 与 Tauri custom command ACL 门禁，并重新确定 HANDOFF-M0-REVIEW。"
+artifacts:
+  - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
+  - "tracking/handoffs/HANDOFF-M0-REVIEW.yaml"
+  - "docs/compatibility/DISCOVERY.md"
+  - "docs/security/WEBVIEW_ISOLATION.md"
+next_action: "Maintainer 明确批准或拒绝 implementation_authorization；在此之前不得添加源码或构建清单。"

@@ -18,7 +18,7 @@ healthy endpoint + generation + route hint
 
 ## Security
 
-DSH WebView 零 privileged Tauri capability。
+DSH WebView 零 privileged Tauri capability；其 label 不匹配任何 custom command permission 或 remote URL access。所有应用 command 必须进入 AppManifest inventory，不能用 invoke-handler-only registration 绕过 ACL。
 
 ## Compatibility
 
@@ -30,6 +30,7 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 - Invalid state、unavailable、unauthorized 和 cleanup。
 - 所属 M1 acceptance catalog。
 - Security/reliability 边界的 negative tests。
+- 枚举全部 custom commands，并证明 DSH WebView 调用均被拒绝。
 
 ## Milestone exit
 

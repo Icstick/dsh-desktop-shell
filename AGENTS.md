@@ -9,11 +9,12 @@
 3. 只认领一个主 `WI-*`；记录 session、branch/worktree 和 24 小时 advisory lease。
 4. 验证依赖已满足，确认 `implementation_authorized`。
 
-## 当前 M0 特殊限制
+## 当前 M1 实现门禁
 
-- 禁止新增 `.rs`、`.ts`、`.tsx`、`Cargo.toml`、`package.json`、锁文件或 build workflow。
-- 禁止安装依赖、运行代码生成或构建项目。
-- 允许修改 Markdown、YAML、JSON Schema 与 GitHub 模板。
+- `implementation_authorized: true` 只解除 M0 的全局禁码门禁，不豁免工作项认领、module boundary、ADR、security review 与 evidence 要求。
+- 新增 `.rs`、`.ts`、`.tsx`、构建清单、锁文件或 workflow 必须属于已认领的 M1 工作项，并在独立 branch/worktree 中提交。
+- 依赖安装、代码生成、构建与测试只能作为已认领实现任务的可追溯步骤执行；不得在状态转换 session 中顺带运行。
+- 继续执行 user-owned External Core 与 clean-room/no-copy 边界；Desktop 不安装、构建或打包 DSH Core。
 
 ## 架构不变量
 

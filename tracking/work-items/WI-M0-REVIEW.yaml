@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M0-REVIEW
 title: "Review and freeze M0"
-status: ready
+status: done
 milestone: M0
 module: MOD-CAPABILITY-CONTRACTS
 owner_role: architecture-owner
@@ -18,8 +18,15 @@ acceptance_criteria:
   - "Maintainer explicitly decides implementation authorization"
 security_impact: "Critical review gate"
 compatibility_impact: "Critical compatibility gate"
-evidence: []
+evidence:
+  - "tracking/reviews/REVIEW-M0-ARCHITECTURE.yaml"
+  - "tracking/reviews/REVIEW-M0-SECURITY.yaml"
+  - "tracking/reviews/REVIEW-M0-INTEROP.yaml"
+  - "tracking/reviews/REVIEW-M0-FINAL-GATE.yaml"
+  - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "tracking/reviews/REVIEW-M0-BASELINE-REASSESSMENT.yaml"
+  - "tracking/reviews/REVIEW-M0-AUTHORIZATION.yaml"
 blocked_by: []
-next_action: "Assign Architecture, Security and Interop reviewers."
-handoff: null
-updated_at: "2026-08-25T06:49:34Z"
+next_action: "已完成；后续工作转入 WI-M1-SHELL。"
+handoff: HANDOFF-M0-REVIEW
+updated_at: "2026-08-25T13:12:46Z"

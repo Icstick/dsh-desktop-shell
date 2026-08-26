@@ -3,12 +3,12 @@ id: IF-NEGOTIATION
 name: "CapabilityNegotiation"
 owner_module: MOD-CAPABILITY-CONTRACTS
 api_version: "interop.dsh-desktop.local/v1alpha1"
-status: review
+status: verified
 implementation_status: not_authorized
 test_status: planned
-security_review: not_required
+security_review: required
 spec: "specs/protocol/envelope.schema.json"
 operations:
   - "Hello"
   - "Agreement"
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-25T09:14:05Z"

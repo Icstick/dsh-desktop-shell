@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/protocol/schedule-wake-capability.schema.json",
+  "title": "ScheduleWakeCapability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "method",
+    "params"
+  ],
+  "properties": {
+    "method": {
+      "const": "wake"
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wakeId",
+        "requestedAt",
+        "reason"
+      ],
+      "properties": {
+        "wakeId": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "requestedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "enum": [
+            "scheduled_due",
+            "recovery_retry",
+            "user_requested"
+          ]
+        }
+      }
+    }
+  }
+}

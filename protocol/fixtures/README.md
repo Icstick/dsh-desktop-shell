@@ -26,6 +26,12 @@
 
 - contract test data
 
+## M0 Fixture Plan
+
+- valid：Hello、Agreement、Invocation、success Result、error Result、Event、ScheduleWake。
+- invalid：Hello 携带 method、Agreement 缺 replyTo、Invocation 携带 error、Result 同时携带 payload/error、unknown coordinate、duplicate requirement、wrong generation。
+- compatibility：Legacy baseline、known dsh-std、unknown dsh-std 与 no-adapter degraded activation。
+
 ## Dependencies
 
 - protocol-schemas

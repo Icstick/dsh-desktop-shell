@@ -2,9 +2,9 @@
 
 DSH Desktop Shell 是面向用户自有 DeepSeek Harness 的跨平台桌面工作台与本地能力宿主。它不分发、不升级、不修改用户的 DSH Core 或 `DSH_HOME`，而是在外层提供稳定的桌面窗口、进程监督、原生能力、兼容适配与恢复体验。
 
-> 当前阶段：`documentation-foundation` / M0 Architecture Freeze review。
+> 当前阶段：`shell-mvp` / M1 Shell MVP ready。
 >
-> 当前仓库仅含文档、规范、跟踪记录和未来代码目录镜像。`implementation_authorized: false`，不得添加项目源码或构建清单。
+> 当前仓库仍仅含文档、规范、跟踪记录和未来代码目录镜像。Maintainer 已将 `implementation_authorized` 设为 `true`；代码实现必须从已认领的 `WI-M1-SHELL` 独立 session/branch 开始。
 
 ## 一句话架构
 
@@ -50,12 +50,14 @@ flowchart LR
 
 ## 外部基线
 
-`verified_on: 2026-08-25`
+`verified_on: 2026-08-25` · `verified_at: 2026-08-25T12:19:55Z`
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)：Developer Preview，存在 compatibility-breaking changes。
-- [dsh-std](https://github.com/Yan-Zero/dsh-std)：代码与提案仍为 early drafts。
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/README.md)：Developer Preview；npm `latest` 为 `@deepseek-ai/dsh@0.1.1-rc.2`。
+- [dsh-std](https://github.com/Yan-Zero/dsh-std/blob/bb194ad53a72f4fa7da1286c88dcebb488b43eb9/README.md)：代码与提案仍为 early drafts，`latest` 与 `rc` dist-tag 必须分别处理。
 - [Tauri 2 Capabilities](https://v2.tauri.app/security/capabilities/)：按 window/webview 授权；多 capability 权限会合并。
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)：本项目许可证。
+
+精确 commit、release、registry integrity、许可证附加条款和影响分析见 [External Baseline](docs/research/EXTERNAL_BASELINE.md)。
 
 ## 许可证与来源
 

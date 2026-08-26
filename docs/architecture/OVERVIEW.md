@@ -2,6 +2,7 @@
 id: DOC-ARCH-OVERVIEW
 status: review
 verified_on: 2026-08-25
+external_baseline: ../research/EXTERNAL_BASELINE.md
 ---
 
 # Architecture Overview
@@ -43,6 +44,7 @@ flowchart TB
     LOOP[Loopback fallback]
   end
   subgraph S[Rust Supervisor]
+    BROKER[Capability Broker]
     ENV[Environment Resolver]
     PROC[Process Manager]
     HEALTH[Health and Recovery]
@@ -55,14 +57,20 @@ flowchart TB
     PLUG[Plugins]
   end
   F --> C
-  C --> S
-  C --> I
+  C --> BROKER
+  C -. shared schemas .-> I
+  DSH --> I
   I --> T
-  T <--> DSH
-  S --> DSH
+  T --> BROKER
+  BROKER --> PROC
+  BROKER --> PTY
+  BROKER --> BP
+  PROC --> DSH
   DSH --> HOME
   DSH --> PLUG
 ```
+
+Legacy 与 optional dsh-std Adapter 执行在 DSH/plugin integration boundary，不在 DSH WebView 内，也不拥有 Desktop native provider。P0 Capability Broker 是 `MOD-SUPERVISOR` 内的受信任子组件，负责 Agreement、Desktop grant、lease、scope、generation 与 provider dispatch；contract validation 本身不构成授权。
 
 ## 目标态
 
@@ -77,3 +85,4 @@ Shared Browser 通过 shell-neutral Browser Capability 连接 Chromium/Edge/CDP 
 - 运行拓扑：[RUNTIME_TOPOLOGY.md](RUNTIME_TOPOLOGY.md)
 - 决策：[ADR Index](../decisions/README.md)
 - 接口：[Specifications](../../specs/README.md)
+- 外部事实：[External Baseline](../research/EXTERNAL_BASELINE.md)

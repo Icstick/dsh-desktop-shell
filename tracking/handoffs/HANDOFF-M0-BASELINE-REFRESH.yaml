@@ -1,0 +1,22 @@
+schema_version: 1
+id: HANDOFF-M0-BASELINE-REFRESH
+work_item: WI-M0-BASELINE-REFRESH
+from: codex-primary
+to: maintainer
+status: open
+completed:
+  - "将 DSH、dsh-std、Tauri、Desktop reference 与 Apache-2.0 绑定到可重现的官方证据。"
+  - "冻结 DSH latest/N-1 与 dsh-std latest/rc fixture 坐标及 registry integrity。"
+  - "复核 Tauri WebView capability 假设和 Desktop reference 附加许可条款。"
+  - "确认现有 ADR 与 trust boundary 无需替代，implementation_authorized 保持 false。"
+remaining:
+  - "Baseline refresh 无剩余工作；实现授权仍由 HANDOFF-M0-REVIEW 单独决定。"
+verification:
+  - "tracking/reviews/REVIEW-M0-EXTERNAL-BASELINE.yaml"
+  - "docs/compliance/SOURCE_REGISTER.yaml"
+  - "docs/research/EXTERNAL_BASELINE.md"
+risks:
+  - "DSH 与 dsh-std 仍快速变化；任一已登记 refresh trigger 发生时必须重新创建 baseline refresh 工作项。"
+  - "Registry metadata 缺少 gitHead，不能把 package artifact 与 repository HEAD 视为同一证据。"
+next_action: "Maintainer 审阅 HANDOFF-M0-REVIEW 并明确批准或拒绝 implementation authorization。"
+created_at: "2026-08-25T12:36:09Z"

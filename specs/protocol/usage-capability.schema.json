@@ -18,6 +18,7 @@
     },
     "period": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "start",
         "end"

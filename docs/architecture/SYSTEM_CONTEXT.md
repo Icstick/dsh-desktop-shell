@@ -24,7 +24,7 @@ flowchart LR
 - OS：process、window、notification、PTY、filesystem dialog 与 IPC。
 - Browser provider：网页 session、CDP、snapshot、interaction 和 human takeover。
 - dsh-std：可选互操作模型；不是启动依赖。
-- GitHub：未来用于 issue、PR、release 和 provenance；当前无远端。
+- GitHub：用于项目协作、release 与 provenance；不是 Desktop runtime dependency，也不属于用户数据通路。
 
 ## 信任假设
 
