@@ -337,6 +337,18 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
     let limits = state.limits;
     let id = state.next_conn_id.fetch_add(1, Ordering::Relaxed);
 
+    // Accepted sockets inherit the listener's non-blocking mode (set for the
+    // accept poll loop). Restore blocking I/O so the handshake and worker
+    // loops can rely on their deadlines via SO_RCVTIMEO/SO_SNDTIMEO: on a
+    // non-blocking socket a partial read followed by WouldBlock discards
+    // already-consumed frame bytes and desyncs the stream (observed as
+    // Oversized protocol errors on exactly-max 64 KiB frames).
+    if stream.set_nonblocking(false).is_err() {
+        state.stats.lock().unwrap().closed_io += 1;
+        state.limiter.release();
+        return;
+    }
+
     // --- Handshake phase (bounded by handshake_deadline) ---
     let _ = stream.set_read_timeout(Some(limits.handshake_deadline));
     let _ = stream.set_write_timeout(Some(limits.handshake_deadline));

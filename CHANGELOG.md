@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- crates/local-transport：accepted socket 继承 listener 非阻塞模式（accept 轮询所需），使 worker_loop 的 SO_RCVTIMEO deadline 失效；64 KiB 整帧部分到达时 read_some 丢弃已读字节、流错位（payload 被读成长度前缀 → Oversized）导致 Protocol 断开（本机全量测试稳定复现 exact_max_frame_passes_over_wire 失败）。修复：connection_worker 恢复阻塞 I/O（set_nonblocking(false)），保留 deadline 语义；framing_io 5/5 重跑、workspace 132 tests、fmt/clippy -D warnings 全过。
+
 ### Added
 
 - 完成 M3 Workbench：ADR-0015 Desktop-owned Persistent Terminal（crates/terminal-provider 手写 Windows ConPTY 包装、Desktop-owned PTY registry 独立于 Managed DSH 进程树、human_surface only，AC-PTY-001 证明 PTY 跨 Managed DSH stop/restart 存活；xterm.js 6 终端面板 + terminal://output 事件仅 shell webview）、ADR-0016 Notification 内容策略（AC-NOT-001/002：content policy 三档、60s TTL 折叠去重不重复审计、AppData 审计 JSONL 滚动上限 1000）与本地优先 Usage（AC-USG-001/002：零内容泄漏、零网络外发、AppData JSONL 滚动上限 4096）；新增 terminal/notification/usage schema 与 fixtures（53 schemas / 55 fixtures）；AC-TERM-001/002 加入验收目录；根 workspace 扩为四成员。

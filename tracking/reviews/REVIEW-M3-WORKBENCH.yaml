@@ -50,6 +50,7 @@ findings:
   - "INFO terminal-provider 输出 reader 在事件队列满时 try_send 失败即永久退出（session 进程仍 running 但输出流静默停止）；drain 间隔 30ms + 256×4KB 队列使该场景概率极低，但无测试覆盖，建议列入 live QA 检查项。"
   - "INFO 本评审环境限制：无 Rust 工具链，cargo test/fmt/clippy 未能实际复跑（静态核验一致：131+1 doctest）；前端门禁（tsc/vitest 29/vite build）已在收尾 session 修复 node_modules 后实际复跑通过（本机），specs 53/55 与 ACL 28 亦复跑通过。cargo fmt/clippy 清洁性仍建议在具备 Rust 工具链的环境补跑一次。"
   - "INFO ACCEPTANCE.md 中 AC-PTY-001 在主目录与 M3 additions 重复列出（cosmetic）。"
+  - "MEDIUM→FIXED local-transport exact_max_frame_passes_over_wire 在本机（2026-08-29，Rust 1.98.0 + Windows SDK 环境）首次全量复跑时稳定失败：listener.set_nonblocking(true)（accept 轮询）使 accepted socket 继承非阻塞模式，worker_loop 依赖的 SO_RCVTIMEO deadline 失效；64 KiB 整帧部分到达时 read_some 丢弃已读字节、流错位（0xABABABAB 被读成长度前缀 → Oversized declared=2880154539）→ Protocol 断开。原构建环境（ZOOT/D:\\HostShare）未触发属时序差异。修复：fix/local-transport-nonblocking-stream（connection_worker 恢复 set_nonblocking(false)，保留 deadline 语义）；修复后 framing_io 5/5 重跑通过、workspace 132 tests 全过、fmt/clippy -D warnings 干净。"
 evidence:
   - "git：codex/wi-m3-workbench @ 7286294（工作树干净）；2e35593/f17d765/cb06671/49b9611/ddbff7e/7286294 均为 HEAD 祖先、链线性；commit 时间 2026-08-29T05:59:46Z–07:54:28Z"
   - "crates/terminal-provider/src/lib.rs（手写 ConPTY、bounded sync_channel(256)、teardown 先关 reader、5 tests）"
@@ -62,6 +63,6 @@ evidence:
   - "tracking：WI-M3-WORKBENCH/M3.yaml/SESSION-20260828-M3-WORKBENCH（已更新）、IF-TERMINAL/IF-NOTIFICATION/IF-USAGE（未更新）、MOD-TERMINAL-PROVIDER/UI/MOD-USAGE-COLLECTOR/UI/MOD-SHELL-UI（next_action 更新、status/updated_at 未更新）、MOD-RUNTIME-DIAGNOSTICS（'留待 M3' 措辞过期）、CURRENT.md/project.yaml（未更新）、specs/tracking/handoff.schema.json（含 review 枚举）"
   - "REVIEW-M2-HANDOFF-CONSISTENCY.yaml（修复项核对：WI-M2/MOD 已同步、schema 已扩展、CURRENT.md 未修、local-transport 注释未清）"
   - "本评审复验输出：validate-specs '53 schemas, 55 fixtures, ALL PASS' exit 0；validate-acl '28 commands' exit 0；tsc -b exit 0；静态计数 #[test]=131（desktop 83 含 notification 10/usage 14/terminal 3/managed_runtime 21，local-transport 12+16 集成，supervisor 15，terminal-provider 5）+1 doctest（local-transport lib.rs no_run）；vitest 用例=29（ShellApp 21 + environment-draft 3 it + it.each×5）"
-next_action: "（已落实，见 REVIEW-M1/M2/M3-ACCEPTANCE 与 SESSION-20260829-M1-M3-CLOSURE）tracking 修复全部完成：IF-* 升 implemented/passed、CURRENT.md/project.yaml 同步至 M4、MOD-*/M3.yaml/WI 状态与时间戳补齐、HANDOFF-M3 created_at 修正；前端门禁本机复跑通过（vitest 29、vite build、specs 53/55、ACL 28、tsc）。剩余：TerminalPanel 前端自动化用例恢复（列入 live desktop QA）；cargo fmt/clippy 清洁性建议在具备 Rust 工具链的环境补跑一次并回填本 review。"
+next_action: "（已落实，见 REVIEW-M1/M2/M3-ACCEPTANCE 与 SESSION-20260829-M1-M3-CLOSURE；另含 local-transport 非阻塞 socket 修复 fix/local-transport-nonblocking-stream）tracking 修复全部完成：IF-* 升 implemented/passed、CURRENT.md/project.yaml 同步至 M4、MOD-*/M3.yaml/WI 状态与时间戳补齐、HANDOFF-M3 created_at 修正；前端门禁本机复跑通过（vitest 29、vite build、specs 53/55、ACL 28、tsc）。剩余：TerminalPanel 前端自动化用例恢复（列入 live desktop QA）；cargo fmt/clippy 清洁性建议在具备 Rust 工具链的环境补跑一次并回填本 review。"
 created_at: "2026-08-29T09:51:45Z"
-updated_at: "2026-08-29T11:20:00Z"
+updated_at: "2026-08-29T12:10:00Z"
