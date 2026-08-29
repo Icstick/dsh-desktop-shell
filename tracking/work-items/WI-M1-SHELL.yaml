@@ -1,14 +1,14 @@
 schema_version: 1
 id: WI-M1-SHELL
 title: "Deliver Shell MVP"
-status: in_progress
+status: done
 milestone: M1
 module: MOD-SHELL-UI
 owner_role: milestone-owner
-claimed_by: codex-primary
-session: codex-m1-native-acceptance-cont-20260828T1518Z
-branch_or_worktree: codex/wi-m1-shell-native-acceptance
-claim_expires_at: "2026-08-29T15:18:33Z"
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
 dependencies:
   - WI-M0-REVIEW
 acceptance_criteria:
@@ -60,6 +60,6 @@ evidence:
   - "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json: 26/26 checks passed"
   - "docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md: Windows real-DSH WebView2 native smoke summary (AC-WEB-005/006, ADR-0012 gates)"
 blocked_by: []
-next_action: "Windows real-DSH WebView2 native smoke/compatibility matrix 26/26 通过（真实 DSH UI 加载、clean-root、cross-origin/popup/download/permission deny、resize/hide/show/reload/unmount、stop 后 binding fail-closed）；unsupported_platform 已提取为共享 helper 并有单测（结构性证据）。剩余：macOS/Linux target-host 实测证据与 M1 最终 acceptance review，之后才可关闭本工作项。"
+next_action: "已完成（2026-08-29 maintainer 接受，REVIEW-M1-ACCEPTANCE）：Windows real-DSH WebView2 native smoke 26/26、独立评审 9/9、M1 合并 main。剩余（不阻塞关闭）：macOS/Linux target-host 实测证据与 DSH graceful-stop 确认列入后续阶段。"
 handoff: HANDOFF-M1-NATIVE-ACCEPTANCE
-updated_at: "2026-08-28T15:45:00Z"
+updated_at: "2026-08-29T10:05:00Z"

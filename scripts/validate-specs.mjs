@@ -21,7 +21,7 @@ const SUPPORTED = new Set([
   "type", "enum", "const", "properties", "required", "additionalProperties",
   "pattern", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum",
   "exclusiveMaximum", "minItems", "maxItems", "items", "oneOf", "allOf", "anyOf",
-  "if", "then", "else", "title", "description", "$id", "$schema", "$defs", "$ref", "uniqueItems",
+  "if", "then", "else", "title", "description", "$id", "$schema", "$defs", "$ref", "uniqueItems", "format",
 ]);
 
 function walk(dir, out = []) {
@@ -100,6 +100,9 @@ function validate(instance, schema, path, errors, defs, registry, schemaDir) {
     }
     if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(instance)) {
       errors.push(`${path}: "${instance}" does not match ${schema.pattern}`);
+    }
+    if (schema.format === "date-time" && Number.isNaN(Date.parse(instance))) {
+      errors.push(`${path}: "${instance}" is not a valid date-time`);
     }
   }
   if (typeof instance === "number") {

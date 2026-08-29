@@ -1,0 +1,19 @@
+[package]
+name = "dsh-terminal-provider"
+version = "0.1.0"
+description = "Desktop-owned PTY sessions on Windows ConPTY (MOD-TERMINAL-PROVIDER, ADR-0015)"
+authors = ["DSH Desktop Shell contributors"]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+
+[dependencies]
+windows-sys = { version = "=0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Console",
+  "Win32_System_IO",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+] }

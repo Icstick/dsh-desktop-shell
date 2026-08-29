@@ -46,6 +46,33 @@ WebView fixtures 位于 [`webview/fixtures/`](webview/fixtures/)。M1 policy sli
 
 Lifecycle request 只接受 Environment ID、expected generation 和必要的 logical bounds/visibility；endpoint、origin、URL、label、permission 与 capability 必须由 backend 固定或从 verified Managed binding 派生。M1 native implementation 由 ADR-0011 限定为 Windows；其他平台返回 `unsupported_platform` 并保持 unmounted。
 
+## Terminal
+
+- [Create Request](terminal/terminal-create-request.schema.json)
+- [Write Request](terminal/terminal-write-request.schema.json)
+- [Resize Request](terminal/terminal-resize-request.schema.json)
+- [Close Request](terminal/terminal-close-request.schema.json)
+- [PTY Report](terminal/terminal-report.schema.json)
+- [Output Event](terminal/terminal-output-event.schema.json)
+
+M3 只允许 human_surface 模式；agent_automation fail-closed（ADR-0015）。
+
+## Notification
+
+- [Request](notification/notification-request.schema.json)
+- [Report](notification/notification-report.schema.json)
+- [Audit Record](notification/notification-record.schema.json)
+
+内容策略 title_only/redacted_summary/explicit_body 由 schema 强制（ADR-0016）。
+
+## Usage
+
+- [Usage Record](usage/usage-record.schema.json)
+- [Snapshot Request](usage/usage-snapshot-request.schema.json)
+- [Snapshot](usage/usage-snapshot.schema.json)
+
+usage 本地优先、无网络外发（AC-USG-002）。
+
 ## Protocol
 
 - [Protocol Coordinate](protocol/protocol-coordinate.schema.json)

@@ -1,10 +1,10 @@
 schema_version: 1
 project: dsh-desktop-shell
 phase: shell-mvp
-current_milestone: M2
-status: in_progress
+current_milestone: M4
+status: ready
 implementation_authorized: true
 start_date: "2026-08-25"
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-28T17:10:00Z"
-next_action: "M2 四切片与收尾审查/加固完成（HANDOFF-M2-RELIABLE-RUNTIME + 4 份 REVIEW-M2-HARDENING-*，evidence 用 review）；等待 maintainer 评审 M1/M2 acceptance 与平台证据决策。"
+updated_at: "2026-08-29T10:05:00Z"
+next_action: "M1-M3 已由 maintainer 接受（REVIEW-M1/M2/M3-ACCEPTANCE，2026-08-29）并依次 squash 合并 main；下一里程碑 M4 Shared Browser（WI-M4-BROWSER proposed）待 contract-first 规划：IF-BROWSER 契约冻结（schema/fixtures/AC-BRW-*）+ provider PoC 选型 + PLAN-M4.md。"

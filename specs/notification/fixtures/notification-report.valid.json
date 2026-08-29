@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "notif-abc123",
+  "event": "runtime_changed",
+  "title": "DSH runtime changed",
+  "contentPolicy": "title_only",
+  "deliveredBody": null,
+  "createdAtUnixMs": 1787792400000,
+  "dedupeKey": null,
+  "deduplicated": false
+}

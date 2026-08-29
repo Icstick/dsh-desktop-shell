@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/notification/notification-request.schema.json",
+  "title": "NotificationRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "event",
+    "title",
+    "contentPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "event": {
+      "enum": [
+        "turn_completed",
+        "approval_required",
+        "question_required",
+        "runtime_changed",
+        "schedule_result"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "contentPolicy": {
+      "enum": [
+        "title_only",
+        "redacted_summary",
+        "explicit_body"
+      ]
+    },
+    "dedupeKey": {
+      "type": "string",
+      "maxLength": 128
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "contentPolicy": {
+            "enum": [
+              "title_only",
+              "redacted_summary"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

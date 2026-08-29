@@ -11,11 +11,15 @@ import type {
   EnvironmentCatalog,
   EnvironmentValidation,
   ManagedRuntimeReport,
+  NotificationReport,
   ShellSnapshot,
+  TerminalReport,
+  UsageSnapshot,
 } from "../../../src/contracts";
 import { desktopApi, type DesktopApi } from "../../../src/desktop-api";
 import { EnvironmentSetup } from "../../environment-settings/src/EnvironmentSetup";
 import { HarnessSurface } from "../../harness-surface/src/HarnessSurface";
+import { TerminalPanel } from "../../terminal-ui/src/TerminalPanel";
 import { ActivityRail, type SurfaceId } from "./ActivityRail";
 
 interface ShellAppProps {
@@ -40,6 +44,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [transitioningManaged, setTransitioningManaged] = useState(false);
   const [confirmingManagedStop, setConfirmingManagedStop] = useState(false);
+  const [terminalSession, setTerminalSession] = useState<TerminalReport | null>(null);
   const [surfaceBounds, setSurfaceBounds] = useState<DshSurfaceBounds | null>(null);
   const [nativeSurface, setNativeSurface] = useState<DshSurfaceStatus | null>(null);
   const [nativeSurfaceError, setNativeSurfaceError] = useState<string | null>(null);
@@ -613,6 +618,15 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
               onRetry={retryNativeSurface}
             />
           )}
+          {activeSurface === "terminal" && (
+            <TerminalPanel
+              api={api}
+              onSession={setTerminalSession}
+              session={terminalSession}
+            />
+          )}
+          {activeSurface === "notifications" && <NotificationsPanel api={api} />}
+          {activeSurface === "usage" && <UsagePanel api={api} />}
           {activeSurface === "runtime" && (
             <RuntimePanel
               attachedHealth={attachedHealth}
@@ -649,8 +663,11 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
 }
 
 function surfaceTitle(surface: SurfaceId) {
+  if (surface === "terminal") return "Persistent Terminal";
   if (surface === "runtime") return "Runtime";
   if (surface === "settings") return "Environment Settings";
+  if (surface === "notifications") return "Notifications";
+  if (surface === "usage") return "Usage";
   return "DSH Surface";
 }
 
@@ -958,6 +975,186 @@ function DiagnosticsSection({
         </>
       ) : (
         <p className="panel__note">Diagnostics are not available yet.</p>
+      )}
+    </section>
+  );
+}
+function NotificationsPanel({ api }: { api: DesktopApi }) {
+  const [notifications, setNotifications] = useState<NotificationReport[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setNotifications(await api.listNotifications());
+      setError(null);
+    } catch (cause: unknown) {
+      setError(commandErrorMessage(cause, "Notifications are unavailable."));
+    }
+  }, [api]);
+
+  useEffect(() => {
+    let current = true;
+    let unlisten: (() => void) | undefined;
+    // Live push channel (AC-NOT-002): the backend forwards every new
+    // notification over notification://event; the list is re-read from the
+    // local audit trail so deduplication and dismissal stay authoritative.
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen<NotificationReport>("notification://event", () => {
+          void refresh();
+        }),
+      )
+      .then((stop) => {
+        if (current) unlisten = stop;
+        else stop();
+      });
+    void refresh();
+    return () => {
+      current = false;
+      unlisten?.();
+    };
+  }, [api, refresh]);
+
+  const dismiss = async (notificationId: string) => {
+    try {
+      await api.dismissNotification({ schemaVersion: 1, notificationId });
+      setNotifications((current) =>
+        current
+          ? current.filter((notification) => notification.id !== notificationId)
+          : current,
+      );
+      setError(null);
+    } catch (cause: unknown) {
+      setError(commandErrorMessage(cause, "Notification dismiss failed."));
+    }
+  };
+
+  return (
+    <section className="panel" aria-labelledby="notifications-heading">
+      <div className="panel__heading panel__heading--split">
+        <div>
+          <p className="eyebrow">Local-first audit trail (ADR-0016)</p>
+          <h2 id="notifications-heading">Notifications</h2>
+        </div>
+        <button className="secondary-button" onClick={() => void refresh()} type="button">
+          Refresh
+        </button>
+      </div>
+      {error && <div className="callout callout--danger" role="alert">{error}</div>}
+      {notifications === null ? (
+        <p className="panel__note">Loading notifications…</p>
+      ) : notifications.length === 0 ? (
+        <p className="panel__note">No notifications yet.</p>
+      ) : (
+        <ul className="notifications-list">
+          {notifications.map((notification) => (
+            <li className="notification-item" key={notification.id}>
+              <div className="notification-item__body">
+                <div className="notification-item__title-row">
+                  <strong>{notification.title}</strong>
+                  <span className="policy-badge" data-policy={notification.contentPolicy}>
+                    {notification.contentPolicy}
+                  </span>
+                  {notification.deduplicated && (
+                    <span className="deduplicated-badge">deduplicated</span>
+                  )}
+                </div>
+                {notification.deliveredBody && (
+                  <p className="notification-item__body-text">{notification.deliveredBody}</p>
+                )}
+                <p className="notification-item__meta">
+                  {notification.event} · {new Date(notification.createdAtUnixMs).toLocaleString()}
+                </p>
+              </div>
+              <button
+                className="secondary-button notification-item__dismiss"
+                onClick={() => void dismiss(notification.id)}
+                type="button"
+              >
+                Dismiss
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="panel__note">
+        Content follows the notification policy (ADR-0016): only explicit_body notifications
+        carry a body, and every notification is recorded in the local AppData audit trail.
+      </p>
+    </section>
+  );
+}
+
+
+function UsagePanel({ api }: { api: DesktopApi }) {
+  const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setSnapshot(await api.getUsageSnapshot({ schemaVersion: 1 }));
+      setError(null);
+    } catch (cause: unknown) {
+      setError(commandErrorMessage(cause, "Usage snapshot is unavailable."));
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void refresh();
+  }, [api, refresh]);
+
+  return (
+    <section className="panel" aria-labelledby="usage-heading">
+      <div className="panel__heading panel__heading--split">
+        <div>
+          <p className="eyebrow">Local-first usage ledger (ADR-0016)</p>
+          <h2 id="usage-heading">Usage</h2>
+        </div>
+        <button className="secondary-button" onClick={() => void refresh()} type="button">
+          Refresh
+        </button>
+      </div>
+      {error && <div className="callout callout--danger" role="alert">{error}</div>}
+      {snapshot === null ? (
+        <p className="panel__note">Loading usage…</p>
+      ) : (
+        <>
+          <dl className="definition-grid definition-grid--health">
+            <div><dt>Input tokens</dt><dd>{snapshot.totals.inputTokens}</dd></div>
+            <div><dt>Output tokens</dt><dd>{snapshot.totals.outputTokens}</dd></div>
+            <div><dt>Estimates</dt><dd>{snapshot.totals.estimateCount}</dd></div>
+            {snapshot.totals.cost !== undefined && snapshot.totals.cost !== null && (
+              <div><dt>Cost</dt><dd>{snapshot.totals.cost} {snapshot.totals.currency ?? ""}</dd></div>
+            )}
+          </dl>
+          {snapshot.records.length === 0 ? (
+            <p className="panel__note">No usage records yet.</p>
+          ) : (
+            <ul className="usage-list">
+              {snapshot.records.map((record, index) => (
+                <li className="usage-item" key={`${record.recordedAtUnixMs}-${index}`}>
+                  <div className="usage-item__row">
+                    <strong>{record.source}</strong>
+                    {record.isEstimate && <span className="estimate-badge">estimate</span>}
+                  </div>
+                  <p className="usage-item__meta">
+                    {new Date(record.period.start).toLocaleString()} → {new Date(record.period.end).toLocaleString()}
+                  </p>
+                  <p className="usage-item__meta">
+                    {record.inputTokens} in · {record.outputTokens} out
+                    {record.cost !== undefined && record.cost !== null
+                      ? ` · ${record.cost} ${record.currency ?? ""}`
+                      : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="panel__note">
+            Usage records carry only source, period and token estimates — never terminal output or
+            notification content (AC-USG-001) — and stay on this device (AC-USG-002).
+          </p>
+        </>
       )}
     </section>
   );

@@ -1,14 +1,14 @@
 schema_version: 1
 id: WI-M2-RUNTIME
 title: "Deliver reliable runtime"
-status: in_progress
+status: done
 milestone: M2
 module: MOD-SUPERVISOR
 owner_role: milestone-owner
-claimed_by: codex-primary
-session: codex-m2-reliable-runtime-20260828T1550Z
-branch_or_worktree: codex/wi-m2-reliable-runtime
-claim_expires_at: "2026-08-29T15:50:13Z"
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
 dependencies:
   - WI-M1-SHELL
 acceptance_criteria:
@@ -25,6 +25,6 @@ evidence:
   - "commit fd39932: crates/local-transport + AC-IPC-001/002 (29 tests incl. doctest)"
   - "收尾审查与加固（SESSION-20260828-M2-HARDENING-REVIEW）：REVIEW-M2-HANDOFF-CONSISTENCY / REVIEW-M2-HARDENING-SECURITY / REVIEW-M2-HARDENING-REDUNDANCY / REVIEW-M2-HARDENING-DOCS；async + spawn_blocking 命令、restart force-unmount、hide 清理、死代码移除、注释补强、文档统一"
 blocked_by: []
-next_action: "M2 四切片完成（Rust 98 = 54+28+15+1 doctest、Vitest 25、ACL 18、specs 41/34）；收尾审查与加固（async 命令、force-unmount、死代码移除、注释、文档统一）完成，等待 maintainer 评审 HANDOFF-M2-RELIABLE-RUNTIME。"
+next_action: "已完成（2026-08-29 maintainer 接受，REVIEW-M2-ACCEPTANCE）：四切片 + 收尾加固 + 独立评审通过，M2 合并 main。IF-LEASE wire/shape 与 adapter 层按计划延至 M5。"
 handoff: HANDOFF-M2-RELIABLE-RUNTIME
-updated_at: "2026-08-28T18:40:00Z"
+updated_at: "2026-08-29T10:05:00Z"

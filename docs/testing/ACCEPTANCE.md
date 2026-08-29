@@ -29,6 +29,15 @@
 - AC-COMP-001：Adapter 不兼容时 baseline 仍可用。
 - AC-LOG-001：诊断 golden corpus 不泄漏 secret。
 
+## M3 Workbench acceptance additions
+
+- AC-NOT-001：Notification content policy 强制：title_only/redacted_summary 不得携带 body；explicit_body 才允许 body。
+- AC-NOT-002：dedupeKey 在 TTL 内折叠重复通知；审计记录可复查（id/event/title/policy/时间/source，无秘密）。
+- AC-USG-001：usage snapshot 可审计（来源/周期/token 估算/是否 estimate），且绝不包含终端或通知内容。
+- AC-USG-002：usage 记录本地优先，无网络外发。
+- AC-TERM-001：agent_automation 终端模式在 M5 adapter 授权链落地前 fail-closed 拒绝（human_surface 仅限）。
+- AC-TERM-002：PTY 会话 id 为 opaque（不泄露 pid/路径）；输出事件只发往 shell WebView。
+
 ## M1 native Surface evidence state
 
 - `AC-WEB-005`：automated implementation evidence passed。Rust binding tests、request Schema/negative fixture 与 frontend tests 证明 caller 不能提交 endpoint/origin/URL/label，只有 verified Managed generation 会触发 mount。

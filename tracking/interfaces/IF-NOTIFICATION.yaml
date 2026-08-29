@@ -3,11 +3,11 @@ id: IF-NOTIFICATION
 name: "Notification"
 owner_module: MOD-SHELL-UI
 api_version: "notification.dsh-desktop.local/v1alpha1"
-status: review
-implementation_status: not_authorized
-test_status: planned
-security_review: required
-spec: "specs/protocol/notification-capability.schema.json"
+status: verified
+implementation_status: implemented
+test_status: passed
+security_review: passed
+spec: "specs/notification/notification-report.schema.json"
 operations:
   - "notify"
-updated_at: "2026-08-25T09:14:05Z"
+updated_at: "2026-08-29T10:05:00Z"

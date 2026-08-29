@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "event": "runtime_changed",
+  "title": "DSH runtime changed",
+  "contentPolicy": "title_only"
+}

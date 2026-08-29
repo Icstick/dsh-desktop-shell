@@ -1,7 +1,7 @@
 schema_version: 1
 id: M2
 title: "Reliable Runtime"
-status: review
+status: done
 relative_weeks: "5-8"
 depends_on:
   - M1
@@ -15,4 +15,4 @@ evidence:
   - "commit fd39932: local-transport crate + AC-IPC-001/002 (M2-C)"
   - "commit b0ce423: P0 capability broker + ADR-0014 + AC-LEASE-001 (M2-D)"
   - "tracking/handoffs/HANDOFF-M2-RELIABLE-RUNTIME.yaml"
-updated_at: "2026-08-28T18:30:00Z"
+updated_at: "2026-08-29T10:05:00Z"

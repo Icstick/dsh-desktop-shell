@@ -1,0 +1,33 @@
+schema_version: 1
+id: HANDOFF-M3-WORKBENCH
+work_item: WI-M3-WORKBENCH
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "M3 contract freeze (commit 2e35593): ADR-0015 (Desktop-owned Persistent Terminal on Windows ConPTY; human_surface only, agent_automation fail-closed), ADR-0016 (Notification content policy + local-first Usage auditability); terminal/notification/usage schemas and fixtures (53 schemas / 55 fixtures); AC-NOT-001/002, AC-USG-001/002, AC-TERM-001/002 added to the acceptance catalog."
+  - "M3-B Persistent Terminal (commits f17d765, cb06671): crates/terminal-provider with a hand-rolled Windows ConPTY wrapper (CreatePseudoConsole + attribute-list spawn + bounded output queue + teardown that unblocks the reader first); Desktop-owned PTY registry independent of the Managed DSH process tree; terminal bridge commands (create/write/resize/close/status/list, 24-command ACL); output streamed to the Shell WebView via terminal://output Tauri events (AC-TERM-002); xterm.js (@xterm/xterm 6) terminal panel; AC-PTY-001 regression test proves the PTY keeps echoing across a Managed DSH stop/restart."
+  - "M3-A Notification (commit ddbff7e): NotificationService with content-policy enforcement (AC-NOT-001: body only under explicit_body, schema-rejected otherwise), dedupeKey 60s TTL folding (AC-NOT-002: folded notifications return deduplicated:true and never re-audit), append-only AppData audit JSONL (rolling cap 1000), list/dismiss, runtime_changed auto-emission exactly once per supervisor state transition; Notifications rail and panel."
+  - "M3-C Usage (commit ddbff7e): local-first UsageCollector (zero network code, AppData JSONL, rolling cap 4096), schema-semantics validation (source/period/tokens/currency/isEstimate, future timestamps rejected), snapshot with totals/estimateCount and since-filter; wiring from terminal sessions, notifications and runtime sessions with best-effort failure isolation; Usage rail and panel with estimate badges; AC-USG-001 privacy test proves persisted records never contain terminal/notification content."
+  - "Diagnostics redaction (AC-LOG-001) remains satisfied by the M2 diagnostics report; M3 planned a dedicated diagnostics UI/log-export which was deferred (see remaining)."
+remaining:
+  - "Dedicated MOD-RUNTIME-DIAGNOSTICS UI page and redacted log export remain deferred (current diagnostics display lives in the Runtime panel)."
+  - "agent_automation terminal mode stays fail-closed until the M5 adapter authorization chain exists (AC-TERM-001)."
+  - "macOS/Linux PTY (ConPTY is Windows-only) and target-host tests remain shelved."
+  - "Interactive GUI/WebView2 smoke remains shelved; terminal surface needs a live desktop QA pass before any support declaration."
+  - "Notification/usage adapters from DSH remain out of scope until M5 (ADR-0016 decision 5)."
+verification:
+  - "Rust 132 tests from the root workspace: desktop 83 (incl. 10 notification + 14 usage), local-transport 28, supervisor 15, terminal-provider 5, plus 1 doctest; cargo fmt --check and clippy --all-targets -- -D warnings clean."
+  - "Frontend: tsc -b clean, 29 Vitest tests, Vite production build clean (pre-existing chunk-size warning only)."
+  - "ACL: 28 commands, trusted Shell webview only (validate-acl.mjs)."
+  - "Specs: 53 schemas / 55 fixtures ALL PASS (scripts/validate-specs.mjs)."
+  - "AC-PTY-001 test: PTY survives Managed DSH stop/restart with live echo."
+  - "AC-NOT-001/002 tests: policy enforcement + TTL folding with audit non-repetition."
+  - "AC-USG-001/002 tests: no content leakage into usage records; no network code."
+risks:
+  - "ConPTY teardown is handle-order sensitive; covered by tests but a live desktop QA is still needed."
+  - "notification/usage audit files grow in AppData; rolling caps (1000/4096) bound them but a future compaction/export UI may be wanted."
+  - "xterm.js renderer is bundled (~500 kB chunk warning); acceptable for M3, can be code-split later."
+  - "Usage records carry isEstimate=true with zero tokens for desktop-originated sessions; real token estimation requires DSH adapters (M5)."
+next_action: "Maintainer reviews HANDOFF-M3-WORKBENCH and the per-slice evidence; decisions needed on diagnostics UI deferral, live terminal QA, and M4 planning."
+created_at: "2026-08-29T08:10:00Z"

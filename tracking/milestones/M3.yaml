@@ -1,7 +1,7 @@
 schema_version: 1
 id: M3
 title: "Workbench"
-status: proposed
+status: done
 relative_weeks: "9-13"
 depends_on:
   - M2
@@ -9,5 +9,9 @@ exit_criteria:
   - "Persistent Terminal 跨 DSH restart"
   - "Usage 与 Notification 可审计"
   - "Diagnostics redaction 通过"
-evidence: []
-updated_at: "2026-08-25T06:49:34Z"
+evidence:
+  - "commit 2e35593: M3 contract freeze (ADR-0015/0016, terminal/notification/usage schemas + fixtures, AC additions)"
+  - "commit f17d765/cb06671: persistent terminal (ConPTY provider, bridge, xterm UI, AC-PTY-001)"
+  - "commit ddbff7e: notification + usage slices (AC-NOT-001/002, AC-USG-001/002)"
+  - "tracking/handoffs/HANDOFF-M3-WORKBENCH.yaml"
+updated_at: "2026-08-29T10:05:00Z"

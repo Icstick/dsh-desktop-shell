@@ -3,7 +3,7 @@ id: MOD-SUPERVISOR
 name: "supervisor"
 path: "crates/supervisor"
 owner_role: runtime-owner
-status: in_progress
+status: verified
 milestone: M2
 interfaces:
   - IF-ENVIRONMENT
@@ -13,6 +13,6 @@ interfaces:
 depends_on:
   - MOD-PROCESS-MANAGER
   - MOD-LOCAL-TRANSPORT
-security_review: in_progress
-updated_at: "2026-08-28T16:30:00Z"
-next_action: "M2 完成：restart/recovery/Safe Stop（ADR-0013）、diagnostics（AC-LOG-001）、P0 broker（ADR-0014，AC-LEASE-001）均已实现并测试；等待 maintainer 评审后恢复 IF-RUNTIME-CONTROL/IF-LEASE verified。"
+security_review: passed
+updated_at: "2026-08-29T10:05:00Z"
+next_action: "M2 完成并验收（REVIEW-M2-ACCEPTANCE）：restart/recovery/Safe Stop（ADR-0013）、diagnostics（AC-LOG-001）、P0 broker（ADR-0014，AC-LEASE-001）；M2 已合并 main。IF-RUNTIME-CONTROL 恢复 verified、IF-LEASE 保持 partial（wire/shape 层 M5）。"

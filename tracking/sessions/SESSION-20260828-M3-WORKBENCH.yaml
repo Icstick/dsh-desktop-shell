@@ -1,0 +1,13 @@
+schema_version: 1
+id: SESSION-20260828-M3-WORKBENCH
+status: completed
+agent_or_human: codex-primary
+work_items:
+  - WI-M3-WORKBENCH
+branch_or_worktree: codex/wi-m3-workbench
+started_at: "2026-08-28T19:00:00Z"
+summary: "M3 Workbench 执行：按 docs/roadmap/PLAN-M3.md 分片推进 Notification（IF-NOTIFICATION）、Persistent Terminal（IF-TERMINAL，Windows ConPTY + Desktop-owned PTY + xterm UI，AC-PTY-001）、Usage（IF-USAGE）。搁置 macOS/Linux 与交互式 GUI 测试。"
+artifacts:
+  - "docs/roadmap/PLAN-M3.md"
+  - "tracking/work-items/WI-M3-WORKBENCH.yaml"
+next_action: "M3 完成：三切片 + HANDOFF-M3-WORKBENCH；等待 maintainer 评审。"

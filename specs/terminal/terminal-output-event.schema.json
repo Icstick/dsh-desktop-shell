@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/terminal/terminal-output-event.schema.json",
+  "title": "TerminalOutputEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "seq",
+    "data",
+    "timestampUnixMs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^pty-[a-z0-9-]+$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "data": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    },
+    "timestampUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

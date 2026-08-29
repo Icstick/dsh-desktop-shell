@@ -388,3 +388,142 @@ export interface DshSurfaceStatus {
     message: string;
   } | null;
 }
+
+// ------------------------- Terminal (M3-B, ADR-0015) -------------------------
+
+export type TerminalMode = "human_surface";
+
+export interface TerminalCreateRequest {
+  schemaVersion: 1;
+  mode: TerminalMode;
+  cols: number;
+  rows: number;
+  shell?: "default" | "cmd" | "powershell";
+  cwd?: string;
+}
+
+export interface TerminalSessionRequest {
+  schemaVersion: 1;
+  sessionId: string;
+}
+
+export interface TerminalWriteRequest {
+  schemaVersion: 1;
+  sessionId: string;
+  data: string;
+}
+
+export interface TerminalResizeRequest {
+  schemaVersion: 1;
+  sessionId: string;
+  cols: number;
+  rows: number;
+}
+
+export interface TerminalReport {
+  schemaVersion: 1;
+  sessionId: string;
+  state: "created" | "running" | "closed" | "error";
+  mode: TerminalMode;
+  cols: number;
+  rows: number;
+  createdAtUnixMs: number;
+  lastActivityUnixMs: number | null;
+  error: string | null;
+}
+
+export interface TerminalOutputEvent {
+  schemaVersion: 1;
+  sessionId: string;
+  seq: number;
+  data: string;
+  timestampUnixMs: number;
+}
+
+// ------------------------- Notification (M3-A, ADR-0016) -------------------------
+
+export type NotificationEvent =
+  | "turn_completed"
+  | "approval_required"
+  | "question_required"
+  | "runtime_changed"
+  | "schedule_result";
+
+export type ContentPolicy = "title_only" | "redacted_summary" | "explicit_body";
+
+export interface NotificationRequest {
+  schemaVersion: 1;
+  event: NotificationEvent;
+  title: string;
+  body?: string;
+  contentPolicy: ContentPolicy;
+  dedupeKey?: string;
+}
+
+export interface NotificationReport {
+  schemaVersion: 1;
+  id: string;
+  event: NotificationEvent;
+  title: string;
+  contentPolicy: ContentPolicy;
+  deliveredBody: string | null;
+  createdAtUnixMs: number;
+  dedupeKey: string | null;
+  deduplicated: boolean;
+}
+
+export interface NotificationDismissRequest {
+  schemaVersion: 1;
+  notificationId: string;
+}
+
+export interface NotificationRecord {
+  schemaVersion: 1;
+  id: string;
+  event: NotificationEvent;
+  title: string;
+  contentPolicy: ContentPolicy;
+  body: string | null;
+  createdAtUnixMs: number;
+  dedupeKey: string | null;
+  source: string;
+}
+// ------------------------- Usage (M3-C, ADR-0016) -------------------------
+
+export interface UsagePeriod {
+  start: string;
+  end: string;
+}
+
+export interface UsageRecord {
+  schemaVersion: 1;
+  source: string;
+  period: UsagePeriod;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cost?: number;
+  currency?: string;
+  isEstimate: boolean;
+  recordedAtUnixMs: number;
+}
+
+export interface UsageTotals {
+  inputTokens: number;
+  outputTokens: number;
+  cost?: number;
+  currency?: string | null;
+  estimateCount: number;
+}
+
+export interface UsageSnapshot {
+  schemaVersion: 1;
+  generatedAtUnixMs: number;
+  records: UsageRecord[];
+  totals: UsageTotals;
+}
+
+export interface UsageSnapshotRequest {
+  schemaVersion: 1;
+  sinceUnixMs?: number;
+}

@@ -6,6 +6,8 @@
 
 ### Added
 
+- 完成 M3 Workbench：ADR-0015 Desktop-owned Persistent Terminal（crates/terminal-provider 手写 Windows ConPTY 包装、Desktop-owned PTY registry 独立于 Managed DSH 进程树、human_surface only，AC-PTY-001 证明 PTY 跨 Managed DSH stop/restart 存活；xterm.js 6 终端面板 + terminal://output 事件仅 shell webview）、ADR-0016 Notification 内容策略（AC-NOT-001/002：content policy 三档、60s TTL 折叠去重不重复审计、AppData 审计 JSONL 滚动上限 1000）与本地优先 Usage（AC-USG-001/002：零内容泄漏、零网络外发、AppData JSONL 滚动上限 4096）；新增 terminal/notification/usage schema 与 fixtures（53 schemas / 55 fixtures）；AC-TERM-001/002 加入验收目录；根 workspace 扩为四成员。
+- M1-M3 里程碑经 maintainer 接受（REVIEW-M1/M2/M3-ACCEPTANCE，2026-08-29）后依次 squash 合并至 main；M3 独立评审 REVIEW-M3-WORKBENCH 内容层全过。
 - 完成 M2 Reliable Runtime：ADR-0013 Supervisor restart/bounded recovery/Safe Stop（restart 操作、crash-loop fuse、credential-free recovery 报告）、ADR-0014 P0 Capability Broker（grant/lease/scope/generation dispatch 门禁、AC-LEASE-001 撤销矩阵）、AC-LOG-001 diagnostics report（whitelist redaction、golden corpus 测试）、AC-IPC-001/002 authenticated loopback local transport（一次性 credential、64 KiB framing 上限、deadline/concurrency 限制）。
 - 引入 crates/local-transport 与 crates/supervisor 两个 Rust crate 并纳入根 workspace；scripts/validate-specs.mjs 作为 specs/fixtures 机器门禁。
 - M2 收尾审查与加固：同步命令改 async + spawn_blocking（不再阻塞主线程）；restart 后 force-unmount stale Surface WebView；hide 失败清理子 WebView；移除死代码；补充安全不变量注释；allowNativeAdapter 标为保留（未强制执行的授权不再暴露为可用选项）。

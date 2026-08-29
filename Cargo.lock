@@ -674,6 +674,7 @@ dependencies = [
 name = "dsh-desktop-shell"
 version = "0.1.0"
 dependencies = [
+ "dsh-terminal-provider",
  "libc",
  "serde",
  "serde_json",
@@ -699,6 +700,13 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "dsh-terminal-provider"
+version = "0.1.0"
+dependencies = [
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

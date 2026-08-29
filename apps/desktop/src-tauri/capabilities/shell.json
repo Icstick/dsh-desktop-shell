@@ -4,6 +4,9 @@
   "description": "Minimal application commands available only to the bundled trusted Shell webview.",
   "webviews": ["shell"],
   "permissions": [
+    "allow-close-terminal",
+    "allow-create-terminal",
+    "allow-dismiss-notification",
     "allow-discover-harnesses",
     "allow-evaluate-dsh-surface-navigation",
     "allow-get-dsh-surface-status",
@@ -12,15 +15,23 @@
     "allow-get-diagnostics",
     "allow-get-managed-runtime-status",
     "allow-get-shell-snapshot",
+    "allow-get-usage-snapshot",
     "allow-mount-dsh-surface",
     "allow-probe-attached-environment",
     "allow-reload-dsh-surface",
     "allow-save-environment",
+    "allow-list-terminals",
+    "allow-list-notifications",
+    "allow-notify-application",
+    "allow-resize-terminal",
     "allow-start-managed-environment",
+    "allow-status-terminal",
+    "allow-write-terminal",
     "allow-restart-managed-environment",
     "allow-stop-managed-environment",
     "allow-unmount-dsh-surface",
     "allow-update-dsh-surface-layout",
-    "allow-validate-environment"
+    "allow-validate-environment",
+    "core:event:default"
   ]
 }

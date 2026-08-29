@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/terminal/terminal-resize-request.schema.json",
+  "title": "TerminalResizeRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "cols",
+    "rows"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^pty-[a-z0-9-]+$"
+    },
+    "cols": {
+      "type": "integer",
+      "minimum": 20,
+      "maximum": 500
+    },
+    "rows": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 300
+    }
+  }
+}

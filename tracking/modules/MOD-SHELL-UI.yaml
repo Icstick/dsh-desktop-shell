@@ -3,7 +3,7 @@ id: MOD-SHELL-UI
 name: "shell-ui"
 path: "apps/desktop/features/shell-ui"
 owner_role: ui-owner
-status: in_progress
+status: verified
 milestone: M1
 interfaces:
   - IF-RUNTIME-STATUS
@@ -14,5 +14,5 @@ interfaces:
 depends_on:
   - MOD-ENVIRONMENT-SETTINGS
 security_review: in_progress
-updated_at: "2026-08-28T07:12:44Z"
-next_action: "等待 native Surface handoff review；保持 minimal lifecycle request、generation failure latch、rail hide/unmount 与 minimum-bounds gate，真实 WebView2 smoke 前不提升支持状态。"
+updated_at: "2026-08-29T10:05:00Z"
+next_action: "M3-A 完成：Notification service（AC-NOT-001/002，10 tests）与通知面板；继续维护 native Surface 门禁。"

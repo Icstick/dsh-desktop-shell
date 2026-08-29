@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/terminal/terminal-create-request.schema.json",
+  "title": "TerminalCreateRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "mode",
+    "cols",
+    "rows"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "mode": {
+      "const": "human_surface"
+    },
+    "cols": {
+      "type": "integer",
+      "minimum": 20,
+      "maximum": 500
+    },
+    "rows": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 300
+    },
+    "shell": {
+      "enum": [
+        "default",
+        "cmd",
+        "powershell"
+      ]
+    },
+    "cwd": {
+      "type": "string",
+      "maxLength": 1024
+    }
+  }
+}

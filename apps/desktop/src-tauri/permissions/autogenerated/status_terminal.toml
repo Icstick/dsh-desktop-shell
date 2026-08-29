@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-status-terminal"
+description = "Enables the status_terminal command without any pre-configured scope."
+commands.allow = ["status_terminal"]
+
+[[permission]]
+identifier = "deny-status-terminal"
+description = "Denies the status_terminal command without any pre-configured scope."
+commands.deny = ["status_terminal"]

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "event": "turn_completed",
+  "title": "Turn done",
+  "body": "secret details",
+  "contentPolicy": "title_only"
+}

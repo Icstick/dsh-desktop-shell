@@ -279,7 +279,7 @@ struct Supervisor {
 }
 
 #[derive(Debug, Clone)]
-struct LaunchSpec {
+pub(crate) struct LaunchSpec {
     executable: OsString,
     args: Vec<OsString>,
     cwd: Option<PathBuf>,
@@ -1326,13 +1326,45 @@ fn wait_for_exit(child: &mut Child, timeout: Duration) -> io::Result<()> {
 }
 
 #[cfg(test)]
+pub(crate) fn test_fake_spec(mode: &str) -> LaunchSpec {
+    tests::fake_spec(mode)
+}
+
+#[cfg(test)]
+pub(crate) fn test_managed_environment() -> DshEnvironment {
+    tests::environment("managed", "executable", serde_json::json!("auto"))
+}
+
+#[cfg(test)]
+pub(crate) fn test_start_with_spec(
+    state: &ManagedRuntimeState,
+    spec: LaunchSpec,
+    timeout: Duration,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    start_with_spec(state, "managed-local", spec, timeout)
+}
+
+#[cfg(test)]
+pub(crate) fn test_stop_managed(
+    state: &ManagedRuntimeState,
+    environment: &DshEnvironment,
+    expected_generation: u64,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    stop_managed_environment(state, environment, expected_generation)
+}
+
+#[cfg(test)]
 mod tests {
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
 
     use super::*;
 
-    fn environment(ownership: &str, mode: &str, port: serde_json::Value) -> DshEnvironment {
+    pub(crate) fn environment(
+        ownership: &str,
+        mode: &str,
+        port: serde_json::Value,
+    ) -> DshEnvironment {
         serde_json::from_value(serde_json::json!({
             "schemaVersion": 1,
             "id": "managed-local",
@@ -1643,7 +1675,7 @@ mod tests {
         assert!(report.endpoint.is_none());
     }
 
-    fn fake_spec(mode: &str) -> LaunchSpec {
+    pub(crate) fn fake_spec(mode: &str) -> LaunchSpec {
         LaunchSpec {
             executable: std::env::current_exe()
                 .expect("test executable")

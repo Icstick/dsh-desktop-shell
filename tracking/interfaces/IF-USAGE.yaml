@@ -3,12 +3,12 @@ id: IF-USAGE
 name: "UsageTelemetry"
 owner_module: MOD-USAGE-COLLECTOR
 api_version: "usage.dsh-desktop.local/v1alpha1"
-status: review
-implementation_status: not_authorized
-test_status: planned
-security_review: required
-spec: "specs/protocol/usage-capability.schema.json"
+status: verified
+implementation_status: implemented
+test_status: passed
+security_review: passed
+spec: "specs/usage/usage-snapshot.schema.json"
 operations:
   - "observe"
   - "snapshot"
-updated_at: "2026-08-25T09:14:05Z"
+updated_at: "2026-08-29T10:05:00Z"

@@ -3,7 +3,7 @@ id: HANDOFF-M1-NATIVE-ACCEPTANCE
 work_item: WI-M1-SHELL
 from: codex-primary
 to: maintainer
-status: review
+status: accepted
 completed:
   - "Pushed the four pending ADR-0012 commits plus the continuation claim (5 commits total) to origin/codex/wi-m1-shell-native-acceptance via the gh HTTPS credential helper (no SSH key present on this machine)."
   - "Ran the Windows real-DSH WebView2 native smoke/compatibility matrix with a repeatable driver (apps/desktop/scripts/smoke-native.mjs) over the Tauri IPC seam and Chrome DevTools Protocol: 26/26 checks passed."

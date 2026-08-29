@@ -1,0 +1,31 @@
+schema_version: 1
+id: REVIEW-M3-ACCEPTANCE
+scope: "Maintainer 对 M3 Workbench 整体接受（HANDOFF-M3-WORKBENCH 关闭 WI-M3-WORKBENCH/M3）。授权依据：2026-08-29 会话指示'把中断的内容都处理一下'与 milestone 合并策略。"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-29 会话明确授权处理 M1-M3 收尾（含 acceptance 落定与 milestone 合并链执行）。"
+  - id: independent-review
+    status: passed
+    evidence: "REVIEW-M3-WORKBENCH（独立评审 codex-reviewer-independent-3）内容层全部 passed：commit 链线性且六 commit 均为 HEAD 祖先；contract freeze（ADR-0015/0016 accepted、53/55 specs ALL PASS）；terminal-provider 手写 ConPTY 实现逐项核验（bounded 队列、teardown handle-order、opaque id、agent_automation fail-closed）；notification 10 tests / usage 14 tests 语义全部真实驱动；remaining/risks 如实；handoff schema 合规。gate-counts failed 系环境限制（本机无 Rust 工具链、前端依赖链接不完整），声称数字经静态精确核验一致（131+1 doctest、29 vitest、28 ACL、53/55 specs）；tracking-consistency failed 项已在本收尾全部修复。"
+  - id: deferred-decisions
+    status: passed
+    evidence: "Maintainer 决策：(1) diagnostics 独立 UI/log-export 延迟接受（M2 的 RuntimePanel 只读诊断块已满足 AC-LOG-001，专项 UI 记入 remaining）；(2) live terminal QA 排期：与交互式 GUI/WebView2 smoke 一并列入 M4 前 desktop QA session（覆盖面板挂载/事件流/输入回路/真实 DSH restart 场景）；(3) M4 Shared Browser 规划启动（contract-first：IF-BROWSER 冻结 + provider PoC 选型）。"
+  - id: scope-close
+    status: passed
+    evidence: "接受后关闭 WI-M3-WORKBENCH 与 M3（status: done），释放 advisory claim；agent_automation 终端模式保持 fail-closed 至 M5（AC-TERM-001）；DSH notification/usage adapter 保持 M5 范围外（ADR-0016 决策 5）；ConPTY teardown handle-order 风险、reader 队列满静默退出（无测试覆盖）列入 live QA 检查项。"
+findings:
+  - "TerminalPanel 在 HEAD 上零前端自动化用例（cb06671 添加的用例被 ddbff7e 移除且无替代）——已记录为 remaining，由 live desktop QA 覆盖；不在本收尾 session 补写（AGENTS.md：新增前端代码须属于已认领实现工作项）。"
+  - "HANDOFF-M3-WORKBENCH created_at 与 M3.yaml updated_at 时间戳错误（早于全部 M3 commit）已在本收尾修正。"
+evidence:
+  - "tracking/handoffs/HANDOFF-M3-WORKBENCH.yaml"
+  - "tracking/reviews/REVIEW-M3-WORKBENCH.yaml"
+  - "tracking/reviews/REVIEW-M2-HANDOFF-CONSISTENCY.yaml（M3 前基线复核）"
+  - "commit 2e35593 / f17d765 / cb06671 / 49b9611 / ddbff7e / 7286294（M3 链）"
+  - "docs/decisions/ADR-0015 / ADR-0016、docs/roadmap/PLAN-M3.md、specs/{terminal,notification,usage}/*、crates/terminal-provider"
+next_action: "M3 关闭；合并 codex/wi-m3-workbench 至 main（squash）；启动 M4 Shared Browser 规划（IF-BROWSER contract-freeze + provider PoC 选型）。"
+created_at: "2026-08-29T10:05:00Z"
+updated_at: "2026-08-29T10:05:00Z"

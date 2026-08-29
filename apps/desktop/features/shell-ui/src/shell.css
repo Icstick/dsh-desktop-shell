@@ -922,6 +922,141 @@ textarea:focus-visible {
   border: 0;
 }
 
+.notifications-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 16px;
+  border: 1px solid #2c3748;
+  border-radius: 12px;
+  background: #0e151f;
+}
+
+.notification-item__body {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.notification-item__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-item__title-row strong {
+  color: #e6edf7;
+  font-size: 14px;
+}
+
+.notification-item__body-text {
+  margin: 0;
+  color: #9aa8ba;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.notification-item__meta {
+  margin: 0;
+  color: #68788f;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.policy-badge,
+.deduplicated-badge {
+  padding: 3px 7px;
+  border: 1px solid #3f5169;
+  border-radius: 999px;
+  color: #9fb6d3;
+  background: #111925;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.policy-badge[data-policy="explicit_body"] {
+  border-color: #2e684f;
+  color: #8ed4b1;
+}
+
+.policy-badge[data-policy="redacted_summary"] {
+  border-color: #665428;
+  color: #ead59a;
+}
+
+.deduplicated-badge {
+  border-color: #4a4f6b;
+  color: #aab3d4;
+}
+
+.notification-item__dismiss {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.usage-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.usage-item {
+  display: grid;
+  gap: 6px;
+  padding: 15px 16px;
+  border: 1px solid #2c3748;
+  border-radius: 12px;
+  background: #0e151f;
+}
+
+.usage-item__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-item__row strong {
+  color: #e6edf7;
+  font-size: 14px;
+}
+
+.usage-item__meta {
+  margin: 0;
+  color: #68788f;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.estimate-badge {
+  padding: 3px 7px;
+  border: 1px solid #665428;
+  border-radius: 999px;
+  color: #ead59a;
+  background: #111925;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -982,7 +1117,8 @@ textarea:focus-visible {
 
   .attached-health__heading,
   .managed-runtime__heading,
-  .stop-confirmation {
+  .stop-confirmation,
+  .notification-item {
     align-items: stretch;
     flex-direction: column;
   }

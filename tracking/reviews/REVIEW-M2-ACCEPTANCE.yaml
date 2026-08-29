@@ -1,0 +1,30 @@
+schema_version: 1
+id: REVIEW-M2-ACCEPTANCE
+scope: "Maintainer 对 M2 Reliable Runtime 整体接受（HANDOFF-M2-RELIABLE-RUNTIME 关闭 WI-M2-RUNTIME/M2）。授权依据：2026-08-29 会话指示'把中断的内容都处理一下'与 milestone 合并策略。"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-29 会话明确授权处理 M1-M3 收尾（含 acceptance 落定与 milestone 合并链执行）。"
+  - id: handoff-evidence
+    status: passed
+    evidence: "REVIEW-M2-HANDOFF-CONSISTENCY 四切片证据全部 passed：M2-A restart/recovery/Safe Stop（ADR-0013、crash-loop fuse、9 chaos tests）、M2-B diagnostics（AC-LOG-001 golden corpus 端到端 redaction）、M2-C local-transport（AC-IPC-001/002，一次性 credential、64KiB framing、deadline/concurrency）、M2-D P0 Capability Broker（ADR-0014，AC-LEASE-001 撤销矩阵、固定顺序 dispatch 门禁）；gate-counts 独立复验 98 Rust（54+28+15+1 doctest）/25 vitest/18 ACL/41-34 specs 全部一致。"
+  - id: review-findings-fixed
+    status: passed
+    evidence: "REVIEW-M2-HANDOFF-CONSISTENCY 的 failed 项修复核对：WI-M2-RUNTIME.yaml 的 handoff/next_action/evidence/updated_at 已同步（0b08e55）；MOD-SUPERVISOR/MOD-LOCAL-TRANSPORT next_action 已同步；handoff.schema.json status 枚举已增补 review；CURRENT.md 尾部下一动作在本收尾重写时一并修复；local-transport Cargo.toml 陈旧 standalone 注释在本收尾清理。原 failed 状态保留于该 review 记录（历史事实），修复证据见本 acceptance。"
+  - id: scope-close
+    status: passed
+    evidence: "接受后关闭 WI-M2-RUNTIME 与 M2（status: done），释放 advisory claim；IF-LEASE 保持 implementation_status: partial（broker enforcement only，wire/shape 层 M5）、IF-NEGOTIATION/IF-INVOCATION 保持 not_authorized 至 M5、capability-contracts wire/shape 延后均如实记录。"
+findings:
+  - "local-transport 仅 loopback TCP 载体（Named Pipe/UDS 为 ADR-0007 扩展点）与 stopDisposition=forced 两项风险维持为 known risk，与 handoff 记录一致。"
+evidence:
+  - "tracking/handoffs/HANDOFF-M2-RELIABLE-RUNTIME.yaml"
+  - "tracking/reviews/REVIEW-M2-HANDOFF-CONSISTENCY.yaml"
+  - "tracking/reviews/REVIEW-M2-HARDENING-SECURITY.yaml / REVIEW-M2-HARDENING-REDUNDANCY.yaml / REVIEW-M2-HARDENING-DOCS.yaml"
+  - "commit 525eaeb / ec59d94 / 655034d / fd39932 / b0ce423 / 0b08e55（M2 链）"
+  - "docs/decisions/ADR-0013 / ADR-0014、specs/runtime/*、crates/local-transport、crates/supervisor"
+next_action: "M2 关闭；合并 codex/wi-m2-reliable-runtime 至 main（squash）。"
+created_at: "2026-08-29T10:05:00Z"
+updated_at: "2026-08-29T10:05:00Z"

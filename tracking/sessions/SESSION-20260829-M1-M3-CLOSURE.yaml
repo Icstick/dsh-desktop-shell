@@ -1,0 +1,20 @@
+schema_version: 1
+id: SESSION-20260829-M1-M3-CLOSURE
+status: closed
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M1-SHELL
+  - WI-M2-RUNTIME
+  - WI-M3-WORKBENCH
+branch_or_worktree: codex/wi-m3-workbench
+started_at: "2026-08-29T08:30:00Z"
+ended_at: "2026-08-29T10:05:00Z"
+summary: "M1-M3 收尾：M3 独立评审（REVIEW-M3-WORKBENCH，内容层全过、环境受限门禁静态核验、tracking 矛盾已修复）；maintainer 经 2026-08-29 会话授权接受 M1/M2/M3（REVIEW-M1/M2/M3-ACCEPTANCE）；tracking 全量同步（WI/MOD/IF/milestone/handoff/project/CURRENT/CHANGELOG/时间戳修正）；合并链执行：codex/wi-m1-shell-native-acceptance → main、codex/wi-m2-reliable-runtime → main、codex/wi-m3-workbench → main（squash，含本收尾 commit）并推送。"
+artifacts:
+  - "tracking/reviews/REVIEW-M3-WORKBENCH.yaml"
+  - "tracking/reviews/REVIEW-M1-ACCEPTANCE.yaml"
+  - "tracking/reviews/REVIEW-M2-ACCEPTANCE.yaml"
+  - "tracking/reviews/REVIEW-M3-ACCEPTANCE.yaml"
+  - "tracking/CURRENT.md"
+  - "tracking/project.yaml"
+next_action: "M4 Shared Browser：contract-first（IF-BROWSER 冻结 + provider PoC 选型）后认领 WI-M4-BROWSER。"

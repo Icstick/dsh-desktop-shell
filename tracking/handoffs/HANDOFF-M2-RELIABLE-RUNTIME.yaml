@@ -3,7 +3,7 @@ id: HANDOFF-M2-RELIABLE-RUNTIME
 work_item: WI-M2-RUNTIME
 from: codex-primary
 to: maintainer
-status: review
+status: accepted
 completed:
   - "M2-A Supervisor restart/recovery/Safe Stop (ADR-0013, commit 525eaeb/ec59d94): restart operation stops the exact current generation and starts a new one from the retained structured recipe, bumping generation and restoring the Surface binding (AC-RUN-001); crash detection with bounded auto-restart (budget 3 crashes per 60 s window, backoff 500 ms) and crash-loop fuse into safe_stop (AC-REC-001); recovery history is public and credential-free; chaos tests cover crash-loop fuse, crash-after-ready auto-restart with binding handover, stale/foreign restart rejection, concurrent start idempotency and conflict, explicit-restart budget reset, and safe-stop no-restart."
   - "M2-B Diagnostics (AC-LOG-001): specs/runtime/diagnostics-report.schema.json + 2 fixtures; apps/desktop/src-tauri/src/diagnostics.rs with a whitelist redaction boundary (endpoint host+port only, fail-closed on non-loopback; recovery trimmed; evidence capped); get_diagnostics command (ACL 18 commands); RuntimePanel read-only diagnostics section; end-to-end golden-corpus test drives a real Supervisor to healthy with a 43-char token inside the private bootstrap URL and proves no secret, query, cookie or full URL survives serialization."

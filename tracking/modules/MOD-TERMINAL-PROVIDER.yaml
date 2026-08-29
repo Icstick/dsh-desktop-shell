@@ -3,11 +3,11 @@ id: MOD-TERMINAL-PROVIDER
 name: "terminal-provider"
 path: "crates/terminal-provider"
 owner_role: runtime-and-security-owner
-status: proposed
+status: verified
 milestone: M3
 interfaces:
   - IF-TERMINAL
 depends_on: []
-security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+security_review: passed
+updated_at: "2026-08-29T10:05:00Z"
+next_action: "M3-B 完成：crates/terminal-provider（Windows ConPTY，5 tests）+ 桌面桥接（AC-PTY-001 测试：PTY 跨 DSH restart 存活）；agent_automation 模式 fail-closed（M5）。"

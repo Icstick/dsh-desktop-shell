@@ -3,12 +3,12 @@ id: MOD-LOCAL-TRANSPORT
 name: "local-transport"
 path: "crates/local-transport"
 owner_role: runtime-and-security-owner
-status: in_progress
+status: verified
 milestone: M2
 interfaces:
   - IF-NEGOTIATION
   - IF-INVOCATION
 depends_on: []
-security_review: required
-updated_at: "2026-08-28T16:45:00Z"
+security_review: passed
+updated_at: "2026-08-29T10:05:00Z"
 next_action: "M2-C 完成：crates/local-transport 提供 loopback TCP 认证载体与 framing/limits（AC-IPC-001/002，29 tests）；Named Pipe/UDS 为 trait 扩展点，留待 daemon 阶段（ADR-0007/0008）。"

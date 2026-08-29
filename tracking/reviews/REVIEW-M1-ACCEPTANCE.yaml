@@ -1,0 +1,34 @@
+schema_version: 1
+id: REVIEW-M1-ACCEPTANCE
+scope: "Maintainer 对 M1 Shell MVP 整体接受（HANDOFF-M1-NATIVE-ACCEPTANCE 关闭 WI-M1-SHELL/M1）。授权依据：2026-08-29 会话中 maintainer 指示'把中断的内容都处理一下'并明确合并策略'每个 milestone 落定了就可以往 main 合并一次'。"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-29 会话明确授权处理 M1-M3 收尾（含 acceptance 落定与 milestone 合并链执行）。"
+  - id: handoff-evidence
+    status: passed
+    evidence: "REVIEW-M1-NATIVE-ACCEPTANCE 9/9 passed：Windows real-DSH WebView2 native smoke/compatibility 26/26（evidence JSON 完整、driver 断言真实驱动）、Rust 35/fmt/clippy 复验、frontend tsc/vite 24 modules/vitest 22、ACL 16、unsupported_platform helper 重构语义等价、secret redaction 核对通过。"
+  - id: cross-milestone-review
+    status: passed
+    evidence: "REVIEW-M2-HANDOFF-CONSISTENCY 的 m1-handoff-evidence check passed：M1 handoff 逐条成立、smoke 时间线自洽、ADR-0012 提交链为 HEAD 祖先且 gh api 复核远端 tip 一致。"
+  - id: platform-decision
+    status: passed
+    evidence: "接受 Windows 实测证据 + macOS/Linux 结构性证据（compile-time gating + unsupported_platform helper 单测）现状；macOS/Linux target-host 实测证据不阻塞 M1 关闭，排期由后续 target-host 阶段处理并在 remaining 如实记录；本次接受不构成非 Windows 平台支持声明。"
+  - id: scope-close
+    status: passed
+    evidence: "接受后关闭 WI-M1-SHELL 与 M1（status: done），释放 advisory claim；已知风险保留：DSH graceful-stop stopDisposition=forced 待 DSH CLI 侧确认、CDP 仅为 acceptance 工具依赖、Tauri/Wry/WebView2 API 漂移由 RISK-WEBVIEW-PERMISSION-HOOK 跟踪。"
+findings:
+  - "REVIEW-M1-NATIVE-ACCEPTANCE 的 LOW 建议（smoke token 卫生断言加强、download 断言可观测指标、DSH page loaded 断言加强、tracking 时间戳卫生、CURRENT.md 下一动作同步、WI-M1-SHELL 补列 468dd2d）中，CURRENT.md 与 WI evidence 已在本收尾落实；smoke driver 断言加强列入 M4 前 QA 可选项。"
+evidence:
+  - "tracking/handoffs/HANDOFF-M1-NATIVE-ACCEPTANCE.yaml"
+  - "tracking/reviews/REVIEW-M1-NATIVE-ACCEPTANCE.yaml"
+  - "tracking/reviews/REVIEW-M2-HANDOFF-CONSISTENCY.yaml"
+  - "docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md + evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json（26/26）"
+  - "apps/desktop/scripts/smoke-native.mjs"
+  - "commit 468dd2d / 378f215 / 121dc30 / 8af0c24（M1 收尾链）"
+next_action: "M1 关闭；合并 codex/wi-m1-shell-native-acceptance 至 main（squash）。macOS/Linux target-host 证据与 DSH graceful-stop 确认列入后续阶段（不阻塞 M4）。"
+created_at: "2026-08-29T10:05:00Z"
+updated_at: "2026-08-29T10:05:00Z"

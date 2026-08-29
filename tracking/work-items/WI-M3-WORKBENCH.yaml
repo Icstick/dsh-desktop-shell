@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M3-WORKBENCH
 title: "Deliver workbench"
-status: proposed
+status: done
 milestone: M3
 module: MOD-TERMINAL-PROVIDER
 owner_role: milestone-owner
@@ -15,8 +15,12 @@ acceptance_criteria:
   - "PTY/Usage/Notification acceptance pass"
 security_impact: "High PTY/privacy"
 compatibility_impact: "Adapter data contracts"
-evidence: []
+evidence:
+  - "commit 2e35593: M3 contract freeze (ADR-0015/0016, terminal/notification/usage schemas + fixtures, AC-NOT-*/AC-USG-*/AC-TERM-*)"
+  - "commit f17d765: crates/terminal-provider — Desktop-owned Windows ConPTY (create/write/resize/close, output events, cleanup)"
+  - "commit cb06671: terminal surface integration — bridge commands (24 ACL), Tauri output events, xterm.js UI, AC-PTY-001 test"
+  - "commit ddbff7e: notification slice (AC-NOT-001/002, 10 tests) + usage slice (AC-USG-001/002, 14 tests); 28-command ACL, 29 vitest"
 blocked_by: []
-next_action: "Complete Terminal Surface/Automation separation."
-handoff: null
-updated_at: "2026-08-25T06:49:34Z"
+next_action: "已完成（2026-08-29 maintainer 接受，REVIEW-M3-ACCEPTANCE + REVIEW-M3-WORKBENCH 独立评审）：三切片 + 独立评审通过，M3 合并 main。remaining：diagnostics 专项 UI、live desktop QA（含真实 DSH restart 与终端面板）、agent_automation 至 M5。"
+handoff: HANDOFF-M3-WORKBENCH
+updated_at: "2026-08-29T10:05:00Z"

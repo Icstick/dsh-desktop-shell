@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const tauriRoot = join(root, "src-tauri");
 const expectedCommands = [
+  "close_terminal",
+  "create_terminal",
+  "dismiss_notification",
   "discover_harnesses",
   "evaluate_dsh_surface_navigation",
   "get_dsh_surface_status",
@@ -13,13 +16,20 @@ const expectedCommands = [
   "get_diagnostics",
   "get_managed_runtime_status",
   "get_shell_snapshot",
+  "get_usage_snapshot",
   "mount_dsh_surface",
   "probe_attached_environment",
   "reload_dsh_surface",
   "save_environment",
+  "list_terminals",
+  "list_notifications",
+  "notify_application",
+  "resize_terminal",
   "start_managed_environment",
   "restart_managed_environment",
+  "status_terminal",
   "stop_managed_environment",
+  "write_terminal",
   "unmount_dsh_surface",
   "update_dsh_surface_layout",
   "validate_environment",
@@ -49,7 +59,7 @@ assertSame("Shell capability webview labels", shellCapability.webviews ?? [], ["
 if ("windows" in shellCapability) fail("Shell capability must target only the trusted Shell webview");
 if ("remote" in shellCapability) fail("Remote capability access is forbidden");
 
-const expectedPermissions = expectedCommands.map((command) => `allow-${command.replaceAll("_", "-")}`);
+const expectedPermissions = [...expectedCommands.map((command) => `allow-${command.replaceAll("_", "-")}`), "core:event:default"];
 assertSame("Shell custom command permissions", shellCapability.permissions ?? [], expectedPermissions);
 assertSame("Configured capabilities", tauriConfig.app?.security?.capabilities ?? [], ["shell"]);
 

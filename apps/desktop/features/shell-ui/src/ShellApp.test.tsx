@@ -6,8 +6,61 @@ import type { DshEnvironment } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
 import { ShellApp } from "./ShellApp";
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => undefined),
+}));
+
 function createApi(): DesktopApi {
   return {
+    dismissNotification: vi.fn().mockResolvedValue(undefined),
+    listNotifications: vi.fn().mockResolvedValue([]),
+    notifyApplication: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      id: "notif-1787792400000-1",
+      event: "runtime_changed",
+      title: "Runtime changed",
+      contentPolicy: "title_only",
+      deliveredBody: null,
+      createdAtUnixMs: 1787792400000,
+      dedupeKey: null,
+      deduplicated: false,
+    }),
+    closeTerminal: vi.fn().mockResolvedValue(undefined),
+    createTerminal: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      sessionId: "pty-test-1",
+      state: "running",
+      mode: "human_surface",
+      cols: 80,
+      rows: 24,
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: null,
+      error: null,
+    }),
+    listTerminals: vi.fn().mockResolvedValue([]),
+    resizeTerminal: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      sessionId: request.sessionId,
+      state: "running",
+      mode: "human_surface",
+      cols: request.cols,
+      rows: request.rows,
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: null,
+      error: null,
+    })),
+    statusTerminal: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      sessionId: request.sessionId,
+      state: "running",
+      mode: "human_surface",
+      cols: 80,
+      rows: 24,
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: null,
+      error: null,
+    })),
+    writeTerminal: vi.fn().mockResolvedValue(undefined),
     discoverHarnesses: vi.fn().mockResolvedValue({
       schemaVersion: 1,
       scannedSources: ["explicit", "dsh_path", "path"],
@@ -105,6 +158,12 @@ function createApi(): DesktopApi {
       runtimeState: "unconfigured",
       environmentId: null,
       generation: 0,
+    }),
+    getUsageSnapshot: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      generatedAtUnixMs: 1787792400000,
+      records: [],
+      totals: { inputTokens: 0, outputTokens: 0, estimateCount: 0 },
     }),
     mountDshSurface: vi.fn().mockImplementation(async (request) => ({
       ...surfaceStatus(request.environmentId, request.expectedGeneration, "ready", request.visible),
@@ -834,6 +893,138 @@ describe("ShellApp", () => {
     expect(screen.getByText("6")).toBeInTheDocument();
     expect(screen.queryByText(/token=/)).not.toBeInTheDocument();
     expect(screen.queryByText(/bootstrap/i)).not.toBeInTheDocument();
+  });
+
+  it("lists notifications with policy badges and dismisses one", async () => {
+    const api = createApi();
+    vi.mocked(api.listNotifications).mockResolvedValue([
+      {
+        schemaVersion: 1,
+        id: "notif-1787792401000-2",
+        event: "turn_completed",
+        title: "Turn completed",
+        contentPolicy: "explicit_body",
+        deliveredBody: "Agent turn finished.",
+        createdAtUnixMs: 1787792401000,
+        dedupeKey: null,
+        deduplicated: false,
+      },
+      {
+        schemaVersion: 1,
+        id: "notif-1787792400000-1",
+        event: "runtime_changed",
+        title: "Runtime changed",
+        contentPolicy: "title_only",
+        deliveredBody: null,
+        createdAtUnixMs: 1787792400000,
+        dedupeKey: null,
+        deduplicated: false,
+      },
+    ]);
+    const user = userEvent.setup();
+
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(await screen.findByText("Turn completed")).toBeInTheDocument();
+    expect(screen.getByText("Runtime changed")).toBeInTheDocument();
+    expect(screen.getByText("explicit_body")).toBeInTheDocument();
+    expect(screen.getByText("Agent turn finished.")).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
+    expect(api.dismissNotification).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      notificationId: "notif-1787792401000-2",
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Turn completed")).not.toBeInTheDocument();
+    });
+  });
+
+  it("marks folded deduplicated notifications in the list", async () => {
+    const api = createApi();
+    vi.mocked(api.listNotifications).mockResolvedValue([
+      {
+        schemaVersion: 1,
+        id: "notif-1787792400000-1",
+        event: "schedule_result",
+        title: "Schedule job finished",
+        contentPolicy: "title_only",
+        deliveredBody: null,
+        createdAtUnixMs: 1787792400000,
+        dedupeKey: "job-42",
+        deduplicated: true,
+      },
+    ]);
+    const user = userEvent.setup();
+
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(await screen.findByText("Schedule job finished")).toBeInTheDocument();
+    expect(screen.getByText("deduplicated")).toBeInTheDocument();
+    expect(screen.getByText("title_only")).toBeInTheDocument();
+  });
+
+  it("renders the local usage snapshot totals on the Usage rail", async () => {
+    const api = createApi();
+    vi.mocked(api.getUsageSnapshot).mockResolvedValue({
+      schemaVersion: 1,
+      generatedAtUnixMs: 1787792400000,
+      records: [],
+      totals: { inputTokens: 1250, outputTokens: 340, estimateCount: 4, cost: 0.42, currency: "USD" },
+    });
+    const user = userEvent.setup();
+
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: "Usage" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
+    expect(api.getUsageSnapshot).toHaveBeenCalledWith({ schemaVersion: 1 });
+    expect(screen.getByText("1250")).toBeInTheDocument();
+    expect(screen.getByText("340")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText("0.42 USD")).toBeInTheDocument();
+  });
+
+  it("marks estimate records with a badge and shows source and period only", async () => {
+    const api = createApi();
+    vi.mocked(api.getUsageSnapshot).mockResolvedValue({
+      schemaVersion: 1,
+      generatedAtUnixMs: 1787792400000,
+      records: [
+        {
+          schemaVersion: 1,
+          source: "runtime",
+          period: { start: "2026-08-28T10:00:00Z", end: "2026-08-28T11:00:00Z" },
+          inputTokens: 0,
+          outputTokens: 0,
+          isEstimate: true,
+          recordedAtUnixMs: 1787792400000,
+        },
+        {
+          schemaVersion: 1,
+          source: "shell",
+          period: { start: "2026-08-28T09:00:00Z", end: "2026-08-28T09:30:00Z" },
+          inputTokens: 1200,
+          outputTokens: 300,
+          isEstimate: false,
+          recordedAtUnixMs: 1787792300000,
+        },
+      ],
+      totals: { inputTokens: 1200, outputTokens: 300, estimateCount: 1 },
+    });
+    const user = userEvent.setup();
+
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: "Usage" }));
+    expect(await screen.findByText("runtime")).toBeInTheDocument();
+    expect(screen.getByText("shell")).toBeInTheDocument();
+    expect(screen.getAllByText("estimate")).toHaveLength(1);
+    expect(screen.getByText("1200 in · 300 out")).toBeInTheDocument();
+    expect(screen.getByText("0 in · 0 out")).toBeInTheDocument();
+    expect(screen.queryByText(/echo bridge-ok|secret body/i)).not.toBeInTheDocument();
   });
 });
 

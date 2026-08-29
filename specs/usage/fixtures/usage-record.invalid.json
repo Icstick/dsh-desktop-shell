@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "source": "runtime",
+  "period": {
+    "start": "2026-08-28T10:00:00Z",
+    "end": "2026-08-28T11:00:00Z"
+  },
+  "inputTokens": -1,
+  "outputTokens": 300,
+  "isEstimate": true,
+  "recordedAtUnixMs": 1787792400000
+}

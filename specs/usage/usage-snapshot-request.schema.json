@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/usage/usage-snapshot-request.schema.json",
+  "title": "UsageSnapshotRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sinceUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

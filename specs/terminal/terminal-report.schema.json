@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/terminal/terminal-report.schema.json",
+  "title": "TerminalReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "state",
+    "mode",
+    "cols",
+    "rows",
+    "createdAtUnixMs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^pty-[a-z0-9-]+$"
+    },
+    "state": {
+      "enum": [
+        "created",
+        "running",
+        "closed",
+        "error"
+      ]
+    },
+    "mode": {
+      "const": "human_surface"
+    },
+    "cols": {
+      "type": "integer",
+      "minimum": 20,
+      "maximum": 500
+    },
+    "rows": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 300
+    },
+    "createdAtUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastActivityUnixMs": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    }
+  }
+}

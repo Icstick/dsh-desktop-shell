@@ -3,12 +3,12 @@ id: MOD-USAGE-COLLECTOR
 name: "usage-collector"
 path: "packages/usage-collector"
 owner_role: interop-owner
-status: proposed
+status: verified
 milestone: M3
 interfaces:
   - IF-USAGE
 depends_on:
   - MOD-ADAPTER-DSH
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+updated_at: "2026-08-29T10:05:00Z"
+next_action: "M3-C 完成：本地优先 UsageCollector（14 tests，AC-USG-001/002）；真实 token 估算依赖 M5 DSH adapters。"

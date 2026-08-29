@@ -1,7 +1,7 @@
 schema_version: 1
 id: M1
 title: "Shell MVP"
-status: in_progress
+status: done
 relative_weeks: "1-4"
 depends_on:
   - M0
@@ -34,4 +34,4 @@ evidence:
   - "commit 6ac3539: minimum visible-bounds gate"
   - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE.yaml"
   - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE-ACCEPTANCE.yaml"
-updated_at: "2026-08-28T07:37:46Z"
+updated_at: "2026-08-29T10:05:00Z"

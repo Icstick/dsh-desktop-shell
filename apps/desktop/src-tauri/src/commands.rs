@@ -24,6 +24,8 @@ use crate::managed_runtime::{
     ManagedRuntimeStartRequest, ManagedRuntimeState, ManagedRuntimeStatusRequest,
     ManagedRuntimeStopRequest,
 };
+use crate::notification::{self, NotificationError};
+use crate::usage::{self, UsageError};
 
 const RESERVED_ARGUMENTS: [&str; 4] = ["--host", "--port", "--no-open", "--trusted-host"];
 const CATALOG_FILE_NAME: &str = "environment-catalog-v1.json";
@@ -302,6 +304,44 @@ impl CommandError {
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
+        }
+    }
+
+    fn malformed_notification_request() -> Self {
+        Self {
+            code: "MALFORMED_MESSAGE",
+            message: "Notification request is invalid.",
+            retryable: false,
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
+    }
+
+    fn from_notification(error: NotificationError) -> Self {
+        match error {
+            NotificationError::MalformedRequest => Self::malformed_notification_request(),
+            NotificationError::AuditUnavailable | NotificationError::ClockUnavailable => {
+                Self::unavailable("Notification registry is unavailable.", true)
+            }
+        }
+    }
+
+    fn malformed_usage_request() -> Self {
+        Self {
+            code: "MALFORMED_MESSAGE",
+            message: "Usage snapshot request is invalid.",
+            retryable: false,
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
+    }
+
+    fn from_usage(error: UsageError) -> Self {
+        match error {
+            UsageError::MalformedRequest => Self::malformed_usage_request(),
+            UsageError::StoreUnavailable | UsageError::ClockUnavailable => {
+                Self::unavailable("Usage ledger is unavailable.", true)
+            }
         }
     }
 
@@ -800,6 +840,8 @@ pub async fn unmount_dsh_surface(
 pub async fn get_managed_runtime_status(
     app: AppHandle,
     managed_state: State<'_, ManagedRuntimeState>,
+    notification_state: State<'_, crate::notification::NotificationService>,
+    usage_state: State<'_, crate::usage::UsageService>,
     request: ManagedRuntimeStatusRequest,
 ) -> Result<ManagedRuntimeReport, CommandError> {
     if request.schema_version() != 1 || !is_valid_id(request.environment_id()) {
@@ -816,12 +858,40 @@ pub async fn get_managed_runtime_status(
     // The status path may run a bounded auto-restart (backoff sleep plus a
     // readiness poll up to START_TIMEOUT); run it off the main thread so a
     // crash-looping backend never freezes the Shell UI.
-    tauri::async_runtime::spawn_blocking(move || {
+    let report = tauri::async_runtime::spawn_blocking(move || {
         managed_runtime::get_managed_runtime_status(&state, &environment)
     })
     .await
     .map_err(|_| CommandError::unavailable("Managed status task is unavailable.", true))?
-    .map_err(CommandError::from_managed_runtime)
+    .map_err(CommandError::from_managed_runtime)?;
+
+    // M3-A notification wiring (IF-NOTIFICATION, AC-NOT-002): emit a
+    // runtime_changed notification exactly once per observed transition into
+    // healthy/crashed/safe_stop/stopped and audit it. The Supervisor state
+    // machine is untouched; a failing notification never fails the status read.
+    if let Ok(path) = notification::audit_path(&app) {
+        let _ = notification::maybe_emit_runtime_change(
+            &app,
+            &notification_state,
+            &path,
+            request.environment_id(),
+            report.runtime_state(),
+        );
+    }
+    // M3-C usage wiring (IF-USAGE, AC-USG-001/002): the status read path
+    // also feeds the local usage ledger — healthy opens a runtime session
+    // timer, stopped/crashed/safe_stop closes it and records the elapsed
+    // period as an estimate. The Supervisor state machine is untouched; a
+    // failing usage write never fails the status read.
+    if let Ok(path) = usage::records_path(&app) {
+        let _ = usage::observe_runtime_state(
+            &usage_state,
+            &path,
+            request.environment_id(),
+            report.runtime_state(),
+        );
+    }
+    Ok(report)
 }
 
 #[tauri::command]
@@ -1075,6 +1145,140 @@ fn argument(category: &'static str, display: impl Into<String>) -> LaunchArgumen
         category,
         display: display.into(),
     }
+}
+
+// ------------------------- Terminal commands (M3-B, ADR-0015) -------------------------
+
+#[tauri::command]
+pub fn create_terminal(
+    terminal_state: State<'_, crate::terminal::TerminalState>,
+    usage_state: State<'_, crate::usage::UsageService>,
+    request: crate::terminal::TerminalCreateRequest,
+) -> Result<crate::terminal::TerminalReport, crate::terminal::TerminalCommandError> {
+    let report = crate::terminal::create_terminal(&terminal_state, &request)?;
+    // M3-C usage wiring (IF-USAGE, AC-USG-001/002): remember the session
+    // start in memory; the ledger entry is written on close. Usage never
+    // receives terminal output (AC-USG-001).
+    usage::mark_terminal_session_start(&usage_state, report.session_id());
+    Ok(report)
+}
+
+#[tauri::command]
+pub fn write_terminal(
+    terminal_state: State<'_, crate::terminal::TerminalState>,
+    request: crate::terminal::TerminalWriteRequest,
+) -> Result<(), crate::terminal::TerminalCommandError> {
+    crate::terminal::write_terminal(&terminal_state, &request)
+}
+
+#[tauri::command]
+pub fn resize_terminal(
+    terminal_state: State<'_, crate::terminal::TerminalState>,
+    request: crate::terminal::TerminalResizeRequest,
+) -> Result<crate::terminal::TerminalReport, crate::terminal::TerminalCommandError> {
+    crate::terminal::resize_terminal(&terminal_state, &request)
+}
+
+#[tauri::command]
+pub fn close_terminal(
+    app: AppHandle,
+    terminal_state: State<'_, crate::terminal::TerminalState>,
+    usage_state: State<'_, crate::usage::UsageService>,
+    request: crate::terminal::TerminalSessionRequest,
+) -> Result<(), crate::terminal::TerminalCommandError> {
+    crate::terminal::close_terminal(&terminal_state, &request)?;
+    // M3-C usage wiring (IF-USAGE, AC-USG-001/002): record the session
+    // duration as an estimate after the PTY is closed. A failing usage
+    // write never fails the close.
+    if let Ok(path) = usage::records_path(&app) {
+        let _ = usage::mark_terminal_session_end(&usage_state, &path, request.session_id());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn status_terminal(
+    terminal_state: State<'_, crate::terminal::TerminalState>,
+    request: crate::terminal::TerminalSessionRequest,
+) -> Result<crate::terminal::TerminalReport, crate::terminal::TerminalCommandError> {
+    crate::terminal::status_terminal(&terminal_state, &request)
+}
+
+#[tauri::command]
+pub fn list_terminals(
+    terminal_state: State<'_, crate::terminal::TerminalState>,
+) -> Vec<crate::terminal::TerminalReport> {
+    crate::terminal::list_terminals(&terminal_state)
+}
+
+// ------------------------- Notification commands (M3-A, ADR-0016) -------------------------
+
+#[tauri::command]
+pub fn notify_application(
+    app: AppHandle,
+    notification_state: State<'_, crate::notification::NotificationService>,
+    usage_state: State<'_, crate::usage::UsageService>,
+    request: crate::notification::NotificationRequest,
+) -> Result<crate::notification::NotificationReport, CommandError> {
+    if request.schema_version() != 1 {
+        return Err(CommandError::malformed_notification_request());
+    }
+    let path = notification::audit_path(&app).map_err(CommandError::from_notification)?;
+    let report = notification::notify(
+        &notification_state,
+        &path,
+        request,
+        crate::notification::SOURCE_APP,
+    )
+    .map_err(CommandError::from_notification)?;
+
+    // M3-C usage wiring (IF-USAGE, ADR-0016): a notification that was
+    // actually audited also contributes a local usage record; folded
+    // (deduplicated) deliveries never re-audit, so they never re-record.
+    // The usage record carries no notification content (AC-USG-001) and is
+    // never sent anywhere (AC-USG-002); a failing usage write never fails
+    // the notification delivery.
+    if !report.deduplicated()
+        && let Ok(usage_path) = usage::records_path(&app)
+    {
+        let _ = usage::record_notification(&usage_state, &usage_path);
+    }
+    Ok(report)
+}
+
+#[tauri::command]
+pub fn list_notifications(
+    app: AppHandle,
+    notification_state: State<'_, crate::notification::NotificationService>,
+) -> Result<Vec<crate::notification::NotificationReport>, CommandError> {
+    let path = notification::audit_path(&app).map_err(CommandError::from_notification)?;
+    notification::list(&notification_state, &path).map_err(CommandError::from_notification)
+}
+
+#[tauri::command]
+pub fn dismiss_notification(
+    notification_state: State<'_, crate::notification::NotificationService>,
+    request: crate::notification::NotificationDismissRequest,
+) -> Result<(), CommandError> {
+    if request.schema_version() != 1 {
+        return Err(CommandError::malformed_notification_request());
+    }
+    notification::dismiss(&notification_state, request.notification_id())
+        .map_err(CommandError::from_notification)
+}
+
+// ------------------------- Usage commands (M3-C, ADR-0016) -------------------------
+
+#[tauri::command]
+pub fn get_usage_snapshot(
+    app: AppHandle,
+    request: crate::usage::UsageSnapshotRequest,
+) -> Result<crate::usage::UsageSnapshot, CommandError> {
+    if request.schema_version() != 1 {
+        return Err(CommandError::malformed_usage_request());
+    }
+    let path = usage::records_path(&app).map_err(CommandError::from_usage)?;
+    usage::snapshot(&path, request.since_unix_ms()).map_err(CommandError::from_usage)
 }
 
 #[cfg(test)]

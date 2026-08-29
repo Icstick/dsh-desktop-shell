@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/notification/notification-report.schema.json",
+  "title": "NotificationReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "event",
+    "title",
+    "contentPolicy",
+    "deliveredBody",
+    "createdAtUnixMs",
+    "deduplicated"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^notif-[a-z0-9-]+$"
+    },
+    "event": {
+      "enum": [
+        "turn_completed",
+        "approval_required",
+        "question_required",
+        "runtime_changed",
+        "schedule_result"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "contentPolicy": {
+      "enum": [
+        "title_only",
+        "redacted_summary",
+        "explicit_body"
+      ]
+    },
+    "deliveredBody": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "createdAtUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dedupeKey": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "deduplicated": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "contentPolicy": {
+            "enum": [
+              "title_only",
+              "redacted_summary"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "deliveredBody": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

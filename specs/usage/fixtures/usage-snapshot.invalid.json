@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUnixMs": 1787792400000,
+  "records": [],
+  "totals": {
+    "inputTokens": 1200,
+    "outputTokens": 300
+  }
+}

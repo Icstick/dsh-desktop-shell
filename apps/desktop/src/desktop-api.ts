@@ -2,6 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   AttachedHealthReport,
+  TerminalCreateRequest,
+  TerminalOutputEvent,
+  TerminalReport,
+  TerminalResizeRequest,
+  TerminalSessionRequest,
+  TerminalWriteRequest,
+  NotificationDismissRequest,
+  NotificationReport,
+  NotificationRequest,
   AttachedHealthRequest,
   DiagnosticsReport,
   DiagnosticsRequest,
@@ -26,9 +35,20 @@ import type {
   ManagedRuntimeStatusRequest,
   ManagedRuntimeStopRequest,
   ShellSnapshot,
+  UsageSnapshot,
+  UsageSnapshotRequest,
 } from "./contracts";
 
 export interface DesktopApi {
+  dismissNotification(request: NotificationDismissRequest): Promise<void>;
+  listNotifications(): Promise<NotificationReport[]>;
+  notifyApplication(request: NotificationRequest): Promise<NotificationReport>;
+  closeTerminal(request: TerminalSessionRequest): Promise<void>;
+  createTerminal(request: TerminalCreateRequest): Promise<TerminalReport>;
+  listTerminals(): Promise<TerminalReport[]>;
+  resizeTerminal(request: TerminalResizeRequest): Promise<TerminalReport>;
+  statusTerminal(request: TerminalSessionRequest): Promise<TerminalReport>;
+  writeTerminal(request: TerminalWriteRequest): Promise<void>;
   discoverHarnesses(request: HarnessDiscoveryRequest): Promise<HarnessDiscoveryReport>;
   evaluateDshSurfaceNavigation(
     request: DshSurfaceNavigationRequest,
@@ -39,6 +59,7 @@ export interface DesktopApi {
   getEnvironmentCatalog(): Promise<EnvironmentCatalog>;
   getManagedRuntimeStatus(request: ManagedRuntimeStatusRequest): Promise<ManagedRuntimeReport>;
   getShellSnapshot(): Promise<ShellSnapshot>;
+  getUsageSnapshot(request: UsageSnapshotRequest): Promise<UsageSnapshot>;
   mountDshSurface(request: DshSurfaceMountRequest): Promise<DshSurfaceStatus>;
   probeAttachedEnvironment(request: AttachedHealthRequest): Promise<AttachedHealthReport>;
   reloadDshSurface(request: DshSurfaceReloadRequest): Promise<DshSurfaceStatus>;
@@ -52,6 +73,17 @@ export interface DesktopApi {
 }
 
 export const desktopApi: DesktopApi = {
+  dismissNotification: (request) =>
+    invoke<void>("dismiss_notification", { request }),
+  listNotifications: () => invoke<NotificationReport[]>("list_notifications"),
+  notifyApplication: (request) =>
+    invoke<NotificationReport>("notify_application", { request }),
+  closeTerminal: (request) => invoke<void>("close_terminal", { request }),
+  createTerminal: (request) => invoke<TerminalReport>("create_terminal", { request }),
+  listTerminals: () => invoke<TerminalReport[]>("list_terminals"),
+  resizeTerminal: (request) => invoke<TerminalReport>("resize_terminal", { request }),
+  statusTerminal: (request) => invoke<TerminalReport>("status_terminal", { request }),
+  writeTerminal: (request) => invoke<void>("write_terminal", { request }),
   discoverHarnesses: (request) =>
     invoke<HarnessDiscoveryReport>("discover_harnesses", { request }),
   evaluateDshSurfaceNavigation: (request) =>
@@ -66,6 +98,8 @@ export const desktopApi: DesktopApi = {
   getManagedRuntimeStatus: (request) =>
     invoke<ManagedRuntimeReport>("get_managed_runtime_status", { request }),
   getShellSnapshot: () => invoke<ShellSnapshot>("get_shell_snapshot"),
+  getUsageSnapshot: (request) =>
+    invoke<UsageSnapshot>("get_usage_snapshot", { request }),
   mountDshSurface: (request) =>
     invoke<DshSurfaceStatus>("mount_dsh_surface", { request }),
   probeAttachedEnvironment: (request) =>

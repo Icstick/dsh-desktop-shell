@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "../etc",
+  "state": "running",
+  "mode": "human_surface",
+  "cols": 120,
+  "rows": 32,
+  "createdAtUnixMs": 1787792400000
+}

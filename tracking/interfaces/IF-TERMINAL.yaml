@@ -3,14 +3,14 @@ id: IF-TERMINAL
 name: "Terminal"
 owner_module: MOD-TERMINAL-PROVIDER
 api_version: "terminal.dsh-desktop.local/v1alpha1"
-status: review
-implementation_status: not_authorized
-test_status: planned
-security_review: required
-spec: "specs/protocol/terminal-capability.schema.json"
+status: verified
+implementation_status: implemented
+test_status: passed
+security_review: passed
+spec: "specs/terminal/terminal-report.schema.json"
 operations:
   - "create"
   - "write"
   - "resize"
   - "close"
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-29T10:05:00Z"
