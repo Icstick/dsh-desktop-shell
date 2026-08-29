@@ -38,6 +38,7 @@
     "status": {
       "enum": [
         "open",
+        "review",
         "accepted",
         "closed"
       ]

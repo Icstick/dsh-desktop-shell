@@ -1,22 +1,30 @@
 schema_version: 1
 id: WI-M2-RUNTIME
 title: "Deliver reliable runtime"
-status: proposed
+status: in_progress
 milestone: M2
 module: MOD-SUPERVISOR
 owner_role: milestone-owner
-claimed_by: null
-session: null
-branch_or_worktree: null
-claim_expires_at: null
+claimed_by: codex-primary
+session: codex-m2-reliable-runtime-20260828T1550Z
+branch_or_worktree: codex/wi-m2-reliable-runtime
+claim_expires_at: "2026-08-29T15:50:13Z"
 dependencies:
   - WI-M1-SHELL
 acceptance_criteria:
   - "Runtime/ownership/IPC chaos acceptance pass"
 security_impact: "Critical native lifecycle"
 compatibility_impact: "High DSH/platform impact"
-evidence: []
+evidence:
+  - "commit 113c238: M2 claim and PLAN-M2.md execution plan"
+  - "commit 525eaeb: ADR-0013 contract freeze (restart request schema, recovery/safe_stop report fields, 5 fixtures)"
+  - "commit ec59d94: supervisor restart, bounded recovery and Safe Stop implementation + 9 chaos/restart tests (44 Rust tests total)"
+  - "scripts/validate-specs.mjs: 41 schemas / 34 fixtures all pass"
+  - "M2-B diagnostics: specs/runtime/diagnostics-report.schema.json + fixtures, apps/desktop/src-tauri/src/diagnostics.rs, get_diagnostics command (18 commands ACL), AC-LOG-001 end-to-end redaction test (54 Rust tests, 25 vitest)"
+  - "M2-D broker: docs/decisions/ADR-0014-capability-broker-grant-lease.md, crates/supervisor/src/broker.rs, 15 tests (AC-LEASE-001 revocation matrix)"
+  - "commit fd39932: crates/local-transport + AC-IPC-001/002 (29 tests incl. doctest)"
+  - "收尾审查与加固（SESSION-20260828-M2-HARDENING-REVIEW）：REVIEW-M2-HANDOFF-CONSISTENCY / REVIEW-M2-HARDENING-SECURITY / REVIEW-M2-HARDENING-REDUNDANCY / REVIEW-M2-HARDENING-DOCS；async + spawn_blocking 命令、restart force-unmount、hide 清理、死代码移除、注释补强、文档统一"
 blocked_by: []
-next_action: "Freeze P0 state machine and carrier PoCs."
-handoff: null
-updated_at: "2026-08-25T06:49:34Z"
+next_action: "M2 四切片完成（Rust 98 = 54+28+15+1 doctest、Vitest 25、ACL 18、specs 41/34）；收尾审查与加固（async 命令、force-unmount、死代码移除、注释、文档统一）完成，等待 maintainer 评审 HANDOFF-M2-RELIABLE-RUNTIME。"
+handoff: HANDOFF-M2-RELIABLE-RUNTIME
+updated_at: "2026-08-28T18:40:00Z"

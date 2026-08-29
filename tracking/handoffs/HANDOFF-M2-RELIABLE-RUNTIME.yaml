@@ -1,0 +1,31 @@
+schema_version: 1
+id: HANDOFF-M2-RELIABLE-RUNTIME
+work_item: WI-M2-RUNTIME
+from: codex-primary
+to: maintainer
+status: review
+completed:
+  - "M2-A Supervisor restart/recovery/Safe Stop (ADR-0013, commit 525eaeb/ec59d94): restart operation stops the exact current generation and starts a new one from the retained structured recipe, bumping generation and restoring the Surface binding (AC-RUN-001); crash detection with bounded auto-restart (budget 3 crashes per 60 s window, backoff 500 ms) and crash-loop fuse into safe_stop (AC-REC-001); recovery history is public and credential-free; chaos tests cover crash-loop fuse, crash-after-ready auto-restart with binding handover, stale/foreign restart rejection, concurrent start idempotency and conflict, explicit-restart budget reset, and safe-stop no-restart."
+  - "M2-B Diagnostics (AC-LOG-001): specs/runtime/diagnostics-report.schema.json + 2 fixtures; apps/desktop/src-tauri/src/diagnostics.rs with a whitelist redaction boundary (endpoint host+port only, fail-closed on non-loopback; recovery trimmed; evidence capped); get_diagnostics command (ACL 18 commands); RuntimePanel read-only diagnostics section; end-to-end golden-corpus test drives a real Supervisor to healthy with a 43-char token inside the private bootstrap URL and proves no secret, query, cookie or full URL survives serialization."
+  - "M2-C Local transport (AC-IPC-001/002, crates/local-transport): authenticated loopback carrier with one-shot ephemeral credential (no replay), u32 length-prefixed framing with 64 KiB frame cap, read deadlines for slow clients, bounded concurrent connections, cleanup on disconnect, and loopback fallback carrier trait; 29 tests covering invalid/replay/stale credential rejection, malformed/oversized frame disconnects, slow-client cleanup and post-cleanup serviceability."
+  - "M2-D P0 Capability Broker (AC-LEASE-001, ADR-0014, crates/supervisor): dispatch gate requires negotiated capability + Desktop grant + owner + generation + scope coverage + valid lease in fixed order; revocation reasons disconnect/unload/expiry/human_takeover/generation_change; grant idempotency vs CONFLICT; lease id not reusable after revocation; 15 tests including the full revocation matrix and error-to-protocol mapping with secret-free messages."
+  - "Both new crates integrated into the root Cargo workspace (crates/local-transport, crates/supervisor) with fmt/clippy -D warnings clean."
+remaining:
+  - "macOS/Linux target-host tests remain shelved per session plan (structural evidence only: AC-WEB-007 helper + compile-time gating)."
+  - "Interactive WebView2 GUI smoke remains shelved; the M1 26/26 driver and evidence stand."
+  - "Supervisor/process-manager extraction of managed_runtime (ADR-0008 M6 path) is not part of this slice set; crates/supervisor is the P0 broker foothold."
+  - "IF-NEGOTIATION/IF-INVOCATION and the capability-contracts wire/shape layer stay not_authorized until M5 adapters; IF-LEASE implementation_status is partial (broker enforcement only)."
+  - "DSH graceful-stop disposition remains forced (Job Object cleanup) until the DSH CLI side confirms a graceful signal contract."
+verification:
+  - "Rust: desktop app 54 tests, crates/local-transport 29 tests, crates/supervisor 15 tests — all passed from the root workspace; cargo fmt --check and clippy --all-targets -- -D warnings clean."
+  - "Frontend: tsc -b, 25 vitest tests, Vite production build (24 modules), ACL 18 commands (validate-acl.mjs)."
+  - "Specs: scripts/validate-specs.mjs — 41 schemas / 34 fixtures ALL PASS (including the new diagnostics schema and fixtures)."
+  - "AC-LOG-001 golden corpus: token/cookie/query/bootstrap-URL redaction proven end to end (diagnostics.rs test ac_log_001_collect_redacts_token_cookie_query_and_bootstrap_url)."
+  - "Independent M1 review: REVIEW-M1-NATIVE-ACCEPTANCE 9/9 passed."
+risks:
+  - "stopDisposition forced for DSH CLI (unchanged from M1 handoff); credential/endpoint dropped either way."
+  - "Auto-restart policy is backend-owned and generation-bound; frontend relies on status polling (safe_stop surfaces on the next poll after budget exhaustion)."
+  - "local-transport implements the loopback TCP carrier; Windows Named Pipe/UDS carriers remain trait extension points (ADR-0007)."
+  - "Broker wire-shape validation is deferred to the contract layer (capability-contracts), per ADR-0014; enforcement semantics are tested at the broker level."
+next_action: "Maintainer reviews HANDOFF-M2-RELIABLE-RUNTIME and per-slice evidence; decides the M1/M2 acceptance close-out and whether to schedule macOS/Linux target-host evidence before milestone exit."
+created_at: "2026-08-28T17:10:00Z"

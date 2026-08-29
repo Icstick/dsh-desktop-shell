@@ -6,6 +6,9 @@
 
 ### Added
 
+- 完成 M2 Reliable Runtime：ADR-0013 Supervisor restart/bounded recovery/Safe Stop（restart 操作、crash-loop fuse、credential-free recovery 报告）、ADR-0014 P0 Capability Broker（grant/lease/scope/generation dispatch 门禁、AC-LEASE-001 撤销矩阵）、AC-LOG-001 diagnostics report（whitelist redaction、golden corpus 测试）、AC-IPC-001/002 authenticated loopback local transport（一次性 credential、64 KiB framing 上限、deadline/concurrency 限制）。
+- 引入 crates/local-transport 与 crates/supervisor 两个 Rust crate 并纳入根 workspace；scripts/validate-specs.mjs 作为 specs/fixtures 机器门禁。
+- M2 收尾审查与加固：同步命令改 async + spawn_blocking（不再阻塞主线程）；restart 后 force-unmount stale Surface WebView；hide 失败清理子 WebView；移除死代码；补充安全不变量注释；allowNativeAdapter 标为保留（未强制执行的授权不再暴露为可用选项）。
 - 建立文档型 clean-room 项目仓库。
 - 冻结 M0 架构基线、模块地图、协议草案和跟踪系统。
 - 建立跨 Agent / Session 的工作项、lease、evidence 与 handoff 规则。
@@ -31,6 +34,8 @@
 
 ### Changed
 
+- handoff.schema.json 的 status 枚举增加 review（handoff 等待 maintainer 评审的状态此前无法表达）。
+- 测试口径统一：Rust 98 项（54 桌面 + 28 local-transport 二进制 + 15 supervisor 二进制 + 1 doctest）；Vitest 25 项；Tauri custom command ACL 18 项；specs 41 schema / 34 fixtures。
 - Maintainer 已接受 native DSH Surface implementation slice；本次接受关闭原 session 并释放 advisory claim，但不关闭 `WI-M1-SHELL`、安全审查或 M1，也不构成 Windows support 声明。
 - 收紧 v1alpha1 Envelope：Hello/Agreement payload 结构化，Agreement 绑定 replyTo，Invocation/Result/Event kind 字段受限，Result success/error 互斥且 error 强制 correlation ID。
 - CapabilityLease 禁止空 scope；Usage period 拒绝未知字段。

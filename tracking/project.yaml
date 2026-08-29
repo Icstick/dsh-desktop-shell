@@ -1,10 +1,10 @@
 schema_version: 1
 project: dsh-desktop-shell
 phase: shell-mvp
-current_milestone: M1
+current_milestone: M2
 status: in_progress
 implementation_authorized: true
 start_date: "2026-08-25"
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-28T15:50:00Z"
-next_action: "Windows real-DSH WebView2 native smoke/compatibility matrix 26/26 通过（HANDOFF-M1-NATIVE-ACCEPTANCE）；剩余 macOS/Linux unsupported_platform target-host 实测证据与 M1 最终 acceptance review。"
+updated_at: "2026-08-28T17:10:00Z"
+next_action: "M2 四切片与收尾审查/加固完成（HANDOFF-M2-RELIABLE-RUNTIME + 4 份 REVIEW-M2-HARDENING-*，evidence 用 review）；等待 maintainer 评审 M1/M2 acceptance 与平台证据决策。"

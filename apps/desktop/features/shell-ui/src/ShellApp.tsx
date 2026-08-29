@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AttachedHealthReport,
   DesktopCommandError,
+  DiagnosticsReport,
   DshEnvironment,
   DshSurfaceBounds,
   DshSurfacePolicy,
@@ -35,6 +36,8 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   const [surfacePolicyError, setSurfacePolicyError] = useState<string | null>(null);
   const [managedRuntime, setManagedRuntime] = useState<ManagedRuntimeReport | null>(null);
   const [managedRuntimeError, setManagedRuntimeError] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [transitioningManaged, setTransitioningManaged] = useState(false);
   const [confirmingManagedStop, setConfirmingManagedStop] = useState(false);
   const [surfaceBounds, setSurfaceBounds] = useState<DshSurfaceBounds | null>(null);
@@ -162,6 +165,36 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       current = false;
     };
   }, [api, validatedEnvironment]);
+
+  useEffect(() => {
+    if (validatedEnvironment?.ownership !== "managed") {
+      setDiagnostics(null);
+      setDiagnosticsError(null);
+      return;
+    }
+    let current = true;
+    setDiagnostics(null);
+    setDiagnosticsError(null);
+    api
+      .getDiagnostics({
+        schemaVersion: 1,
+        environmentId: validatedEnvironment.id,
+      })
+      .then((report) => {
+        if (!current) return;
+        setDiagnostics(report);
+      })
+      .catch((error: unknown) => {
+        if (!current) return;
+        setDiagnostics(null);
+        setDiagnosticsError(
+          commandErrorMessage(error, "Diagnostics are unavailable."),
+        );
+      });
+    return () => {
+      current = false;
+    };
+  }, [api, managedRuntime, validatedEnvironment]);
 
   useEffect(() => {
     let current = true;
@@ -457,6 +490,38 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
+  const restartManaged = async () => {
+    if (
+      validatedEnvironment?.ownership !== "managed" ||
+      !managedRuntime ||
+      managedRuntime.environmentId !== validatedEnvironment.id ||
+      managedRuntime.generation < 1
+    ) {
+      return;
+    }
+    setTransitioningManaged(true);
+    setManagedRuntimeError(null);
+    setConfirmingManagedStop(false);
+    try {
+      applyManagedReport(
+        await api.restartManagedEnvironment({
+          schemaVersion: 1,
+          environmentId: validatedEnvironment.id,
+          expectedGeneration: managedRuntime.generation,
+        }),
+      );
+      mountedSurfaceRef.current = null;
+      surfaceIntentRef.current = null;
+      surfaceFailureRef.current = null;
+      setNativeSurface(null);
+      setNativeSurfaceError(null);
+    } catch (error: unknown) {
+      setManagedRuntimeError(commandErrorMessage(error, "Managed restart is unavailable."));
+    } finally {
+      setTransitioningManaged(false);
+    }
+  };
+
   const retryNativeSurface = async () => {
     const environment = validatedEnvironment;
     const bounds = lastSurfaceBoundsRef.current;
@@ -553,12 +618,15 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
               attachedHealth={attachedHealth}
               attachedHealthError={attachedHealthError}
               confirmingManagedStop={confirmingManagedStop}
+              diagnostics={diagnostics}
+              diagnosticsError={diagnosticsError}
               environment={validatedEnvironment}
               error={snapshotError}
               managedRuntime={managedRuntime}
               managedRuntimeError={managedRuntimeError}
               onCancelManagedStop={() => setConfirmingManagedStop(false)}
               onConfirmManagedStop={stopManaged}
+              onRestartManaged={restartManaged}
               onReviewManagedStop={() => setConfirmingManagedStop(true)}
               onProbe={() => setProbeRevision((current) => current + 1)}
               onStartManaged={startManaged}
@@ -600,12 +668,15 @@ function RuntimePanel({
   attachedHealth,
   attachedHealthError,
   confirmingManagedStop,
+  diagnostics,
+  diagnosticsError,
   environment,
   error,
   managedRuntime,
   managedRuntimeError,
   onCancelManagedStop,
   onConfirmManagedStop,
+  onRestartManaged,
   onReviewManagedStop,
   onProbe,
   onStartManaged,
@@ -616,12 +687,15 @@ function RuntimePanel({
   attachedHealth: AttachedHealthReport | null;
   attachedHealthError: string | null;
   confirmingManagedStop: boolean;
+  diagnostics: DiagnosticsReport | null;
+  diagnosticsError: string | null;
   environment: DshEnvironment | null;
   error: string | null;
   managedRuntime: ManagedRuntimeReport | null;
   managedRuntimeError: string | null;
   onCancelManagedStop(): void;
   onConfirmManagedStop(): void;
+  onRestartManaged(): void;
   onReviewManagedStop(): void;
   onProbe(): void;
   onStartManaged(): void;
@@ -695,12 +769,14 @@ function RuntimePanel({
           error={managedRuntimeError}
           onCancelStop={onCancelManagedStop}
           onConfirmStop={onConfirmManagedStop}
+          onRestart={onRestartManaged}
           onReviewStop={onReviewManagedStop}
           onStart={onStartManaged}
           report={managedRuntime}
           transitioning={transitioningManaged}
         />
       )}
+      {isManaged && <DiagnosticsSection error={diagnosticsError} report={diagnostics} />}
       <p className="panel__note">
         {isAttached
           ? "Lifecycle controls remain unavailable. Attached reachability never implies DSH identity or Desktop process ownership."
@@ -722,6 +798,7 @@ function ManagedRuntimeSection({
   error,
   onCancelStop,
   onConfirmStop,
+  onRestart,
   onReviewStop,
   onStart,
   report,
@@ -731,13 +808,16 @@ function ManagedRuntimeSection({
   error: string | null;
   onCancelStop(): void;
   onConfirmStop(): void;
+  onRestart(): void;
   onReviewStop(): void;
   onStart(): void;
   report: ManagedRuntimeReport | null;
   transitioning: boolean;
 }) {
   const state = report?.state ?? "loading";
-  const canStart = report?.state === "stopped" || report?.state === "crashed";
+  const canStart =
+    report?.state === "stopped" || report?.state === "crashed" || report?.state === "safe_stop";
+  const canRestart = report?.state === "healthy";
   const canStop =
     report !== null &&
     report.generation > 0 &&
@@ -759,6 +839,16 @@ function ManagedRuntimeSection({
             {transitioning ? "Starting…" : "Start Managed DSH"}
           </button>
         )}
+        {canRestart && (
+          <button
+            className="secondary-button"
+            disabled={transitioning}
+            onClick={onRestart}
+            type="button"
+          >
+            {transitioning ? "Restarting…" : "Restart managed DSH"}
+          </button>
+        )}
         {canStop && !confirmingStop && (
           <button
             className="secondary-button"
@@ -778,6 +868,12 @@ function ManagedRuntimeSection({
         <div><dt>Readiness</dt><dd>{report?.readiness ?? "loading"}</dd></div>
         <div><dt>Instance</dt><dd>{report?.instanceId ?? "none"}</dd></div>
         <div><dt>Stop disposition</dt><dd>{report?.stopDisposition ?? "not_requested"}</dd></div>
+        {report?.recovery && (
+          <>
+            <div><dt>Recovery crashes</dt><dd>{report.recovery.crashCount} / {report.recovery.budget}</dd></div>
+            <div><dt>Recovery state</dt><dd>{report.recovery.safeStop ? "safe stop" : "bounded recovery"}</dd></div>
+          </>
+        )}
       </dl>
       {report?.endpoint && (
         <div className="callout callout--success">
@@ -809,6 +905,63 @@ function ManagedRuntimeSection({
   );
 }
 
+function DiagnosticsSection({
+  error,
+  report,
+}: {
+  error: string | null;
+  report: DiagnosticsReport | null;
+}) {
+  return (
+    <section className="diagnostics" aria-labelledby="diagnostics-heading">
+      <div className="diagnostics__heading">
+        <div>
+          <p className="eyebrow">Credential-free snapshot (AC-LOG-001)</p>
+          <h3 id="diagnostics-heading">Diagnostics</h3>
+        </div>
+      </div>
+      {error && <div className="callout callout--danger" role="alert">{error}</div>}
+      {report ? (
+        <>
+          <dl className="definition-grid definition-grid--health">
+            <div><dt>Observed</dt><dd>{new Date(report.observedAtUnixMs).toISOString()}</dd></div>
+            <div><dt>Runtime state</dt><dd>{report.runtime.state}</dd></div>
+            <div><dt>Readiness</dt><dd>{report.runtime.readiness}</dd></div>
+            <div>
+              <dt>Endpoint</dt>
+              <dd>
+                {report.runtime.endpoint
+                  ? `${report.runtime.endpoint.host}:${report.runtime.endpoint.port}`
+                  : "none"}
+              </dd>
+            </div>
+            <div>
+              <dt>Surface</dt>
+              <dd>{report.surface.state}{report.surface.visible ? " · visible" : ""}</dd>
+            </div>
+            <div>
+              <dt>Process</dt>
+              <dd>
+                {report.process.retained ? "retained" : "not retained"}
+                {report.process.owned ? " · owned" : ""}
+              </dd>
+            </div>
+            <div><dt>Catalog revision</dt><dd>{report.catalog.revision}</dd></div>
+          </dl>
+          <ul className="diagnostics__evidence">
+            {report.evidence.map((item, index) => (
+              <li key={`${item.code}-${index}`} data-severity={item.severity}>
+                <span className="diagnostics__evidence-code">{item.code}</span> {item.message}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="panel__note">Diagnostics are not available yet.</p>
+      )}
+    </section>
+  );
+}
 function commandErrorMessage(error: unknown, fallback: string) {
   if (
     typeof error === "object" &&

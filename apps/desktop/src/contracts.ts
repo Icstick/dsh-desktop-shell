@@ -4,6 +4,7 @@ export type RuntimeState =
   | "starting"
   | "healthy"
   | "crashed"
+  | "safe_stop"
   | "stopping"
   | "attached"
   | "detached"
@@ -162,17 +163,31 @@ export interface ManagedRuntimeStopRequest {
   expectedGeneration: number;
 }
 
+export interface ManagedRuntimeRestartRequest {
+  schemaVersion: 1;
+  environmentId: string;
+  expectedGeneration: number;
+}
+
 export interface ManagedRuntimeEvidence {
   code: string;
   severity: "info" | "warning" | "error";
   message: string;
 }
 
+export interface RecoveryReport {
+  crashCount: number;
+  windowStartUnixMs: number;
+  budget: number;
+  safeStop: boolean;
+  lastCrashAtUnixMs: number | null;
+}
+
 export interface ManagedRuntimeReport {
   schemaVersion: 1;
   environmentId: string;
   ownership: "managed";
-  state: "stopped" | "starting" | "healthy" | "stopping" | "crashed";
+  state: "stopped" | "starting" | "healthy" | "stopping" | "crashed" | "safe_stop";
   generation: number;
   instanceId: string | null;
   processOwnership: "none" | "owned";
@@ -186,8 +201,51 @@ export interface ManagedRuntimeReport {
     verification: "owned_generation_output_and_tcp";
   } | null;
   stopDisposition: "not_requested" | "graceful" | "forced";
+  recovery: RecoveryReport | null;
   observedAtUnixMs: number;
   evidence: ManagedRuntimeEvidence[];
+}
+
+export interface DiagnosticsRequest {
+  schemaVersion: 1;
+  environmentId: string;
+}
+
+export interface DiagnosticsEvidence {
+  code: string;
+  severity: "info" | "warning" | "error";
+  message: string;
+}
+
+export interface DiagnosticsReport {
+  schemaVersion: 1;
+  environmentId: string;
+  observedAtUnixMs: number;
+  runtime: {
+    state: "stopped" | "starting" | "healthy" | "stopping" | "crashed" | "safe_stop";
+    generation: number;
+    readiness: "not_started" | "waiting" | "verified" | "failed";
+    endpoint: { host: "127.0.0.1"; port: number } | null;
+    recovery: { crashCount: number; budget: number; safeStop: boolean } | null;
+  };
+  surface: {
+    state:
+      | "unmounted"
+      | "mounting"
+      | "loading"
+      | "ready"
+      | "hidden"
+      | "error"
+      | "stale"
+      | "unsupported_platform";
+    platform: "windows" | "macos" | "linux" | "other";
+    generation: number;
+    visible: boolean;
+    error: { code: string; reason: string; message: string } | null;
+  };
+  catalog: { revision: number; activeEnvironmentId: string | null };
+  process: { retained: boolean; owned: boolean };
+  evidence: DiagnosticsEvidence[];
 }
 
 export interface DesktopCommandError {

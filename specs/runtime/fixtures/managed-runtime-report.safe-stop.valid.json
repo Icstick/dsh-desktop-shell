@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "local-dsh",
+  "ownership": "managed",
+  "state": "safe_stop",
+  "generation": 3,
+  "instanceId": null,
+  "processOwnership": "none",
+  "lifecycleMutation": "allowed",
+  "readiness": "failed",
+  "endpoint": null,
+  "stopDisposition": "not_requested",
+  "observedAtUnixMs": 1787792400100,
+  "recovery": {
+    "crashCount": 3,
+    "windowStartUnixMs": 1787792340000,
+    "budget": 3,
+    "safeStop": true,
+    "lastCrashAtUnixMs": 1787792399000
+  },
+  "evidence": [
+    {
+      "code": "MANAGED_SAFE_STOP",
+      "severity": "error",
+      "message": "Recovery budget exhausted; the Managed generation entered Safe Stop without auto-restart."
+    }
+  ]
+}

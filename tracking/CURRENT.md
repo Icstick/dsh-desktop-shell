@@ -1,18 +1,19 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M1 Shell MVP
+- Milestone：M2 Reliable Runtime（M1 收尾证据已提交，见 HANDOFF-M1-NATIVE-ACCEPTANCE）
 - Status：`in_progress`
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25
-- Last updated：2026-08-28T15:50:00Z
+- Last updated：2026-08-28T17:10:00Z
 
 ## 当前状态
 
 - Maintainer 已接受 [HANDOFF-M0-REVIEW](handoffs/HANDOFF-M0-REVIEW.yaml)，M0 与 [WI-M0-REVIEW](work-items/WI-M0-REVIEW.yaml) 已完成。
 - Maintainer 已接受 [HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE](handoffs/HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE.yaml)；接受证据见 [REVIEW-M1-DSH-SURFACE-NATIVE-SLICE-ACCEPTANCE](reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE-ACCEPTANCE.yaml)。M1 与 [WI-M1-SHELL](work-items/WI-M1-SHELL.yaml) 仍为 `in_progress`，当前由 [SESSION-20260828-M1-NATIVE-ACCEPTANCE-CONT](sessions/SESSION-20260828-M1-NATIVE-ACCEPTANCE-CONT.yaml) 持有 active claim（至 2026-08-29T15:18:33Z）。
 - Windows real-DSH WebView2 native smoke/compatibility matrix 已通过（26/26）：真实 user-owned DSH checkout 经 ADR-0012 repository recipe 启动，DSH UI 在 dsh-surface child WebView 内完成 token exchange 并停留于 clean exact-origin root；cross-origin/popup/download/permission deny、resize/hide/show/reload/unmount、stop 后 binding fail-closed 与进程树清理全部验证；证据见 [SMOKE-20260828-WEBVIEW2-NATIVE](../docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md)、[evidence JSON](../docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json) 与 [HANDOFF-M1-NATIVE-ACCEPTANCE](handoffs/HANDOFF-M1-NATIVE-ACCEPTANCE.yaml)。ADR-0012 相关 5 个提交已推送至 `origin/codex/wi-m1-shell-native-acceptance`。
-- 剩余：macOS/Linux `unsupported_platform` target-host 实测证据（已提取共享 helper 并有单测，结构性证据齐备）与 M1 最终 acceptance review；通过前不提前声明平台支持。
+- 剩余：macOS/Linux `unsupported_platform` target-host 实测证据与 M1 最终 acceptance review（独立评审已由 REVIEW-M1-NATIVE-ACCEPTANCE 子代理执行）。
+- M2 Reliable Runtime：由 [SESSION-20260828-M2-RELIABLE-RUNTIME](sessions/SESSION-20260828-M2-RELIABLE-RUNTIME.yaml) 持有 [WI-M2-RUNTIME](work-items/WI-M2-RUNTIME.yaml) claim；按 [PLAN-M2](../docs/roadmap/PLAN-M2.md) 完成 M2-A Supervisor restart/recovery/Safe Stop（ADR-0013）、M2-B Diagnostics（AC-LOG-001）、M2-C local-transport（AC-IPC-001/002）、M2-D P0 Capability Broker（ADR-0014，AC-LEASE-001）；Rust 98 tests（54 桌面 + 28 local-transport + 15 supervisor + 1 doctest）、vitest 25、ACL 18 commands、41 schemas/34 fixtures 全通过；M2 收尾审查与加固（async 命令、restart force-unmount、死代码移除、注释与文档统一）已完成，审查记录见 REVIEW-M2-HANDOFF-CONSISTENCY / REVIEW-M2-HARDENING-SECURITY / REVIEW-M2-HARDENING-REDUNDANCY / REVIEW-M2-HARDENING-DOCS；收尾证据见 [HANDOFF-M2-RELIABLE-RUNTIME](handoffs/HANDOFF-M2-RELIABLE-RUNTIME.yaml)。本阶段搁置 macOS/Linux 与交互式 GUI 测试。
 
 ## 已完成
 

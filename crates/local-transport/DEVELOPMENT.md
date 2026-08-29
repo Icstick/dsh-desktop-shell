@@ -2,7 +2,7 @@
 
 ## Boundary
 
-提供 Named Pipe/UDS 与 loopback fallback 的认证 carrier、framing 和连接监督。 它只处理本模块列出的 ownership，不通过便利性绕过上层 policy、下层 abstraction 或 Adapter boundary。
+提供 loopback TCP 认证 carrier（当前实现）、framing 和连接监督。Named Pipe/UDS 为 Carrier trait 的保留扩展点（ADR-0007/0008 daemon 阶段），loopback fallback 语义已在实现中。只处理本模块列出的 ownership，不通过便利性绕过上层 policy、下层 abstraction 或 Adapter boundary。
 
 ## Data flow
 

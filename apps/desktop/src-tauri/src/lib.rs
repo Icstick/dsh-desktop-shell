@@ -1,5 +1,6 @@
 mod attached_health;
 mod commands;
+mod diagnostics;
 mod discovery;
 mod dsh_surface;
 mod dsh_surface_policy;
@@ -17,12 +18,14 @@ pub fn run() {
             commands::get_dsh_surface_status,
             commands::get_dsh_surface_policy,
             commands::get_environment_catalog,
+            commands::get_diagnostics,
             commands::get_managed_runtime_status,
             commands::get_shell_snapshot,
             commands::mount_dsh_surface,
             commands::probe_attached_environment,
             commands::reload_dsh_surface,
             commands::save_environment,
+            commands::restart_managed_environment,
             commands::start_managed_environment,
             commands::stop_managed_environment,
             commands::unmount_dsh_surface,

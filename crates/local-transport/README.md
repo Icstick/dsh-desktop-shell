@@ -6,7 +6,7 @@
 
 ## Purpose
 
-提供 Named Pipe/UDS 与 loopback fallback 的认证 carrier、framing 和连接监督。
+提供认证 carrier、framing 和连接监督。当前实现为 loopback TCP（一次性 ephemeral credential、u32 长度前缀 framing、64 KiB 上限、deadline/并发限制）；Named Pipe/UDS 为 Carrier trait 扩展点，留待 daemon 阶段（ADR-0007/0008）。
 
 ## Owns
 

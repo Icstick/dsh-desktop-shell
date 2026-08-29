@@ -46,6 +46,14 @@ impl EnvironmentCatalog {
             .iter()
             .find(|environment| environment.id() == environment_id)
     }
+
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    pub(crate) fn active_environment_id(&self) -> Option<&str> {
+        self.active_environment_id.as_deref()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

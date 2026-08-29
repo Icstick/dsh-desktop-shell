@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/desktop/src-tauri"]
+members = ["apps/desktop/src-tauri", "crates/local-transport", "crates/supervisor"]
 resolver = "3"
 
 [profile.release]

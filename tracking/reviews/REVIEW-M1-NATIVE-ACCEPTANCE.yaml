@@ -1,0 +1,63 @@
+schema_version: 1
+id: REVIEW-M1-NATIVE-ACCEPTANCE
+scope: "M1 native acceptance 收尾独立评审：HANDOFF-M1-NATIVE-ACCEPTANCE 声明一致性、Windows real-DSH WebView2 native smoke 26/26 证据与驱动断言、commit 468dd2d unsupported_platform helper 重构语义、tracking 记录一致性、Rust/frontend/ACL/git/JSON 门禁复验、secret redaction 与仓库完整性。评审基线：codex/wi-m1-shell-native-acceptance @ 8af0c24（378f215..8af0c24，均为评审时 HEAD 祖先）。"
+status: passed
+reviewers:
+  - codex-reviewer-independent
+checks:
+  - id: handoff-consistency
+    status: passed
+    evidence: "HANDOFF-M1-NATIVE-ACCEPTANCE.yaml 的 completed/remaining/verification/risks 与仓库证据逐条一致：26/26 smoke（evidence JSON）、cargo test 35/fmt/clippy 复验通过、refactor commit 468dd2d 存在、push 声明经 gh API 独立验证 origin/codex/wi-m1-shell-native-acceptance 存在且 SHA=8af0c24872ae5a26a2cb1bf841addeaae1db53de（=本地 m1 分支 tip，实际已推送至 tip 而非仅声称的 5 提交）；remaining 如实保留 macOS/Linux target-host 证据与 M1 acceptance review；risks（stopDisposition=forced、CDP 依赖、无 macOS/Linux 运行时证据、Tauri/Wry 依赖漂移）与 evidence JSON 及代码事实一致。"
+  - id: smoke-evidence-integrity
+    status: passed
+    evidence: "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json 可 JSON.parse；passed=true、failures=[]、results.length=26、26 项全部 ok=true 且 name 唯一；时间线自洽（startedAt 15:24:36Z → finishedAt 15:24:46Z，10.2s 与驱动 sleep/poll 节奏相符）；SMOKE md 的 5 个相对链接目标全部存在（WI-M1-SHELL.yaml、ADR-0011/0012 md、smoke-native.mjs、evidence JSON）；文档结果表与 JSON 26 项一一对应。"
+  - id: smoke-driver-logic
+    status: passed
+    evidence: "apps/desktop/scripts/smoke-native.mjs 中 26 个 record() 调用与 evidence JSON 的 26 个结果名称及断言逐项匹配：child clean-root 用精确 URL 比较、cross-origin 用 Page.navigate+href 验证、popup 用 window.open 返回值+CDP target 计数、download 用 href 不变+target 计数、permission 用 Notification/Geolocation 实测、ACL 用 child invoke 被拒（\"not allowed on window \"shell\", webview \"dsh-surface\"\"）、stop 后 status/mount fail-closed 用错误串匹配；断言真实驱动了声称行为，非静态伪造。"
+  - id: unsupported-platform-refactor
+    status: passed
+    evidence: "git show 468dd2d：unsupported_platform_record 逐字段等价于重构前内联 SurfaceRecord（environment_id/generation/port/state=UnsupportedPlatform/bounds=None/visible=false/error UNAVAILABLE:unsupported_platform 同文案同值）；#[cfg(not(windows))] 分支仅替换为 helper 调用；mount_windows_surface 仍为 #[cfg(windows)]（dsh_surface.rs:444-445，cfg(windows) imports 位于 3-30）；单测 unsupported_status_is_explicit_and_unmounted 改用 helper 并加强断言（含 report().verified_origin.port=13579，与 report() 实现 300-318 一致）；本评审 cargo test 复验该测试 ok。非 Windows 语义未变，Windows 代码在 macOS/Linux 编译期不存在（AC-WEB-007 结构性半边）。"
+  - id: rust-gates
+    status: passed
+    evidence: "本评审独立复验（apps/desktop/src-tauri，根 target/ 缓存）：cargo test 35 passed/0 failed（含 dsh_surface::tests::unsupported_status_is_explicit_and_unmounted、native_navigation_only_allows_bootstrap_or_exact_origin 等）；cargo fmt --check 退出码 0；cargo clippy --all-targets -- -D warnings 退出码 0。与 handoff 声称的 35 passed 完全一致。"
+  - id: frontend-gates
+    status: passed
+    evidence: "本评审独立复验（apps/desktop，node 直接调入口）：node node_modules/typescript/bin/tsc -b 退出码 0；node node_modules/vite/bin/vite.js build 输出 24 modules transformed 退出码 0；node node_modules/vitest/vitest.mjs run 2 files/22 tests 全过（environment-draft 8 + ShellApp 14）。与声称的 24 modules / 22 tests 一致。"
+  - id: acl-gates
+    status: passed
+    evidence: "本评审独立复验：node apps/desktop/scripts/validate-acl.mjs 输出 \"ACL validation passed: 16 commands, trusted Shell webview only, no remote access.\" 退出码 0，与声称的 16 commands 一致。"
+  - id: repository-integrity
+    status: passed
+    evidence: "门禁运行时 git diff --check 干净、git status --short 无输出（M1 分支期工作树干净）；近 3 个 M1 提交文件范围仅涉 tracking/docs/scripts/src 且全部相关（3e7f2f7 仅 session+WI，a909025 证据+tracking，8af0c24 链接修复）；tracking/ 下无 M1 收尾引入的无关文件；SMOKE md 相对链接目标全部存在。注：评审中途父代理并发创建 codex/wi-m2-reliable-runtime @ 113c238 并遗留未提交 M2 文件（specs/runtime/managed-runtime-report.schema.json 修改、docs/decisions/ADR-0013-*.md 与 specs/runtime/managed-runtime-restart-request.schema.json 未跟踪），均不在 M1 评审范围，不影响 M1 证据。"
+  - id: secret-redaction
+    status: passed
+    evidence: "evidence JSON 全文 0 个 '?'、0 个 40 位 SHA、无 bearer/secret/api-key 字样（'token' 仅出现在两条检查名中）；runtime report 与 surface status 序列化不含 token= 或任何 query；child WebView 最终 URL 为 http://127.0.0.1:58765/ 无查询参数（驱动做精确相等比较，强于子串检查）；环境配置（nodePath/entry/dshHome）属配置非密钥。token 红action 声称对记录数据成立。"
+findings:
+  - "LOW smoke-native.mjs token 卫生断言弱于检查名：仅查 'token=' 与 '?token' 子串，换参数名（如 t=/code=）不会触发；本次记录载荷无任何 '?'，声称对记录数据成立，但建议改为拒绝任何 '?' 或已知凭据参数名的正则。"
+  - "LOW download 拒绝断言是代理指标（href 不变 + CDP target 数不变）；若下载被静默允许并完成，该断言同样通过。Rust 层 DownloadStarting deny hook 与其他 deny 证据缓解此 gap。"
+  - "LOW 'DSH page loaded' 断言仅要求 innerText 非空；真实 UI 证据由记录 detail（title 'DSH 本地构建'、workspace picker 文案）支撑，断言本身可加强（如断言 title 或已知文案片段）。"
+  - "LOW tracking 时间戳卫生：HANDOFF/CURRENT/project 的 15:50:00Z 晚于引入它们的 commit a909025（15:27:15Z）约 23 分钟；created_at/updated_at 疑按完成意图预填，建议以实际写入时间为准。"
+  - "LOW CURRENT.md '下一动作' 段仍指向 SESSION-20260828-M1-NATIVE-ACCEPTANCE 继续执行 smoke，而 smoke 已在 CONT session 完成；'当前状态' 段正确但尾部段落未同步（链接目标存在，不影响导航）。"
+  - "LOW WI-M1-SHELL evidence 列表未列 commit 468dd2d（refactor 仅由 handoff 描述覆盖）；建议补列以保证证据可追溯。"
+  - "INFO macOS/Linux unsupported_platform 仍缺 target-host 运行时证据：编译期 gating + helper 单测为结构性证据，handoff remaining 如实记录、未提前声明平台支持——与 AC-WEB-007 未声称一致，需 maintainer 决定是否排期。"
+  - "INFO 评审期间仓库并发变更：父代理新建 codex/wi-m2-reliable-runtime @ 113c238（chore(m2) claim，23:50:38 +0800），期间还观察到未提交的 M2 源码编辑（commands.rs 新增 restart_managed_environment、validate-acl.mjs/ACL 列表、managed_runtime.rs、build.rs、lib.rs、capabilities/shell.json）——全部不在 M1 评审范围；不影响 M1 证据（M1 门禁在干净树上运行，且 378f215..8af0c24 全为 HEAD 祖先）。后续读者注意：这些未提交文件属父代理进行中的 M2 工作。"
+  - "INFO push 声明独立验证通过：gh API refs/heads/codex/wi-m1-shell-native-acceptance = 8af0c24872ae5a26a2cb1bf841addeaae1db53de（本地 tip 全量已推送，超过 handoff 声称的 5 提交；本机 SSH 无 key 与 handoff 描述一致，ls-remote 走 SSH 失败属预期）。"
+evidence:
+  - "commit 378f215 / 121dc30 / bc45975 / 3e7f2f7（ADR-0012 系列 + continuation claim，push 声明 5 提交）"
+  - "commit 468dd2d（unsupported_platform_record helper 重构，diff 已逐行审阅）"
+  - "commit a909025 / 8af0c24（smoke 证据记录与相对链接修复）"
+  - "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json"
+  - "docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md"
+  - "apps/desktop/scripts/smoke-native.mjs"
+  - "apps/desktop/src-tauri/src/dsh_surface.rs"
+  - "tracking/handoffs/HANDOFF-M1-NATIVE-ACCEPTANCE.yaml"
+  - "tracking/work-items/WI-M1-SHELL.yaml"
+  - "tracking/sessions/SESSION-20260828-M1-NATIVE-ACCEPTANCE-CONT.yaml"
+  - "tracking/CURRENT.md"
+  - "tracking/project.yaml"
+  - "specs/tracking/review.schema.json"
+  - "gh api repos/Icstick/dsh-desktop-shell/git/refs/heads/codex/wi-m1-shell-native-acceptance -> 8af0c24872ae5a26a2cb1bf841addeaae1db53de"
+  - "本评审复验输出：cargo test 35 passed / fmt 0 / clippy 0 / tsc 0 / vite 24 modules / vitest 22 tests / ACL 16 commands / git diff --check 0 / JSON parse passed=true failures=[] length=26 allOk=true"
+next_action: "Maintainer 审阅本记录与 HANDOFF-M1-NATIVE-ACCEPTANCE，决定是否在 M1 exit 前排期 macOS/Linux target-host unsupported_platform 证据；建议后续加强 smoke 断言（token/query 正则、download 可观测指标）、补列 468dd2d 至 WI evidence、同步 CURRENT.md 下一动作与 tracking 时间戳卫生。"
+created_at: "2026-08-28T15:54:28Z"
+updated_at: "2026-08-28T16:02:00Z"

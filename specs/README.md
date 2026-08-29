@@ -18,9 +18,13 @@ Config fixtures 位于 [`config/fixtures/`](config/fixtures/)；`.valid.json` �
 - [Managed Start Request](runtime/managed-runtime-start-request.schema.json)
 - [Managed Status Request](runtime/managed-runtime-status-request.schema.json)
 - [Managed Stop Request](runtime/managed-runtime-stop-request.schema.json)
+- [Managed Restart Request](runtime/managed-runtime-restart-request.schema.json)
 - [Managed Runtime Report](runtime/managed-runtime-report.schema.json)
+- [Diagnostics Report](runtime/diagnostics-report.schema.json)
 
-Runtime fixtures 位于 [`runtime/fixtures/`](runtime/fixtures/)。M1 Attached probe 只返回 bounded loopback TCP reachability；Managed endpoint 只有在 retained child/generation、`dsh web:` exact loopback candidate 与 bounded TCP readiness 同时成立时发布。ADR-0012 允许 legacy root 或 backend-only authenticated token root，但所有 public serialization 继续只暴露 sanitized origin。
+Runtime fixtures 位于 [`runtime/fixtures/`](runtime/fixtures/)。M1 Attached probe 只返回 bounded loopback TCP reachability；Managed endpoint 只有在 retained child/generation、`dsh web:` exact loopback candidate 与 bounded TCP readiness 同时成立时发布。ADR-0012 允许 legacy root 或 backend-only authenticated token root，但所有 public serialization 继续只暴露 sanitized origin。M2（ADR-0013）增加 `restart` 操作与有界恢复：RuntimeReport 携带 credential-free `recovery` 历史，预算耗尽发布 `safe_stop` 且不自动重启。
+
+M2-B Diagnostics（AC-LOG-001）把 Supervisor、Surface、catalog 与 process 状态汇成只读 `DiagnosticsReport`：所有字段 redacted——禁止 token/query/bootstrap URL/cookie/完整 URL/PID 等秘密；runtime endpoint 只暴露 `127.0.0.1` host 与 port，recovery 只暴露 crashCount/budget/safeStop。
 
 ## DSH Surface WebView Policy
 

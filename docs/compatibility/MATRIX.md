@@ -34,7 +34,7 @@ DSH Surface policy serialization 与 semantic coordinates 固定在 [`specs/webv
 
 M1 native Surface support 由 `ADR-0011` 限定为 Windows foothold。只有可复查 Windows WebView2 smoke/negative evidence 才能形成 Windows 支持声明；macOS、Linux 与其他平台的预期结果是 `unsupported_platform` 且不创建 WebView，不得记为功能通过。
 
-截至 2026-08-28，Windows foothold 已完成 contract、Rust implementation、exact Shell-WebView ACL、30 项 Rust tests、22 项 frontend tests、strict Clippy、production build 与 responsive Shell visual QA。此结果证明代码路径和 fail-closed orchestration 可审查，但没有启动 user-owned DSH，也没有完成真实 WebView2 permission/redirect/popup/download/load-failure matrix，因此 Windows support coordinate 仍为 `implementation_review`，不是 `supported`。macOS/Linux/other 仍只允许 `unsupported_platform` negative coordinate。
+截至 2026-08-28，Windows foothold 已完成 contract、Rust implementation、exact Shell-WebView ACL、54 项 Rust tests、25 项 frontend tests、strict Clippy、production build、responsive Shell visual QA，并通过真实 user-owned DSH WebView2 smoke/negative matrix（26/26，token exchange、clean-root、cross-origin/popup/download/permission deny、resize/hide/show/reload/unmount、stop 后 binding fail-closed）。Windows support coordinate 仍由 maintainer 评审后决定（当前 `implementation_review`，不是 `supported`）。macOS/Linux/other 仍只允许 `unsupported_platform` negative coordinate（target-host 证据待排期）。
 
 Managed Runtime request/report serialization 与 semantic gates 固定在 [`specs/runtime/fixtures/`](../../specs/runtime/fixtures/)；M1 只验证 integrated P0 start/status/stop foothold，不构成 M2 recovery、daemon 或三平台 process-tree hardening 支持声明。
 

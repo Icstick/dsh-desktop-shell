@@ -1,7 +1,7 @@
 schema_version: 1
 id: M2
 title: "Reliable Runtime"
-status: proposed
+status: review
 relative_weeks: "5-8"
 depends_on:
   - M1
@@ -9,5 +9,10 @@ exit_criteria:
   - "Supervisor/process ownership/health/restart 通过 chaos"
   - "Native IPC 与 fallback 通过 security tests"
   - "Safe Stop 与 diagnostics 可用"
-evidence: []
-updated_at: "2026-08-25T06:49:34Z"
+evidence:
+  - "commit 525eaeb/ec59d94: ADR-0013 restart/recovery/Safe Stop (M2-A)"
+  - "commit 655034d: diagnostics report + AC-LOG-001 redaction (M2-B)"
+  - "commit fd39932: local-transport crate + AC-IPC-001/002 (M2-C)"
+  - "commit b0ce423: P0 capability broker + ADR-0014 + AC-LEASE-001 (M2-D)"
+  - "tracking/handoffs/HANDOFF-M2-RELIABLE-RUNTIME.yaml"
+updated_at: "2026-08-28T18:30:00Z"

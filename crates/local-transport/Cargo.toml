@@ -1,0 +1,24 @@
+[package]
+name = "dsh-local-transport"
+version = "0.1.0"
+description = "Authenticated length-prefixed loopback transport for local IPC (MOD-LOCAL-TRANSPORT)"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+[lib]
+name = "dsh_local_transport"
+path = "src/lib.rs"
+
+[dependencies]
+getrandom = "=0.3.3"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+
+[dev-dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+
+# Standalone workspace so the crate builds independently of the repo root
+# workspace (which only contains apps/desktop/src-tauri).

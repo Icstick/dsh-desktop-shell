@@ -238,13 +238,18 @@ export function EnvironmentSetup({ api, initialEnvironment, onSaved }: Environme
               />
               Recover after crash within budget
             </label>
-            <label>
+            {/* Reserved M4/M5 knob: allowNativeAdapter has no backend consumer yet
+                (ADR-0014 broker dispatch is the future gate). Hidden until the
+                adapter grant path exists so the UI never claims an unenforced
+                authorization. */}
+            <label className="reserved-option">
               <input
                 checked={draft.allowNativeAdapter}
+                disabled
                 onChange={(event) => update("allowNativeAdapter", event.target.checked)}
                 type="checkbox"
               />
-              Allow negotiated native adapter
+              Allow negotiated native adapter (reserved)
             </label>
           </div>
         </fieldset>

@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AttachedHealthReport,
   AttachedHealthRequest,
+  DiagnosticsReport,
+  DiagnosticsRequest,
   DshEnvironment,
   DshSurfaceNavigationDecision,
   DshSurfaceNavigationRequest,
@@ -19,6 +21,7 @@ import type {
   HarnessDiscoveryReport,
   HarnessDiscoveryRequest,
   ManagedRuntimeReport,
+  ManagedRuntimeRestartRequest,
   ManagedRuntimeStartRequest,
   ManagedRuntimeStatusRequest,
   ManagedRuntimeStopRequest,
@@ -32,12 +35,14 @@ export interface DesktopApi {
   ): Promise<DshSurfaceNavigationDecision>;
   getDshSurfacePolicy(request: DshSurfacePolicyRequest): Promise<DshSurfacePolicy>;
   getDshSurfaceStatus(request: DshSurfaceStatusRequest): Promise<DshSurfaceStatus>;
+  getDiagnostics(request: DiagnosticsRequest): Promise<DiagnosticsReport>;
   getEnvironmentCatalog(): Promise<EnvironmentCatalog>;
   getManagedRuntimeStatus(request: ManagedRuntimeStatusRequest): Promise<ManagedRuntimeReport>;
   getShellSnapshot(): Promise<ShellSnapshot>;
   mountDshSurface(request: DshSurfaceMountRequest): Promise<DshSurfaceStatus>;
   probeAttachedEnvironment(request: AttachedHealthRequest): Promise<AttachedHealthReport>;
   reloadDshSurface(request: DshSurfaceReloadRequest): Promise<DshSurfaceStatus>;
+  restartManagedEnvironment(request: ManagedRuntimeRestartRequest): Promise<ManagedRuntimeReport>;
   saveEnvironment(environment: DshEnvironment): Promise<EnvironmentCatalog>;
   startManagedEnvironment(request: ManagedRuntimeStartRequest): Promise<ManagedRuntimeReport>;
   stopManagedEnvironment(request: ManagedRuntimeStopRequest): Promise<ManagedRuntimeReport>;
@@ -55,6 +60,8 @@ export const desktopApi: DesktopApi = {
     invoke<DshSurfacePolicy>("get_dsh_surface_policy", { request }),
   getDshSurfaceStatus: (request) =>
     invoke<DshSurfaceStatus>("get_dsh_surface_status", { request }),
+  getDiagnostics: (request) =>
+    invoke<DiagnosticsReport>("get_diagnostics", { request }),
   getEnvironmentCatalog: () => invoke<EnvironmentCatalog>("get_environment_catalog"),
   getManagedRuntimeStatus: (request) =>
     invoke<ManagedRuntimeReport>("get_managed_runtime_status", { request }),
@@ -67,6 +74,8 @@ export const desktopApi: DesktopApi = {
     invoke<DshSurfaceStatus>("reload_dsh_surface", { request }),
   saveEnvironment: (environment) =>
     invoke<EnvironmentCatalog>("save_environment", { environment }),
+  restartManagedEnvironment: (request) =>
+    invoke<ManagedRuntimeReport>("restart_managed_environment", { request }),
   startManagedEnvironment: (request) =>
     invoke<ManagedRuntimeReport>("start_managed_environment", { request }),
   stopManagedEnvironment: (request) =>

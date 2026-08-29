@@ -55,6 +55,7 @@ evidence:
   - "commit 378f215: ADR-0012 and authenticated bootstrap contract/schema/fixtures"
   - "commit 121dc30: ADR-0012 backend implementation: private bootstrap URL, structured Node launch, candidate parser and redaction"
   - "commit 3e7f2f7: continuation claim and push of ADR-0012 commits to origin/codex/wi-m1-shell-native-acceptance via gh HTTPS credentials (SSH key absent)"
+  - "commit 468dd2d: unsupported_platform record helper extracted and unit-tested (structural AC-WEB-007 evidence)"
   - "apps/desktop/scripts/smoke-native.mjs: repeatable Windows real-DSH WebView2 native smoke driver"
   - "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json: 26/26 checks passed"
   - "docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md: Windows real-DSH WebView2 native smoke summary (AC-WEB-005/006, ADR-0012 gates)"

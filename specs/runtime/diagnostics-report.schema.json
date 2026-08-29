@@ -1,0 +1,521 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/runtime/diagnostics-report.schema.json",
+  "title": "DiagnosticsReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "environmentId",
+    "observedAtUnixMs",
+    "runtime",
+    "surface",
+    "catalog",
+    "process",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "environmentId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "observedAtUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "generation",
+        "readiness",
+        "endpoint",
+        "recovery"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "stopped",
+            "starting",
+            "healthy",
+            "stopping",
+            "crashed",
+            "safe_stop"
+          ]
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "readiness": {
+          "enum": [
+            "not_started",
+            "waiting",
+            "verified",
+            "failed"
+          ]
+        },
+        "endpoint": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "host",
+                "port"
+              ],
+              "properties": {
+                "host": {
+                  "const": "127.0.0.1"
+                },
+                "port": {
+                  "type": "integer",
+                  "minimum": 1024,
+                  "maximum": 65535
+                }
+              }
+            }
+          ]
+        },
+        "recovery": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "crashCount",
+                "budget",
+                "safeStop"
+              ],
+              "properties": {
+                "crashCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "budget": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "safeStop": {
+                  "type": "boolean"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "platform",
+        "generation",
+        "visible",
+        "error"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unmounted",
+            "mounting",
+            "loading",
+            "ready",
+            "hidden",
+            "error",
+            "stale",
+            "unsupported_platform"
+          ]
+        },
+        "platform": {
+          "enum": [
+            "windows",
+            "macos",
+            "linux",
+            "other"
+          ]
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "error": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code",
+                "reason",
+                "message"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z0-9_]+$"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "activeEnvironmentId"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeEnvironmentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retained",
+        "owned"
+      ],
+      "properties": {
+        "retained": {
+          "type": "boolean"
+        },
+        "owned": {
+          "type": "boolean"
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "state": {
+                "const": "healthy"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "generation": {
+                "minimum": 1
+              },
+              "readiness": {
+                "const": "verified"
+              },
+              "endpoint": {
+                "type": "object"
+              },
+              "recovery": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            }
+          },
+          "process": {
+            "properties": {
+              "retained": {
+                "const": true
+              },
+              "owned": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "state": {
+                "const": "starting"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "generation": {
+                "minimum": 1
+              },
+              "readiness": {
+                "const": "waiting"
+              },
+              "endpoint": {
+                "type": "null"
+              }
+            }
+          },
+          "process": {
+            "properties": {
+              "retained": {
+                "const": true
+              },
+              "owned": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "state": {
+                "const": "stopped"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "readiness": {
+                "const": "not_started"
+              },
+              "endpoint": {
+                "type": "null"
+              },
+              "recovery": {
+                "type": "null"
+              }
+            }
+          },
+          "process": {
+            "properties": {
+              "retained": {
+                "const": false
+              },
+              "owned": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "state": {
+                "const": "stopping"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "readiness": {
+                "const": "waiting"
+              },
+              "endpoint": {
+                "type": "null"
+              }
+            }
+          },
+          "process": {
+            "properties": {
+              "retained": {
+                "const": false
+              },
+              "owned": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "state": {
+                "const": "crashed"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "readiness": {
+                "const": "failed"
+              },
+              "endpoint": {
+                "type": "null"
+              },
+              "recovery": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "safeStop": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          "process": {
+            "properties": {
+              "retained": {
+                "const": false
+              },
+              "owned": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "state": {
+                "const": "safe_stop"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "readiness": {
+                "const": "failed"
+              },
+              "endpoint": {
+                "type": "null"
+              },
+              "recovery": {
+                "type": "object",
+                "properties": {
+                  "safeStop": {
+                    "const": true
+                  },
+                  "crashCount": {
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          "process": {
+            "properties": {
+              "retained": {
+                "const": false
+              },
+              "owned": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

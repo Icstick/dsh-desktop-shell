@@ -10,5 +10,5 @@ interfaces:
 depends_on:
   - MOD-SUPERVISOR
 security_review: required
-updated_at: "2026-08-28T01:04:54Z"
-next_action: "保留 M1 Attached health 与 Managed generation/ownership/readiness evidence foothold；M2 前再审日志导出、恢复入口和完整 diagnostics contract。"
+updated_at: "2026-08-28T18:40:00Z"
+next_action: "M2 在 MOD-SUPERVISOR 侧完成 diagnostics report（specs/runtime/diagnostics-report.schema.json，AC-LOG-001）；UI 展示暂时落在 MOD-SHELL-UI 的 RuntimePanel，本模块的独立 UI 与日志导出留待 M3。"

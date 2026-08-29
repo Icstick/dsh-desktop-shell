@@ -2,9 +2,9 @@
 
 DSH Desktop Shell 是面向用户自有 DeepSeek Harness 的跨平台桌面工作台与本地能力宿主。它不分发、不升级、不修改用户的 DSH Core 或 `DSH_HOME`，而是在外层提供稳定的桌面窗口、进程监督、原生能力、兼容适配与恢复体验。
 
-> 当前阶段：`shell-mvp` / M1 Shell MVP in progress。
+> 当前阶段：`shell-mvp` / M2 Reliable Runtime in progress（M1 Shell MVP 与 M2 四切片已交付并处于 review）。
 >
-> Maintainer 已批准 `HANDOFF-M0` 并将 `implementation_authorized` 设为 `true`。`WI-M1-SHELL` 已开始实现首个 Tauri/React/Rust 纵向切片；Environment 持久化、Discovery、Managed/Attached lifecycle 与真实 DSH Surface 尚未完成。
+> Maintainer 已批准 `HANDOFF-M0` 并将 `implementation_authorized` 设为 `true`。M1 Shell MVP（Environment/Discovery/Managed/Attached/DSH Surface，含真实 user-owned DSH WebView2 smoke 26/26）与 M2 Reliable Runtime（restart/recovery/Safe Stop、diagnostics、local-transport、capability broker）均已交付；等待 maintainer 评审。
 
 ## 一句话架构
 

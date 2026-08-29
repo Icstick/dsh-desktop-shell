@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "local-dsh",
+  "observedAtUnixMs": 1787792400100,
+  "runtime": {
+    "state": "healthy",
+    "generation": 7,
+    "readiness": "verified",
+    "endpoint": {
+      "host": "127.0.0.1",
+      "port": 4317,
+      "url": "http://127.0.0.1:4317/?token=A234567890123456789012345678901234567890123"
+    },
+    "recovery": null
+  },
+  "surface": {
+    "state": "ready",
+    "platform": "windows",
+    "generation": 7,
+    "visible": true,
+    "error": null
+  },
+  "catalog": {
+    "revision": 12,
+    "activeEnvironmentId": "local-dsh"
+  },
+  "process": {
+    "retained": true,
+    "owned": true
+  },
+  "evidence": [
+    {
+      "code": "DIAGNOSTICS_COLLECTED",
+      "severity": "info",
+      "message": "Diagnostics snapshot collected."
+    }
+  ],
+  "bootstrapUrl": "http://127.0.0.1:4317/?token=A234567890123456789012345678901234567890123",
+  "cookie": "dsh_session=super-secret-cookie-value"
+}

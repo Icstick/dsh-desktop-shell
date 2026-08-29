@@ -50,6 +50,34 @@ function createApi(): DesktopApi {
       activeEnvironmentId: null,
       environments: [],
     }),
+    getDiagnostics: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      environmentId: request.environmentId,
+      observedAtUnixMs: 1787792400100,
+      runtime: {
+        state: "stopped",
+        generation: 0,
+        readiness: "not_started",
+        endpoint: null,
+        recovery: null,
+      },
+      surface: {
+        state: "unmounted",
+        platform: "windows",
+        generation: 0,
+        visible: false,
+        error: null,
+      },
+      catalog: { revision: 0, activeEnvironmentId: null },
+      process: { retained: false, owned: false },
+      evidence: [
+        {
+          code: "DIAGNOSTICS_COLLECTED",
+          severity: "info",
+          message: "Diagnostics snapshot collected.",
+        },
+      ],
+    })),
     getManagedRuntimeStatus: vi.fn().mockImplementation(async (request) => ({
       schemaVersion: 1,
       environmentId: request.environmentId,
@@ -62,6 +90,7 @@ function createApi(): DesktopApi {
       readiness: "not_started",
       endpoint: null,
       stopDisposition: "not_requested",
+      recovery: null,
       observedAtUnixMs: 1787792400000,
       evidence: [
         {
@@ -111,6 +140,34 @@ function createApi(): DesktopApi {
       activeEnvironmentId: environment.id,
       environments: [environment],
     })),
+    restartManagedEnvironment: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      environmentId: request.environmentId,
+      ownership: "managed",
+      state: "healthy",
+      generation: request.expectedGeneration + 1,
+      instanceId: "managed-2-1787792400000",
+      processOwnership: "owned",
+      lifecycleMutation: "allowed",
+      readiness: "verified",
+      endpoint: {
+        scheme: "http",
+        host: "127.0.0.1",
+        port: 4318,
+        source: "managed_process_output",
+        verification: "owned_generation_output_and_tcp",
+      },
+      stopDisposition: "not_requested",
+      recovery: null,
+      observedAtUnixMs: 1787792400100,
+      evidence: [
+        {
+          code: "MANAGED_ENDPOINT_VERIFIED",
+          severity: "info",
+          message: "The restarted generation published a verified endpoint.",
+        },
+      ],
+    })),
     startManagedEnvironment: vi.fn().mockImplementation(async (request) => ({
       schemaVersion: 1,
       environmentId: request.environmentId,
@@ -129,6 +186,7 @@ function createApi(): DesktopApi {
         verification: "owned_generation_output_and_tcp",
       },
       stopDisposition: "not_requested",
+      recovery: null,
       observedAtUnixMs: 1787792400100,
       evidence: [
         {
@@ -150,6 +208,7 @@ function createApi(): DesktopApi {
       readiness: "not_started",
       endpoint: null,
       stopDisposition: "forced",
+      recovery: null,
       observedAtUnixMs: 1787792400200,
       evidence: [
         {
@@ -606,6 +665,176 @@ describe("ShellApp", () => {
       "Attached health requires a fixed loopback port.",
     );
   });
+
+  it("restarts a healthy Managed runtime into a new generation", async () => {
+    const api = createApi();
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 6,
+      activeEnvironmentId: "managed-local",
+      environments: [managedEnvironment()],
+    });
+    vi.mocked(api.startManagedEnvironment).mockResolvedValue({
+      schemaVersion: 1,
+      environmentId: "managed-local",
+      ownership: "managed",
+      state: "healthy",
+      generation: 1,
+      instanceId: "managed-1-1787792400000",
+      processOwnership: "owned",
+      lifecycleMutation: "allowed",
+      readiness: "verified",
+      endpoint: {
+        scheme: "http",
+        host: "127.0.0.1",
+        port: 4317,
+        source: "managed_process_output",
+        verification: "owned_generation_output_and_tcp",
+      },
+      stopDisposition: "not_requested",
+      recovery: null,
+      observedAtUnixMs: 1787792400100,
+      evidence: [
+        {
+          code: "MANAGED_ENDPOINT_VERIFIED",
+          severity: "info",
+          message: "The owned generation emitted an exact loopback endpoint.",
+        },
+      ],
+    });
+    render(<ShellApp api={api} />);
+    await screen.findByText("stopped", { selector: ".runtime-badge" });
+    await userEvent.click(screen.getByRole("button", { name: "Runtime" }));
+    await screen.findByText("Start Managed DSH");
+    await userEvent.click(screen.getByRole("button", { name: "Start Managed DSH" }));
+    await screen.findByText("Restart managed DSH");
+    await userEvent.click(screen.getByRole("button", { name: "Restart managed DSH" }));
+    await waitFor(() => {
+      expect(api.restartManagedEnvironment).toHaveBeenCalledWith({
+        schemaVersion: 1,
+        environmentId: "managed-local",
+        expectedGeneration: 1,
+      });
+    });
+    expect(
+      await screen.findByText("Verified endpoint: http://127.0.0.1:4318"),
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces bounded recovery history and a safe-stop start path", async () => {
+    const api = createApi();
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 6,
+      activeEnvironmentId: "managed-local",
+      environments: [managedEnvironment()],
+    });
+    vi.mocked(api.getManagedRuntimeStatus).mockResolvedValue({
+      schemaVersion: 1,
+      environmentId: "managed-local",
+      ownership: "managed",
+      state: "safe_stop",
+      generation: 3,
+      instanceId: null,
+      processOwnership: "none",
+      lifecycleMutation: "allowed",
+      readiness: "failed",
+      endpoint: null,
+      stopDisposition: "not_requested",
+      recovery: {
+        crashCount: 3,
+        windowStartUnixMs: 1787792340000,
+        budget: 3,
+        safeStop: true,
+        lastCrashAtUnixMs: 1787792399000,
+      },
+      observedAtUnixMs: 1787792400100,
+      evidence: [
+        {
+          code: "MANAGED_SAFE_STOP",
+          severity: "error",
+          message: "Recovery budget exhausted; the Managed generation entered Safe Stop.",
+        },
+      ],
+    });
+    vi.mocked(api.getShellSnapshot).mockResolvedValue({
+      phase: "shell-mvp",
+      runtimeState: "safe_stop",
+      environmentId: "managed-local",
+      generation: 3,
+    });
+    render(<ShellApp api={api} />);
+    await screen.findByText("safe_stop", { selector: ".runtime-badge" });
+    await userEvent.click(screen.getByRole("button", { name: "Runtime" }));
+    expect(await screen.findByText("Start Managed DSH")).toBeInTheDocument();
+    expect(screen.getByText("3 / 3")).toBeInTheDocument();
+    expect(screen.getByText("safe stop")).toBeInTheDocument();
+  });
+
+  it("renders the credential-free Diagnostics block without leaking secrets", async () => {
+    const api = createApi();
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 6,
+      activeEnvironmentId: "managed-local",
+      environments: [managedEnvironment()],
+    });
+    vi.mocked(api.getDiagnostics).mockResolvedValue({
+      schemaVersion: 1,
+      environmentId: "managed-local",
+      observedAtUnixMs: 1787792400100,
+      runtime: {
+        state: "healthy",
+        generation: 1,
+        readiness: "verified",
+        endpoint: { host: "127.0.0.1", port: 4317 },
+        recovery: null,
+      },
+      surface: {
+        state: "ready",
+        platform: "windows",
+        generation: 1,
+        visible: true,
+        error: null,
+      },
+      catalog: { revision: 6, activeEnvironmentId: "managed-local" },
+      process: { retained: true, owned: true },
+      evidence: [
+        {
+          code: "DIAGNOSTICS_COLLECTED",
+          severity: "info",
+          message: "Diagnostics snapshot collected.",
+        },
+        {
+          code: "MANAGED_ENDPOINT_VERIFIED",
+          severity: "info",
+          message: "The owned generation emitted an exact loopback endpoint.",
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    render(<ShellApp api={api} />);
+
+    await screen.findByText("stopped", { selector: ".runtime-badge" });
+    await user.click(screen.getByRole("button", { name: "Runtime" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Diagnostics" }),
+    ).toBeInTheDocument();
+    expect(api.getDiagnostics).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      environmentId: "managed-local",
+    });
+    expect(screen.getByText("127.0.0.1:4317")).toBeInTheDocument();
+    expect(
+      screen.getByText("The owned generation emitted an exact loopback endpoint."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("retained · owned")).toBeInTheDocument();
+    expect(screen.getByText("6")).toBeInTheDocument();
+    expect(screen.queryByText(/token=/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bootstrap/i)).not.toBeInTheDocument();
+  });
 });
 
 function attachedEnvironment(): DshEnvironment {
@@ -653,6 +882,7 @@ function healthyManagedReport() {
       verification: "owned_generation_output_and_tcp" as const,
     },
     stopDisposition: "not_requested" as const,
+    recovery: null,
     observedAtUnixMs: 1787892400000,
     evidence: [],
   };

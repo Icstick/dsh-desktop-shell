@@ -17,4 +17,4 @@ M1 前先验证三类 WebView capability、AppManifest command inventory、最�
 - Managed lifecycle request 只接受 persisted Environment ID；caller 不得提供 executable、argv、cwd、host、port、endpoint、instance 或 ownership。
 - Managed start 必须使用结构化 argv 固定 loopback 与 `--no-open`，由 retained child/process-tree handle 证明 ownership；仅在当前 generation 的 owned `dsh web:` output 与 bounded TCP connect 同时成立后发布 endpoint。
 - Managed stop 必须携带精确 `expectedGeneration`，并只作用于 retained process tree；不得依据 PID、port 或进程名推断 ownership。Environment 切换时 UI 必须立即丢弃旧 report。
-- Windows Job Object tree cleanup 与 endpoint release 已有测试证据；Unix process-group 路径仍需真实平台验证。自动 restart/recovery 与 daemon 不属于本 slice。
+- Windows Job Object tree cleanup 与 endpoint release 已有测试证据；Unix process-group 路径仍需真实平台验证。自动 restart/recovery 与 Safe Stop 已在 M2 实现（ADR-0013：bounded auto-restart、crash-loop fuse、recovery 报告）；daemon 与健康策略细粒度调参仍不属于当前范围。

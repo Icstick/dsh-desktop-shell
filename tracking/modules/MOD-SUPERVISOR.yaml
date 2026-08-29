@@ -14,5 +14,5 @@ depends_on:
   - MOD-PROCESS-MANAGER
   - MOD-LOCAL-TRANSPORT
 security_review: in_progress
-updated_at: "2026-08-28T12:57:55Z"
-next_action: "按 ADR-0012 实现 Managed Repository structured Node launch 与 generation-bound authenticated Web bootstrap；通过真实 DSH Windows smoke 后再恢复 IF-RUNTIME-CONTROL verified。"
+updated_at: "2026-08-28T16:30:00Z"
+next_action: "M2 完成：restart/recovery/Safe Stop（ADR-0013）、diagnostics（AC-LOG-001）、P0 broker（ADR-0014，AC-LEASE-001）均已实现并测试；等待 maintainer 评审后恢复 IF-RUNTIME-CONTROL/IF-LEASE verified。"

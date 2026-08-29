@@ -220,6 +220,21 @@ enum SurfaceLifecycleState {
     UnsupportedPlatform,
 }
 
+impl SurfaceLifecycleState {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Unmounted => "unmounted",
+            Self::Mounting => "mounting",
+            Self::Loading => "loading",
+            Self::Ready => "ready",
+            Self::Hidden => "hidden",
+            Self::Error => "error",
+            Self::Stale => "stale",
+            Self::UnsupportedPlatform => "unsupported_platform",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 enum SurfacePlatform {
@@ -239,6 +254,17 @@ impl SurfacePlatform {
             Self::Linux
         } else {
             Self::Other
+        }
+    }
+}
+
+impl SurfacePlatform {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Windows => "windows",
+            Self::Macos => "macos",
+            Self::Linux => "linux",
+            Self::Other => "other",
         }
     }
 }
@@ -498,6 +524,9 @@ fn mount_windows_surface(
 
     if !request.visible {
         webview.hide().map_err(|_| {
+            // Hide failure must not leave an orphaned child WebView behind;
+            // close it so a later mount starts from a clean surface.
+            let _ = webview.close();
             surface_operation_failed(
                 state,
                 &environment_id,
@@ -541,6 +570,10 @@ fn mount_windows_surface(
 }
 
 #[cfg(windows)]
+// Deny-order invariant (ADR-0011/0012, AC-WEB-006): all WebView2 deny
+// hooks (permission, autofill, password save, navigation, popup, download)
+// are installed BEFORE any remote document is loaded; the child starts at
+// about:blank and only navigates to the backend-owned bootstrap URL.
 fn install_windows_deny_hooks(
     webview: &tauri::Webview,
     state: DshSurfaceState,
@@ -866,6 +899,53 @@ fn is_exact_surface_origin(url: &Url, port: u16) -> bool {
         && url.port_or_known_default() == Some(port)
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SurfaceDiagnostics {
+    pub(crate) state: &'static str,
+    pub(crate) platform: &'static str,
+    pub(crate) generation: u64,
+    pub(crate) visible: bool,
+    pub(crate) error: Option<SurfaceDiagnosticsError>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SurfaceDiagnosticsError {
+    pub(crate) code: &'static str,
+    pub(crate) reason: &'static str,
+    pub(crate) message: &'static str,
+}
+
+/// Read-only credential-free view of the Surface record for diagnostics.
+/// The record never stores a URL, token, or cookie; only lifecycle state,
+/// platform, generation, visibility, and a bounded static error report.
+pub(crate) fn surface_diagnostics(
+    state: &DshSurfaceState,
+) -> Result<SurfaceDiagnostics, DshSurfaceError> {
+    let record = state.current()?;
+    Ok(match record {
+        Some(record) => SurfaceDiagnostics {
+            state: record.state.as_str(),
+            platform: SurfacePlatform::current().as_str(),
+            generation: record.generation,
+            visible: record.visible,
+            error: record.error.as_ref().map(|error| SurfaceDiagnosticsError {
+                code: error.code,
+                reason: error.reason,
+                message: error.message,
+            }),
+        },
+        None => SurfaceDiagnostics {
+            state: SurfaceLifecycleState::Unmounted.as_str(),
+            platform: SurfacePlatform::current().as_str(),
+            generation: 0,
+            visible: false,
+            error: None,
+        },
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -936,5 +1016,38 @@ mod tests {
         assert_eq!(report.surface_label, SURFACE_LABEL);
         assert_eq!(report.generation, 7);
         assert_eq!(report.environment_id, "managed-local");
+    }
+
+    #[test]
+    fn surface_diagnostics_is_credential_free_and_unmounted_by_default() {
+        let view = surface_diagnostics(&DshSurfaceState::default()).expect("surface diagnostics");
+        assert_eq!(view.state, "unmounted");
+        assert_eq!(view.platform, SurfacePlatform::current().as_str());
+        assert_eq!(view.generation, 0);
+        assert!(!view.visible);
+        assert!(view.error.is_none());
+        let serialized = serde_json::to_string(&view).expect("serialize diagnostics view");
+        assert!(!serialized.contains("http"));
+        assert!(!serialized.contains("url"));
+        assert!(!serialized.contains("token"));
+    }
+
+    #[test]
+    fn surface_diagnostics_condenses_an_unsupported_platform_record() {
+        let state = DshSurfaceState::default();
+        state
+            .replace(unsupported_platform_record("managed-local", 7, 13579))
+            .expect("replace record");
+        let view = surface_diagnostics(&state).expect("surface diagnostics");
+        assert_eq!(view.state, "unsupported_platform");
+        assert_eq!(view.generation, 7);
+        assert!(!view.visible);
+        let error = view.error.as_ref().expect("error");
+        assert_eq!(error.code, "UNAVAILABLE");
+        assert_eq!(error.reason, "unsupported_platform");
+        let serialized = serde_json::to_string(&view).expect("serialize diagnostics view");
+        assert!(!serialized.contains("13579"));
+        assert!(!serialized.contains("http"));
+        assert!(!serialized.contains("token"));
     }
 }

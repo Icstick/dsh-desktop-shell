@@ -1,0 +1,13 @@
+[package]
+name = "dsh-supervisor"
+version = "0.1.0"
+description = "P0 supervisor control plane: capability broker grant/lease/scope/generation enforcement and provider dispatch (MOD-SUPERVISOR, ADR-0014)"
+authors = ["DSH Desktop Shell contributors"]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+

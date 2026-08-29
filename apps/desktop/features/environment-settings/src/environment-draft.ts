@@ -31,6 +31,9 @@ export const initialEnvironmentDraft: EnvironmentDraft = {
   nodePath: "",
   port: "auto",
   ownership: "managed",
+  // Backend semantics: an absent policy means conservative defaults
+  // (autoRestartOnCrash=false); the UI always emits the policy explicitly,
+  // so an explicit true here is honored by the Supervisor (ADR-0013).
   autoRestartOnCrash: true,
   allowNativeAdapter: false,
 };

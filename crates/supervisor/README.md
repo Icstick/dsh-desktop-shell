@@ -35,9 +35,7 @@
 
 ## Dependencies
 
-- process-manager
-- local-transport
-- providers
+- 目标依赖：process-manager、local-transport、providers（M2 当前仅 serde/serde_json，broker 为纯 Rust 核心）
 
 ## Interfaces
 
@@ -51,5 +49,6 @@
 ## M1 integrated foothold
 
 - 当前实现位于 [`apps/desktop/src-tauri/src/managed_runtime.rs`](../../apps/desktop/src-tauri/src/managed_runtime.rs)，随 Tauri backend 生命周期运行；尚未拆入本 crate。
-- 已实现 persisted Managed Environment 的 explicit start/status/exact-generation stop、retained process-tree ownership 与 output-plus-TCP readiness。
-- 自动 restart/recovery、健康策略与 P2 daemon 仍未实现；拆分时必须保持现有 Schema、generation 与 ownership 语义。
+- 已实现 persisted Managed Environment 的 explicit start/status/exact-generation stop/restart、retained process-tree ownership、output-plus-TCP readiness、bounded auto-restart 与 Safe Stop（ADR-0013）。
+- 本 crate 提供 P0 Capability Broker（ADR-0014）：grant/lease/scope/generation enforcement 与 provider dispatch（AC-LEASE-001）。
+- P2 daemon、managed_runtime 抽取与健康策略仍未实现；拆分时必须保持现有 Schema、generation 与 ownership 语义。

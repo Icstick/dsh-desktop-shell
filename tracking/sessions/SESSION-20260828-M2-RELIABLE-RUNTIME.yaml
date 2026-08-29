@@ -1,0 +1,14 @@
+schema_version: 1
+id: SESSION-20260828-M2-RELIABLE-RUNTIME
+status: completed
+agent_or_human: codex-primary
+work_items:
+  - WI-M2-RUNTIME
+branch_or_worktree: codex/wi-m2-reliable-runtime
+started_at: "2026-08-28T15:50:13Z"
+summary: "M2 Reliable Runtime 完成：独立评审 M1 native acceptance（REVIEW-M1-NATIVE-ACCEPTANCE 9/9）；M2-A Supervisor restart/recovery/Safe Stop（ADR-0013，44→54 Rust tests）、M2-B Diagnostics（AC-LOG-001 端到端 redaction 测试）、M2-C local-transport（AC-IPC-001/002，29 tests）、M2-D P0 Capability Broker（ADR-0014，AC-LEASE-001，15 tests）均契约先行并由子代理并行实现；根 workspace 集成（98 Rust tests）、25 vitest、18 ACL、41/34 specs 全通过；产出 HANDOFF-M2-RELIABLE-RUNTIME。搁置 macOS/Linux 与交互式 GUI 测试。"
+artifacts:
+  - "docs/roadmap/PLAN-M2.md"
+  - "tracking/work-items/WI-M2-RUNTIME.yaml"
+  - "tracking/reviews/REVIEW-M1-NATIVE-ACCEPTANCE.yaml"
+next_action: "等待 maintainer 评审 HANDOFF-M2-RELIABLE-RUNTIME 与 M1/M2 acceptance 收尾决策。"

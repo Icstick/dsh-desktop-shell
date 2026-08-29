@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::attached_health::{
     self, AttachedHealthError, AttachedHealthReport, AttachedHealthRequest,
 };
+use crate::diagnostics::{self, DiagnosticsError, DiagnosticsReport, DiagnosticsRequest};
 use crate::discovery::{self, DiscoveryError, HarnessDiscoveryReport, HarnessDiscoveryRequest};
 use crate::dsh_surface::{
     self, DshSurfaceError, DshSurfaceLayoutRequest, DshSurfaceMountRequest,
@@ -19,8 +20,9 @@ use crate::dsh_surface_policy::{
 };
 use crate::environment_store::{self, EnvironmentCatalog, StoreError};
 use crate::managed_runtime::{
-    self, ManagedRuntimeError, ManagedRuntimeReport, ManagedRuntimeStartRequest,
-    ManagedRuntimeState, ManagedRuntimeStatusRequest, ManagedRuntimeStopRequest,
+    self, ManagedRuntimeError, ManagedRuntimeReport, ManagedRuntimeRestartRequest,
+    ManagedRuntimeStartRequest, ManagedRuntimeState, ManagedRuntimeStatusRequest,
+    ManagedRuntimeStopRequest,
 };
 
 const RESERVED_ARGUMENTS: [&str; 4] = ["--host", "--port", "--no-open", "--trusted-host"];
@@ -92,9 +94,15 @@ enum Ownership {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct EnvironmentPolicy {
+pub(crate) struct EnvironmentPolicy {
     auto_restart_on_crash: Option<bool>,
     allow_native_adapter: Option<bool>,
+}
+
+impl EnvironmentPolicy {
+    pub(crate) fn auto_restart_on_crash(&self) -> Option<bool> {
+        self.auto_restart_on_crash
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -189,6 +197,10 @@ impl DshEnvironment {
         }
     }
 
+    pub(crate) fn policy(&self) -> Option<&EnvironmentPolicy> {
+        self.policy.as_ref()
+    }
+
     pub(crate) fn fixed_loopback_port(&self) -> Option<u16> {
         if self.endpoint.host != "127.0.0.1" {
             return None;
@@ -267,6 +279,16 @@ impl CommandError {
         Self {
             code: "MALFORMED_MESSAGE",
             message: "Attached health request is invalid.",
+            retryable: false,
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
+    }
+
+    fn malformed_diagnostics_request() -> Self {
+        Self {
+            code: "MALFORMED_MESSAGE",
+            message: "Diagnostics request is invalid.",
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -371,6 +393,27 @@ impl CommandError {
         }
     }
 
+    fn from_diagnostics(error: DiagnosticsError) -> Self {
+        match error {
+            DiagnosticsError::MalformedRequest => Self::malformed_diagnostics_request(),
+            DiagnosticsError::EnvironmentNotFound => {
+                Self::unavailable("Diagnostics environment is unavailable.", false)
+            }
+            DiagnosticsError::NotManaged => Self {
+                code: "NOT_PROCESS_OWNER",
+                message: "Diagnostics requires a Managed environment.",
+                retryable: false,
+                correlation_id: next_correlation_id(),
+                issues: Vec::new(),
+            },
+            DiagnosticsError::CatalogUnavailable
+            | DiagnosticsError::StateUnavailable
+            | DiagnosticsError::ClockUnavailable => {
+                Self::unavailable("Diagnostics are unavailable.", true)
+            }
+        }
+    }
+
     fn from_attached_health(error: AttachedHealthError) -> Self {
         match error {
             AttachedHealthError::NotAttached => Self {
@@ -437,7 +480,7 @@ fn next_correlation_id() -> String {
     )
 }
 
-fn catalog_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
+pub(crate) fn catalog_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
     app.path()
         .app_data_dir()
         .map(|directory| directory.join(CATALOG_FILE_NAME))
@@ -445,30 +488,38 @@ fn catalog_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
 }
 
 #[tauri::command]
-pub fn get_shell_snapshot(
+pub async fn get_shell_snapshot(
     app: AppHandle,
     managed_state: State<'_, ManagedRuntimeState>,
 ) -> Result<ShellSnapshot, CommandError> {
     let catalog =
         environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
-    let active = catalog.active_environment();
+    let active = catalog.active_environment().cloned();
+    let state = managed_state.inner().clone();
 
-    let (runtime_state, generation) = match active {
-        Some(environment) if environment.is_managed() => {
-            let report = managed_runtime::get_managed_runtime_status(&managed_state, environment)
-                .map_err(CommandError::from_managed_runtime)?;
-            (report.runtime_state(), report.generation())
-        }
-        Some(environment) => (environment.runtime_state(), 0),
-        None => ("unconfigured", 0),
-    };
-
-    Ok(ShellSnapshot {
-        phase: "shell-mvp",
-        runtime_state,
-        environment_id: active.map(|environment| environment.id().to_string()),
-        generation,
+    // Snapshot consults the Supervisor, which may run a bounded auto-restart
+    // (see get_managed_runtime_status); keep it off the main thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        let (runtime_state, generation) = match &active {
+            Some(environment) if environment.is_managed() => {
+                let report = managed_runtime::get_managed_runtime_status(&state, environment)
+                    .map_err(CommandError::from_managed_runtime)?;
+                (report.runtime_state(), report.generation())
+            }
+            Some(environment) => (environment.runtime_state(), 0),
+            None => ("unconfigured", 0),
+        };
+        Ok(ShellSnapshot {
+            phase: "shell-mvp",
+            runtime_state,
+            environment_id: active
+                .as_ref()
+                .map(|environment| environment.id().to_string()),
+            generation,
+        })
     })
+    .await
+    .map_err(|_| CommandError::unavailable("Shell snapshot task is unavailable.", true))?
 }
 
 #[tauri::command]
@@ -582,6 +633,44 @@ pub async fn start_managed_environment(
     .await
     .map_err(|_| CommandError::unavailable("Managed start task is unavailable.", true))?
     .map_err(CommandError::from_managed_runtime)
+}
+
+#[tauri::command]
+pub async fn restart_managed_environment(
+    app: AppHandle,
+    managed_state: State<'_, ManagedRuntimeState>,
+    surface_state: State<'_, DshSurfaceState>,
+    request: ManagedRuntimeRestartRequest,
+) -> Result<ManagedRuntimeReport, CommandError> {
+    if request.schema_version() != 1 || !is_valid_id(request.environment_id()) {
+        return Err(CommandError::malformed_managed_runtime_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    let environment = catalog
+        .environment(request.environment_id())
+        .cloned()
+        .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
+    let state = managed_state.inner().clone();
+    let surface_state = surface_state.inner().clone();
+    let environment_id = environment.id().to_string();
+
+    let report = tauri::async_runtime::spawn_blocking(move || {
+        managed_runtime::restart_managed_environment(&state, &environment, request)
+    })
+    .await
+    .map_err(|_| CommandError::unavailable("Managed restart task is unavailable.", true))?
+    .map_err(CommandError::from_managed_runtime)?;
+
+    // The old generation's Surface binding died with the restart; close any
+    // stale child WebView so no retired generation keeps a live window.
+    let _ = dsh_surface::force_unmount(
+        &app,
+        &surface_state,
+        &environment_id,
+        report.generation().saturating_sub(1),
+    );
+    Ok(report)
 }
 
 #[tauri::command]
@@ -708,7 +797,7 @@ pub async fn unmount_dsh_surface(
 }
 
 #[tauri::command]
-pub fn get_managed_runtime_status(
+pub async fn get_managed_runtime_status(
     app: AppHandle,
     managed_state: State<'_, ManagedRuntimeState>,
     request: ManagedRuntimeStatusRequest,
@@ -720,9 +809,43 @@ pub fn get_managed_runtime_status(
         environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
     let environment = catalog
         .environment(request.environment_id())
+        .cloned()
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
-    managed_runtime::get_managed_runtime_status(&managed_state, environment)
-        .map_err(CommandError::from_managed_runtime)
+    let state = managed_state.inner().clone();
+
+    // The status path may run a bounded auto-restart (backoff sleep plus a
+    // readiness poll up to START_TIMEOUT); run it off the main thread so a
+    // crash-looping backend never freezes the Shell UI.
+    tauri::async_runtime::spawn_blocking(move || {
+        managed_runtime::get_managed_runtime_status(&state, &environment)
+    })
+    .await
+    .map_err(|_| CommandError::unavailable("Managed status task is unavailable.", true))?
+    .map_err(CommandError::from_managed_runtime)
+}
+
+#[tauri::command]
+pub async fn get_diagnostics(
+    app: AppHandle,
+    managed_state: State<'_, ManagedRuntimeState>,
+    surface_state: State<'_, DshSurfaceState>,
+    request: DiagnosticsRequest,
+) -> Result<DiagnosticsReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_diagnostics_request());
+    }
+    let managed = managed_state.inner().clone();
+    let surface = surface_state.inner().clone();
+    let environment_id = request.environment_id().to_string();
+
+    // Diagnostics reads the Supervisor (which may auto-restart) and the
+    // Surface record; keep the read off the main thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        diagnostics::collect(&app, &managed, &surface, &environment_id)
+    })
+    .await
+    .map_err(|_| CommandError::unavailable("Diagnostics task is unavailable.", true))?
+    .map_err(CommandError::from_diagnostics)
 }
 
 #[tauri::command]
@@ -934,10 +1057,6 @@ fn build_launch_preview(environment: &DshEnvironment) -> LaunchPreview {
         );
     }
 
-    let _policy_is_present = environment
-        .policy
-        .as_ref()
-        .map(|policy| (policy.auto_restart_on_crash, policy.allow_native_adapter));
     LaunchPreview {
         source,
         executable: environment

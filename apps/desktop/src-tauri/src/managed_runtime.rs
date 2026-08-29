@@ -1,5 +1,5 @@
 use std::ffi::OsString;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -20,6 +20,9 @@ const START_TIMEOUT: Duration = Duration::from_secs(10);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(250);
 const STOP_TIMEOUT: Duration = Duration::from_secs(2);
 const ENDPOINT_RELEASE_TIMEOUT: Duration = Duration::from_secs(1);
+const RECOVERY_BUDGET: usize = 3;
+const RECOVERY_WINDOW: Duration = Duration::from_secs(60);
+const RESTART_BACKOFF: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -46,6 +49,24 @@ pub struct ManagedRuntimeStatusRequest {
 }
 
 impl ManagedRuntimeStatusRequest {
+    pub(crate) fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+
+    pub(crate) fn environment_id(&self) -> &str {
+        &self.environment_id
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManagedRuntimeRestartRequest {
+    schema_version: u8,
+    environment_id: String,
+    expected_generation: u64,
+}
+
+impl ManagedRuntimeRestartRequest {
     pub(crate) fn schema_version(&self) -> u8 {
         self.schema_version
     }
@@ -91,6 +112,7 @@ pub struct ManagedRuntimeReport {
     readiness: Readiness,
     endpoint: Option<ManagedEndpoint>,
     stop_disposition: StopDisposition,
+    recovery: Option<RecoveryReport>,
     observed_at_unix_ms: u64,
     evidence: Vec<RuntimeEvidence>,
 }
@@ -113,6 +135,7 @@ enum ManagedState {
     Healthy,
     Stopping,
     Crashed,
+    SafeStop,
 }
 
 impl ManagedState {
@@ -123,6 +146,7 @@ impl ManagedState {
             Self::Healthy => "healthy",
             Self::Stopping => "stopping",
             Self::Crashed => "crashed",
+            Self::SafeStop => "safe_stop",
         }
     }
 }
@@ -149,6 +173,24 @@ enum StopDisposition {
     NotRequested,
     Graceful,
     Forced,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RecoveryState {
+    crash_count: usize,
+    window_start_unix_ms: u64,
+    last_crash_at_unix_ms: Option<u64>,
+    safe_stop: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecoveryReport {
+    crash_count: usize,
+    window_start_unix_ms: u64,
+    budget: usize,
+    safe_stop: bool,
+    last_crash_at_unix_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -231,9 +273,12 @@ struct Supervisor {
     stop_disposition: Option<StopDisposition>,
     evidence: Vec<RuntimeEvidence>,
     process: Option<ManagedProcess>,
+    retained_spec: Option<LaunchSpec>,
+    auto_restart_on_crash: bool,
+    recovery: Option<RecoveryState>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LaunchSpec {
     executable: OsString,
     args: Vec<OsString>,
@@ -252,6 +297,23 @@ pub(crate) fn start_managed_environment(
     environment: &DshEnvironment,
 ) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
     let spec = build_launch_spec(environment)?;
+    let auto_restart_on_crash = environment
+        .policy()
+        .and_then(|policy| policy.auto_restart_on_crash())
+        .unwrap_or(false);
+    {
+        let mut supervisor = lock_supervisor(state)?;
+        supervisor.refresh_exit();
+        if supervisor.process.is_some() {
+            if supervisor.environment_id.as_deref() == Some(environment.id()) {
+                return supervisor.report(environment.id());
+            }
+            return Err(ManagedRuntimeError::Conflict);
+        }
+        supervisor.auto_restart_on_crash = auto_restart_on_crash;
+        supervisor.retained_spec = Some(spec.clone());
+        supervisor.recovery = None;
+    }
     start_with_spec(state, environment.id(), spec, START_TIMEOUT)
 }
 
@@ -262,11 +324,35 @@ pub(crate) fn get_managed_runtime_status(
     if !environment.is_managed() {
         return Err(ManagedRuntimeError::NotManaged);
     }
-    let mut supervisor = lock_supervisor(state)?;
-    supervisor.refresh_exit();
+    let spec = {
+        let mut supervisor = lock_supervisor(state)?;
+        supervisor.refresh_exit();
+        // The Supervisor owns exactly one environment at a time; reporting
+        // or auto-restarting another environment's recipe under this id would
+        // mislabel state and spawn the wrong launch recipe (FM-4).
+        if supervisor
+            .environment_id
+            .as_deref()
+            .is_some_and(|id| id != environment.id())
+        {
+            return Err(ManagedRuntimeError::Conflict);
+        }
+        supervisor
+            .auto_restart_eligible()
+            .then(|| supervisor.retained_spec.clone())
+            .flatten()
+    };
+    if let Some(spec) = spec {
+        thread::sleep(RESTART_BACKOFF);
+        return start_with_spec(state, environment.id(), spec, START_TIMEOUT);
+    }
+    let supervisor = lock_supervisor(state)?;
     supervisor.report(environment.id())
 }
 
+// Security invariant (ADR-0012/0013): a Surface binding is handed out only
+// when the current retained process tree, generation, verified endpoint and
+// private bootstrap URL all line up. Callers never supply endpoint or URL.
 pub(crate) fn verified_surface_binding(
     state: &ManagedRuntimeState,
     environment: &DshEnvironment,
@@ -279,6 +365,27 @@ pub(crate) fn verified_surface_binding(
         return Err(ManagedRuntimeError::StaleGeneration);
     }
 
+    let spec = {
+        let mut supervisor = lock_supervisor(state)?;
+        supervisor.refresh_exit();
+        // Same environment cross-check as status (FM-4): never auto-restart
+        // another environment's recipe while looking up this one's binding.
+        if supervisor
+            .environment_id
+            .as_deref()
+            .is_some_and(|id| id != environment.id())
+        {
+            return Err(ManagedRuntimeError::Conflict);
+        }
+        supervisor
+            .auto_restart_eligible()
+            .then(|| supervisor.retained_spec.clone())
+            .flatten()
+    };
+    if let Some(spec) = spec {
+        thread::sleep(RESTART_BACKOFF);
+        let _ = start_with_spec(state, environment.id(), spec, START_TIMEOUT);
+    }
     let mut supervisor = lock_supervisor(state)?;
     supervisor.refresh_exit();
     if supervisor.generation != expected_generation {
@@ -334,6 +441,7 @@ pub(crate) fn stop_managed_environment(
             supervisor.endpoint = None;
             supervisor.bootstrap_url = None;
             supervisor.stop_disposition = Some(StopDisposition::NotRequested);
+            supervisor.recovery = None;
             supervisor.evidence = vec![evidence(
                 "MANAGED_ALREADY_STOPPED",
                 "info",
@@ -388,6 +496,7 @@ pub(crate) fn stop_managed_environment(
     supervisor.endpoint = None;
     supervisor.bootstrap_url = None;
     supervisor.stop_disposition = Some(disposition);
+    supervisor.recovery = None;
     supervisor.evidence = vec![evidence(
         "MANAGED_PROCESS_TREE_STOPPED",
         "info",
@@ -398,6 +507,61 @@ pub(crate) fn stop_managed_environment(
         return Err(ManagedRuntimeError::EndpointStillReachable);
     }
     Ok(report)
+}
+
+pub(crate) fn restart_managed_environment(
+    state: &ManagedRuntimeState,
+    environment: &DshEnvironment,
+    request: ManagedRuntimeRestartRequest,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    if !environment.is_managed() {
+        return Err(ManagedRuntimeError::NotManaged);
+    }
+    let (process, endpoint, retained_spec) = {
+        let mut supervisor = lock_supervisor(state)?;
+        supervisor.refresh_exit();
+        if supervisor
+            .environment_id
+            .as_deref()
+            .is_some_and(|id| id != environment.id())
+        {
+            return Err(ManagedRuntimeError::Conflict);
+        }
+        if request.expected_generation == 0 || request.expected_generation != supervisor.generation
+        {
+            return Err(ManagedRuntimeError::StaleGeneration);
+        }
+        let process = supervisor.process.take();
+        let endpoint = supervisor.endpoint.take();
+        supervisor.state = Some(ManagedState::Stopping);
+        supervisor.bootstrap_url = None;
+        supervisor.recovery = None;
+        supervisor.evidence = vec![evidence(
+            "MANAGED_RESTARTING",
+            "info",
+            "The exact current generation is stopping before a new generation starts.",
+        )];
+        (process, endpoint, supervisor.retained_spec.clone())
+    };
+
+    let spec = match retained_spec {
+        Some(spec) => spec,
+        None => build_launch_spec(environment)?,
+    };
+
+    if let Some(process) = process {
+        let _ = process.stop();
+        if let Some(endpoint) = endpoint
+            && !endpoint_is_released(endpoint.port)
+        {
+            let deadline = Instant::now() + ENDPOINT_RELEASE_TIMEOUT;
+            while !endpoint_is_released(endpoint.port) && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(25));
+            }
+        }
+    }
+
+    start_with_spec(state, environment.id(), spec, START_TIMEOUT)
 }
 
 fn start_with_spec(
@@ -483,7 +647,7 @@ fn start_with_spec(
             Ipv4Addr::LOCALHOST,
             candidate.endpoint.port,
         ));
-        if TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).is_ok() {
+        if http_status_line_probe(address) {
             break;
         }
         if Instant::now() >= deadline {
@@ -529,21 +693,69 @@ fn fail_start(
         {
             return Err(ManagedRuntimeError::StaleGeneration);
         }
-        supervisor.state = Some(ManagedState::Crashed);
+        if supervisor.process.is_some() {
+            supervisor.record_crash();
+        }
+        let safe_stop = supervisor
+            .recovery
+            .as_ref()
+            .is_some_and(|recovery| recovery.safe_stop);
+        supervisor.state = Some(if safe_stop {
+            ManagedState::SafeStop
+        } else {
+            ManagedState::Crashed
+        });
         supervisor.endpoint = None;
         supervisor.bootstrap_url = None;
         supervisor.stop_disposition = Some(StopDisposition::NotRequested);
-        supervisor.evidence = vec![evidence(
-            "MANAGED_READINESS_FAILED",
-            "error",
-            "The Managed generation failed before endpoint publication and was cleaned up.",
-        )];
+        supervisor.evidence = if safe_stop {
+            vec![evidence(
+                "MANAGED_SAFE_STOP",
+                "error",
+                "Recovery budget exhausted; the Managed generation entered Safe Stop without auto-restart.",
+            )]
+        } else {
+            vec![evidence(
+                "MANAGED_READINESS_FAILED",
+                "error",
+                "The Managed generation failed before endpoint publication and was cleaned up.",
+            )]
+        };
         supervisor.process.take()
     };
     if let Some(process) = process {
         let _ = process.stop();
     }
     Err(error)
+}
+
+/// Bounded HTTP-level readiness probe (FM-1): beyond a bare TCP connect,
+/// the candidate must answer a `GET /` like an HTTP server (status line
+/// starts with `HTTP/1.`). This keeps a non-DSH loopback service that
+/// squats the port from receiving the bootstrap token as a published
+/// endpoint. DSH answers 303 (token root) or 200 (legacy root); both pass.
+fn http_status_line_probe(address: SocketAddr) -> bool {
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(CONNECT_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(CONNECT_TIMEOUT));
+    if stream
+        .write_all(b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .is_err()
+    {
+        return false;
+    }
+    let mut status_line = [0u8; 16];
+    let mut read = 0;
+    while read < status_line.len() {
+        match stream.read(&mut status_line[read..]) {
+            Ok(0) => break,
+            Ok(n) => read += n,
+            Err(_) => break,
+        }
+    }
+    status_line.starts_with(b"HTTP/1.")
 }
 
 fn generation_is_alive(
@@ -734,17 +946,68 @@ impl Supervisor {
             .as_mut()
             .is_some_and(|process| process.try_wait().map_or(true, |status| status.is_some()));
         if exited {
+            self.record_crash();
+            let safe_stop = self
+                .recovery
+                .as_ref()
+                .is_some_and(|recovery| recovery.safe_stop);
             self.process.take();
-            self.state = Some(ManagedState::Crashed);
+            self.state = Some(if safe_stop {
+                ManagedState::SafeStop
+            } else {
+                ManagedState::Crashed
+            });
             self.endpoint = None;
             self.bootstrap_url = None;
             self.stop_disposition = Some(StopDisposition::NotRequested);
-            self.evidence = vec![evidence(
-                "MANAGED_PROCESS_EXITED",
-                "error",
-                "The retained Managed process exited before an explicit stop completed.",
-            )];
+            self.evidence = if safe_stop {
+                vec![evidence(
+                    "MANAGED_SAFE_STOP",
+                    "error",
+                    "Recovery budget exhausted; the Managed generation entered Safe Stop without auto-restart.",
+                )]
+            } else {
+                vec![evidence(
+                    "MANAGED_PROCESS_EXITED",
+                    "error",
+                    "The retained Managed process exited before an explicit stop completed.",
+                )]
+            };
         }
+    }
+
+    // Recovery accounting is window-bounded: crashes older than RECOVERY_WINDOW
+    // slide the window, and reaching the budget latches Safe Stop so no
+    // auto-restart can loop forever (AC-REC-001).
+    fn record_crash(&mut self) {
+        let now = unix_ms().unwrap_or(0);
+        let recovery = self.recovery.get_or_insert(RecoveryState {
+            crash_count: 0,
+            window_start_unix_ms: now,
+            last_crash_at_unix_ms: None,
+            safe_stop: false,
+        });
+        let window_ms = RECOVERY_WINDOW.as_millis() as u64;
+        if now.saturating_sub(recovery.window_start_unix_ms) > window_ms {
+            recovery.crash_count = 0;
+            recovery.window_start_unix_ms = now;
+            recovery.safe_stop = false;
+        }
+        recovery.crash_count += 1;
+        recovery.last_crash_at_unix_ms = Some(now);
+        if recovery.crash_count >= RECOVERY_BUDGET {
+            recovery.safe_stop = true;
+        }
+    }
+
+    fn auto_restart_eligible(&self) -> bool {
+        self.state == Some(ManagedState::Crashed)
+            && self.auto_restart_on_crash
+            && self
+                .recovery
+                .as_ref()
+                .is_some_and(|recovery| !recovery.safe_stop)
+            && self.retained_spec.is_some()
     }
 
     fn report(&self, environment_id: &str) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
@@ -758,7 +1021,7 @@ impl Supervisor {
             ManagedState::Stopped => Readiness::NotStarted,
             ManagedState::Starting | ManagedState::Stopping => Readiness::Waiting,
             ManagedState::Healthy => Readiness::Verified,
-            ManagedState::Crashed => Readiness::Failed,
+            ManagedState::Crashed | ManagedState::SafeStop => Readiness::Failed,
         };
         let default_evidence = match state {
             ManagedState::Stopped => evidence(
@@ -786,6 +1049,11 @@ impl Supervisor {
                 "error",
                 "The current Managed generation is not running.",
             ),
+            ManagedState::SafeStop => evidence(
+                "MANAGED_SAFE_STOP",
+                "error",
+                "Recovery budget exhausted; the Managed generation entered Safe Stop.",
+            ),
         };
         Ok(ManagedRuntimeReport {
             schema_version: SCHEMA_VERSION,
@@ -796,7 +1064,7 @@ impl Supervisor {
             instance_id: self
                 .instance_id
                 .clone()
-                .filter(|_| state != ManagedState::Stopped),
+                .filter(|_| !matches!(state, ManagedState::Stopped | ManagedState::SafeStop)),
             process_ownership,
             lifecycle_mutation: "allowed",
             readiness,
@@ -804,6 +1072,13 @@ impl Supervisor {
             stop_disposition: self
                 .stop_disposition
                 .unwrap_or(StopDisposition::NotRequested),
+            recovery: self.recovery.map(|recovery| RecoveryReport {
+                crash_count: recovery.crash_count,
+                window_start_unix_ms: recovery.window_start_unix_ms,
+                budget: RECOVERY_BUDGET,
+                safe_stop: recovery.safe_stop,
+                last_crash_at_unix_ms: recovery.last_crash_at_unix_ms,
+            }),
             observed_at_unix_ms: unix_ms()?,
             evidence: if self.evidence.is_empty() {
                 vec![default_evidence]
@@ -1052,7 +1327,7 @@ fn wait_for_exit(child: &mut Child, timeout: Duration) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{BufRead, BufReader, Write};
+    use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
 
     use super::*;
@@ -1069,6 +1344,27 @@ mod tests {
             "ownership": ownership
         }))
         .expect("environment fixture")
+    }
+
+    fn other_environment() -> DshEnvironment {
+        serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1,
+            "id": "managed-other",
+            "label": "Other Managed DSH",
+            "harness": { "mode": "executable", "path": "dsh" },
+            "dshHome": "C:/Users/example/.dsh",
+            "profile": "default",
+            "endpoint": { "host": "127.0.0.1", "port": "auto" },
+            "ownership": "managed"
+        }))
+        .expect("environment fixture")
+    }
+
+    fn configure(state: &ManagedRuntimeState, spec: LaunchSpec, auto_restart: bool) {
+        let mut supervisor = lock_supervisor(state).expect("supervisor lock");
+        supervisor.retained_spec = Some(spec);
+        supervisor.auto_restart_on_crash = auto_restart;
+        supervisor.recovery = None;
     }
 
     #[test]
@@ -1233,6 +1529,7 @@ mod tests {
             stop_disposition: Some(StopDisposition::NotRequested),
             evidence: Vec::new(),
             process: None,
+            ..Default::default()
         };
         let serialized =
             serde_json::to_string(&supervisor.report("managed-local").expect("runtime report"))
@@ -1380,6 +1677,15 @@ mod tests {
                     thread::sleep(Duration::from_secs(1));
                 }
             }
+            "crash-loop" => {
+                std::process::exit(1);
+            }
+            "tcp-only" => {
+                fake_tcp_only_server();
+            }
+            "crash-after-ready" => {
+                fake_server_with_exit(Duration::from_millis(800));
+            }
             "tree-parent" => {
                 thread::sleep(Duration::from_millis(250));
                 let mut child = Command::new(std::env::current_exe().expect("test executable"))
@@ -1407,23 +1713,448 @@ mod tests {
     }
 
     fn fake_server() -> ! {
+        fake_server_with_exit(Duration::from_secs(3600));
+    }
+
+    fn fake_server_with_exit(exit_after: Duration) -> ! {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fake server");
+        listener
+            .set_nonblocking(true)
+            .expect("non-blocking fake server");
+        let port = listener.local_addr().expect("fake address").port();
+        println!("dsh web: http://127.0.0.1:{port}/");
+        io::stdout().flush().expect("flush candidate");
+        let deadline = Instant::now() + exit_after;
+        while Instant::now() < deadline {
+            if let Ok((mut stream, _)) = listener.accept() {
+                // Answer the HTTP-level readiness probe (FM-1) like a
+                // minimal HTTP server so the publication gate passes.
+                let mut buf = [0u8; 256];
+                let _ = stream.read(&mut buf);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                );
+            }
+            thread::sleep(Duration::from_millis(25));
+        }
+        std::process::exit(1);
+    }
+
+    /// Accepts TCP but never answers HTTP: must fail the readiness gate.
+    fn fake_tcp_only_server() -> ! {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fake server");
+        listener
+            .set_nonblocking(true)
+            .expect("non-blocking fake server");
         let port = listener.local_addr().expect("fake address").port();
         println!("dsh web: http://127.0.0.1:{port}/");
         io::stdout().flush().expect("flush candidate");
         loop {
-            let _ = listener.accept();
+            if listener.accept().is_ok() {
+                // Accept and never respond: TCP reachability alone must not
+                // pass the HTTP-level readiness gate.
+            }
+            thread::sleep(Duration::from_millis(25));
         }
     }
 
     fn fake_authenticated_server() -> ! {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fake server");
+        listener
+            .set_nonblocking(true)
+            .expect("non-blocking fake server");
         let port = listener.local_addr().expect("fake address").port();
         let token = "A234567890123456789012345678901234567890123";
         println!("dsh web: http://127.0.0.1:{port}/?token={token}");
         io::stdout().flush().expect("flush candidate");
         loop {
-            let _ = listener.accept();
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 256];
+                let _ = stream.read(&mut buf);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 303 See Other\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                );
+            }
+            thread::sleep(Duration::from_millis(25));
         }
+    }
+
+    #[test]
+    fn crash_without_auto_restart_stays_crashed_with_recovery_history() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("crash-loop"), false);
+        let start = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("crash-loop"),
+            Duration::from_secs(8),
+        );
+        assert_eq!(
+            start.expect_err("crash"),
+            ManagedRuntimeError::ProcessExited
+        );
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let report = get_managed_runtime_status(&state, &managed).expect("crashed status report");
+        assert_eq!(report.state, ManagedState::Crashed);
+        assert_eq!(report.process_ownership, ProcessOwnership::None);
+        let recovery = report.recovery.expect("recovery history");
+        assert_eq!(recovery.crash_count, 1);
+        assert!(!recovery.safe_stop);
+        assert_eq!(recovery.budget, RECOVERY_BUDGET);
+    }
+
+    #[test]
+    fn crash_loop_auto_restart_exhausts_budget_into_safe_stop() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("crash-loop"), true);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("crash-loop"),
+            Duration::from_secs(8),
+        );
+        assert_eq!(
+            first.expect_err("first crash"),
+            ManagedRuntimeError::ProcessExited
+        );
+
+        // Each status poll attempts a bounded auto-restart; crashes 2 and 3 exhaust the budget.
+        for _ in 0..RECOVERY_BUDGET {
+            let _ = get_managed_runtime_status(&state, &managed);
+        }
+        let report = get_managed_runtime_status(&state, &managed).expect("safe stop report");
+        assert_eq!(report.state, ManagedState::SafeStop);
+        assert_eq!(report.generation, RECOVERY_BUDGET as u64);
+        assert_eq!(report.process_ownership, ProcessOwnership::None);
+        assert!(report.endpoint.is_none());
+        assert!(report.instance_id.is_none());
+        let recovery = report.recovery.expect("exhausted recovery");
+        assert_eq!(recovery.crash_count, RECOVERY_BUDGET);
+        assert!(recovery.safe_stop);
+        assert!(
+            report
+                .evidence
+                .iter()
+                .any(|e| e.code == "MANAGED_SAFE_STOP")
+        );
+
+        // A further status poll must not auto-restart from Safe Stop.
+        let again = get_managed_runtime_status(&state, &managed).expect("still safe stop");
+        assert_eq!(again.state, ManagedState::SafeStop);
+        assert_eq!(again.generation, RECOVERY_BUDGET as u64);
+
+        // An explicit start with a healthy recipe resets recovery and starts a new generation.
+        configure(&state, fake_spec("server"), false);
+        let healthy = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("recovered start");
+        assert_eq!(healthy.state, ManagedState::Healthy);
+        assert!(healthy.recovery.is_none());
+        stop_managed_environment(&state, &managed, healthy.generation).expect("stop");
+    }
+
+    #[test]
+    fn crash_after_ready_auto_restarts_new_generation_and_binding() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("crash-after-ready"), true);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("crash-after-ready"),
+            Duration::from_secs(8),
+        )
+        .expect("first ready");
+        assert_eq!(first.state, ManagedState::Healthy);
+        let first_generation = first.generation;
+        assert_eq!(first.recovery, None);
+
+        thread::sleep(Duration::from_millis(1300));
+        let recovered = get_managed_runtime_status(&state, &managed).expect("auto restart");
+        assert_eq!(recovered.state, ManagedState::Healthy);
+        assert!(recovered.generation > first_generation);
+        let recovery = recovered.recovery.expect("recovery after crash");
+        assert_eq!(recovery.crash_count, 1);
+        assert!(!recovery.safe_stop);
+
+        assert_eq!(
+            verified_surface_binding(&state, &managed, first_generation)
+                .expect_err("old generation stale"),
+            ManagedRuntimeError::StaleGeneration
+        );
+        let binding =
+            verified_surface_binding(&state, &managed, recovered.generation).expect("new binding");
+        assert_eq!(binding.port(), recovered.endpoint.expect("endpoint").port);
+        stop_managed_environment(&state, &managed, recovered.generation).expect("stop");
+    }
+
+    #[test]
+    fn readiness_requires_http_response_not_just_tcp() {
+        // FM-1 regression: a loopback service that accepts TCP but never
+        // answers HTTP must not pass the publication gate.
+        let state = ManagedRuntimeState::default();
+        assert_eq!(
+            start_with_spec(
+                &state,
+                "managed-local",
+                fake_spec("tcp-only"),
+                Duration::from_millis(900),
+            )
+            .expect_err("tcp-only reject"),
+            ManagedRuntimeError::ReadinessTimeout
+        );
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let report = get_managed_runtime_status(&state, &managed).expect("failed start report");
+        assert_eq!(report.state, ManagedState::Crashed);
+        assert!(report.endpoint.is_none());
+    }
+
+    #[test]
+    fn status_for_foreign_environment_conflicts() {
+        // FM-4 regression: the Supervisor owns exactly one environment;
+        // querying another environment must conflict instead of mislabeling
+        // state or auto-restarting the wrong recipe.
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("server"), false);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("first ready");
+        assert_eq!(
+            get_managed_runtime_status(&state, &other_environment()).expect_err("foreign status"),
+            ManagedRuntimeError::Conflict
+        );
+        assert_eq!(
+            verified_surface_binding(&state, &other_environment(), 1).expect_err("foreign binding"),
+            ManagedRuntimeError::Conflict
+        );
+        stop_managed_environment(&state, &managed, 1).expect("stop");
+    }
+
+    #[test]
+    fn restart_updates_generation_and_surface_binding() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("server"), false);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("first ready");
+        assert_eq!(first.state, ManagedState::Healthy);
+        let old_generation = first.generation;
+
+        let request = ManagedRuntimeRestartRequest {
+            schema_version: 1,
+            environment_id: "managed-local".into(),
+            expected_generation: old_generation,
+        };
+        let restarted = restart_managed_environment(&state, &managed, request).expect("restart");
+        assert_eq!(restarted.state, ManagedState::Healthy);
+        assert!(restarted.generation > old_generation);
+        assert_ne!(restarted.instance_id, first.instance_id);
+        assert!(restarted.recovery.is_none());
+
+        assert_eq!(
+            verified_surface_binding(&state, &managed, old_generation)
+                .expect_err("old generation stale"),
+            ManagedRuntimeError::StaleGeneration
+        );
+        let binding = verified_surface_binding(&state, &managed, restarted.generation)
+            .expect("new generation binding");
+        assert_eq!(binding.port(), restarted.endpoint.expect("endpoint").port);
+        stop_managed_environment(&state, &managed, restarted.generation).expect("stop");
+    }
+
+    #[test]
+    fn restart_rejects_stale_generation_and_foreign_environment() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("server"), false);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("first ready");
+
+        let stale = ManagedRuntimeRestartRequest {
+            schema_version: 1,
+            environment_id: "managed-local".into(),
+            expected_generation: first.generation + 1,
+        };
+        assert_eq!(
+            restart_managed_environment(&state, &managed, stale).expect_err("stale restart"),
+            ManagedRuntimeError::StaleGeneration
+        );
+        let foreign = ManagedRuntimeRestartRequest {
+            schema_version: 1,
+            environment_id: "managed-other".into(),
+            expected_generation: first.generation,
+        };
+        assert_eq!(
+            restart_managed_environment(&state, &other_environment(), foreign)
+                .expect_err("foreign restart"),
+            ManagedRuntimeError::Conflict
+        );
+        let still = get_managed_runtime_status(&state, &managed).expect("still healthy");
+        assert_eq!(still.state, ManagedState::Healthy);
+        assert_eq!(still.generation, first.generation);
+        stop_managed_environment(&state, &managed, first.generation).expect("stop");
+    }
+
+    #[test]
+    fn restart_when_stopped_starts_a_new_generation() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("server"), false);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("first ready");
+        let stopped = stop_managed_environment(&state, &managed, first.generation).expect("stop");
+        assert_eq!(stopped.state, ManagedState::Stopped);
+
+        let request = ManagedRuntimeRestartRequest {
+            schema_version: 1,
+            environment_id: "managed-local".into(),
+            expected_generation: first.generation,
+        };
+        let restarted = restart_managed_environment(&state, &managed, request).expect("restart");
+        assert_eq!(restarted.state, ManagedState::Healthy);
+        assert!(restarted.generation > first.generation);
+        stop_managed_environment(&state, &managed, restarted.generation).expect("stop");
+    }
+
+    #[test]
+    fn concurrent_same_environment_starts_are_idempotent() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("server"), false);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let state = Arc::new(state);
+        let state_b = state.clone();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let barrier_b = barrier.clone();
+        let handle = std::thread::spawn(move || {
+            barrier_b.wait();
+            start_with_spec(
+                &state_b,
+                "managed-local",
+                fake_spec("server"),
+                Duration::from_secs(8),
+            )
+        });
+        barrier.wait();
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("first start");
+        let second = handle.join().expect("second thread").expect("second start");
+        // One caller spawns the generation; the concurrent caller observes the same
+        // generation (possibly still Starting) instead of spawning a second tree.
+        assert_eq!(first.generation, second.generation);
+        assert_eq!(first.instance_id, second.instance_id);
+        assert!(
+            matches!(first.state, ManagedState::Healthy | ManagedState::Starting)
+                && matches!(second.state, ManagedState::Healthy | ManagedState::Starting)
+        );
+        let healthy = get_managed_runtime_status(&state, &managed).expect("settled status");
+        assert_eq!(healthy.state, ManagedState::Healthy);
+        assert_eq!(healthy.generation, first.generation);
+        stop_managed_environment(&state, &managed, healthy.generation).expect("stop");
+    }
+
+    #[test]
+    fn concurrent_foreign_environment_start_conflicts() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("server"), false);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let first = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("first ready");
+        assert_eq!(
+            start_with_spec(
+                &state,
+                "managed-other",
+                fake_spec("server"),
+                Duration::from_secs(8)
+            )
+            .expect_err("foreign conflict"),
+            ManagedRuntimeError::Conflict
+        );
+        stop_managed_environment(&state, &managed, first.generation).expect("stop");
+    }
+
+    #[test]
+    fn restart_resets_recovery_budget_after_crashes() {
+        let state = ManagedRuntimeState::default();
+        configure(&state, fake_spec("crash-loop"), true);
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        assert_eq!(
+            start_with_spec(
+                &state,
+                "managed-local",
+                fake_spec("crash-loop"),
+                Duration::from_secs(8),
+            )
+            .expect_err("first crash"),
+            ManagedRuntimeError::ProcessExited
+        );
+        // One status poll triggers a bounded auto-restart that also crashes.
+        let _ = get_managed_runtime_status(&state, &managed);
+        let generation = lock_supervisor(&state).expect("supervisor lock").generation;
+        assert_eq!(generation, 2, "auto-restart created generation two");
+
+        // Explicit restart resets the budget and attempts a fresh generation.
+        let request = ManagedRuntimeRestartRequest {
+            schema_version: 1,
+            environment_id: "managed-local".into(),
+            expected_generation: generation,
+        };
+        assert_eq!(
+            restart_managed_environment(&state, &managed, request)
+                .expect_err("restart still crash-loops"),
+            ManagedRuntimeError::ProcessExited
+        );
+        {
+            let supervisor = lock_supervisor(&state).expect("supervisor lock");
+            assert_eq!(supervisor.state, Some(ManagedState::Crashed));
+            let recovery = supervisor.recovery.as_ref().expect("reset recovery");
+            assert_eq!(recovery.crash_count, 1, "restart reset the recovery budget");
+            assert!(!recovery.safe_stop);
+        }
+        // The bounded auto-restart policy continues from the reset budget: two more
+        // status polls exhaust it into Safe Stop.
+        for _ in 0..2 {
+            let _ = get_managed_runtime_status(&state, &managed);
+        }
+        let final_report = get_managed_runtime_status(&state, &managed).expect("safe stop report");
+        assert_eq!(final_report.state, ManagedState::SafeStop);
+        assert_eq!(
+            final_report.recovery.expect("final recovery").crash_count,
+            RECOVERY_BUDGET
+        );
     }
 }

@@ -4,12 +4,12 @@ name: "CapabilityLease"
 owner_module: MOD-CAPABILITY-CONTRACTS
 api_version: "interop.dsh-desktop.local/v1alpha1"
 status: verified
-implementation_status: not_authorized
-test_status: planned
+implementation_status: partial
+test_status: in_progress
 security_review: required
 spec: "specs/protocol/capability-lease.schema.json"
 operations:
   - "grant"
   - "revoke"
   - "expire"
-updated_at: "2026-08-25T09:14:05Z"
+updated_at: "2026-08-28T16:45:00Z"
