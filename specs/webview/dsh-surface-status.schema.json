@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/webview/dsh-surface-status.schema.json",
+  "title": "DshSurfaceStatus",
+  "description": "Sanitized state for a generation-bound native DSH Surface. It never exposes a path, query, fragment, credential or transport secret.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId", "generation", "surfaceLabel", "state", "platform", "verifiedOrigin", "bounds", "visible", "policy", "error"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+    "generation": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "surfaceLabel": { "const": "dsh-surface" },
+    "state": { "enum": ["unmounted", "mounting", "loading", "ready", "hidden", "error", "stale", "unsupported_platform"] },
+    "platform": { "enum": ["windows", "macos", "linux", "other"] },
+    "verifiedOrigin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "host", "port"],
+      "properties": {
+        "scheme": { "const": "http" },
+        "host": { "const": "127.0.0.1" },
+        "port": { "type": "integer", "minimum": 1024, "maximum": 65535 }
+      }
+    },
+    "bounds": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/bounds" }
+      ]
+    },
+    "visible": { "type": "boolean" },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sameOriginNavigation", "crossOriginNavigation", "newWindow", "downloads", "pagePermissions", "privilegedIpc", "domInjection", "automaticExternalOpen"],
+      "properties": {
+        "sameOriginNavigation": { "const": "allow" },
+        "crossOriginNavigation": { "const": "deny" },
+        "newWindow": { "const": "deny" },
+        "downloads": { "const": "deny" },
+        "pagePermissions": { "const": "deny" },
+        "privilegedIpc": { "const": "denied" },
+        "domInjection": { "const": "denied" },
+        "automaticExternalOpen": { "const": false }
+      }
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "reason", "message"],
+          "properties": {
+            "code": { "enum": ["UNAVAILABLE", "UNAUTHORIZED", "STALE_GENERATION", "MALFORMED_MESSAGE"] },
+            "reason": { "enum": ["unsupported_platform", "surface_create_failed", "surface_operation_failed", "runtime_binding_lost", "stale_generation"] },
+            "message": { "type": "string", "minLength": 1, "maxLength": 160 }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 32768 },
+        "y": { "type": "number", "minimum": 0, "maximum": 32768 },
+        "width": { "type": "number", "minimum": 320, "maximum": 16384 },
+        "height": { "type": "number", "minimum": 240, "maximum": 16384 }
+      }
+    }
+  }
+}

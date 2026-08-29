@@ -9,7 +9,9 @@
 ```text
 DshEnvironment schema + discovery candidates
   -> Environment Settings
-  -> validated Environment intent
+  -> backend validation
+  -> explicit AppData-owned catalog save
+  -> active Environment restored on next Shell bootstrap
 ```
 
 ## State and errors
@@ -18,7 +20,7 @@ DshEnvironment schema + discovery candidates
 
 ## Security
 
-路径、命令与秘密分离；Attached 不提供 mutation UI。Managed Web launch 的 `--host`、`--port`、`--no-open` 为 Supervisor-owned reserved args，UI 不允许用户通过 extra args 覆盖。Source checkout 缺少已构建产物时只报告 `UNAVAILABLE`，不提供安装或构建按钮。
+路径、命令与秘密分离；Attached 不提供 lifecycle mutation UI，并明确提示只有固定 loopback port 才可执行 health probe。Managed Web launch 的 `--host`、`--port`、`--no-open` 为 Supervisor-owned reserved args，UI 不允许用户通过 extra args 覆盖。Source checkout 缺少已构建产物时只报告 `requires_recipe`，不提供安装或构建按钮。Discovery 只检查文件系统 metadata；不得调用 candidate、shell、npm 或 pnpm。Catalog 只写平台 AppData/Application Support，不得写 DSH_HOME/Profile。
 
 ## Compatibility
 
@@ -31,6 +33,8 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 - 所属 M1 acceptance catalog。
 - Security/reliability 边界的 negative tests。
 - Reserved arg collision、Managed `--no-open`、auto port 与 missing prebuilt source checkout。
+- Catalog revision、active selection、backup、corrupt-data refusal 与 DSH_HOME non-mutation。
+- Explicit/DSH_PATH/PATH discovery、deduplication、request bounds 与 non-execution negative gate。
 
 ## Milestone exit
 

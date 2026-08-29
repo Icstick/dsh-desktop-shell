@@ -1,0 +1,31 @@
+schema_version: 1
+id: HANDOFF-M1-DSH-SURFACE-POLICY-SLICE
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "Froze IF-DSH-SURFACE-POLICY v1alpha1 with 4 Schemas, 5 fixtures, semantic matrix, AC-WEB-004, ADR/security/migration/compatibility rules before implementation."
+  - "Implemented backend-derived fixed-loopback policy and a sanitized navigation evaluator for exact-origin, external delegation, loopback mismatch, credential/scheme, popup/download/permission and invalid input paths."
+  - "Registered get/evaluate operations in AppManifest, invoke handler and generated permissions; the exact Shell capability now has 8 commands while dsh-surface remains absent from all window/webview/remote targets."
+  - "Added a read-only Harness Surface policy ready/pending preview that explicitly states no remote WebView exists and displays IPC/automatic-open denial."
+  - "Recorded claim, contract, Rust evaluator, Shell preview and module documentation as five independently traceable commits."
+remaining:
+  - "Do not create the remote DSH WebView until a later slice has a verified fixed endpoint/readiness source and consumes this policy in native WebView callbacks."
+  - "Implement Managed start/stop only with process ownership, generation, process-tree cleanup, endpoint identity/readiness and stale-generation tests."
+  - "Implement loading/error/reconnect and route-hint restoration without DOM/router injection after endpoint readiness exists."
+  - "Complete Managed/Attached and original DSH Surface acceptance; WI-M1-SHELL and M1 remain in_progress."
+verification:
+  - "REVIEW-M1-DSH-SURFACE-POLICY-SLICE passed contract, Schema, ACL, policy/navigation security, Rust, frontend, visual QA and repository-integrity checks."
+  - "Rust: fmt/check passed; 21 tests passed; strict Clippy passed."
+  - "Frontend: TypeScript passed; 18 Vitest tests passed; Vite production build passed."
+  - "Browser QA showed exact policy evidence, zero iframe/webview elements, zero lifecycle controls and zero console warnings/errors."
+  - "Final gates cover 95 tracking records/94 unique IDs, 48 JSON, 97 tracking YAML, 247 relative Markdown links/anchors, 383 project-owned UTF-8/LF text files and 28 leaf-module document triplets."
+risks:
+  - "Actual WebView2/WKWebView/WebKitGTK callback and redirect semantics remain unverified because this slice intentionally creates no WebView."
+  - "Attached TCP reachability still does not prove DSH identity/readiness; loading that endpoint automatically could render arbitrary local content even without privileged IPC."
+  - "evaluate_dsh_surface_navigation is Shell-only and returns policy decisions; DSH Surface must never receive its permission or any other custom command capability."
+  - "External HTTP(S) delegation is only a decision. A future opener must perform separate human confirmation and must not treat userGestureRequired as already-authorized automatic opening."
+  - "Windows UNC workspaces can block TypeScript input discovery and workers; use a local checkout or frozen local QA copy for frontend gates."
+next_action: "Create a new session and claim WI-M1-SHELL for the Managed lifecycle/verified endpoint readiness slice; acceptance does not authorize remote DSH WebView creation."
+created_at: "2026-08-27T03:40:22Z"

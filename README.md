@@ -2,9 +2,9 @@
 
 DSH Desktop Shell 是面向用户自有 DeepSeek Harness 的跨平台桌面工作台与本地能力宿主。它不分发、不升级、不修改用户的 DSH Core 或 `DSH_HOME`，而是在外层提供稳定的桌面窗口、进程监督、原生能力、兼容适配与恢复体验。
 
-> 当前阶段：`shell-mvp` / M1 Shell MVP ready。
+> 当前阶段：`shell-mvp` / M1 Shell MVP in progress。
 >
-> 当前仓库仍仅含文档、规范、跟踪记录和未来代码目录镜像。Maintainer 已将 `implementation_authorized` 设为 `true`；代码实现必须从已认领的 `WI-M1-SHELL` 独立 session/branch 开始。
+> Maintainer 已批准 `HANDOFF-M0` 并将 `implementation_authorized` 设为 `true`。`WI-M1-SHELL` 已开始实现首个 Tauri/React/Rust 纵向切片；Environment 持久化、Discovery、Managed/Attached lifecycle 与真实 DSH Surface 尚未完成。
 
 ## 一句话架构
 
@@ -44,9 +44,10 @@ flowchart LR
 2. [CHARTER.md](CHARTER.md)：目标、非目标和成功标准。
 3. [docs/INDEX.md](docs/INDEX.md)：全量文档索引。
 4. [Architecture Overview](docs/architecture/OVERVIEW.md)：概念架构与边界。
-5. [Repository Map](docs/code-map/REPOSITORY_MAP.md)：未来代码地图。
+5. [Repository Map](docs/code-map/REPOSITORY_MAP.md)：当前实现与后续模块代码地图。
 6. [Current Status](tracking/CURRENT.md)：当前状态与下一动作。
 7. [AGENTS.md](AGENTS.md)：跨 Agent / Session 执行协议。
+8. [Desktop Application](apps/desktop/README.md)：M1 当前实现、边界与本地验证。
 
 ## 外部基线
 

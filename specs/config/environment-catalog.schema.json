@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/config/environment-catalog.schema.json",
+  "title": "EnvironmentCatalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "revision",
+    "activeEnvironmentId",
+    "environments"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "activeEnvironmentId": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "environments": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "./dsh-environment.schema.json"
+      }
+    }
+  }
+}

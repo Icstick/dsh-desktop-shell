@@ -2,7 +2,7 @@
 
 ```text
 dsh-desktop-shell/
-├─ apps/desktop/                  Shell UI and Tauri integration docs
+├─ apps/desktop/                  M1 Tauri/React shell implementation and module docs
 ├─ crates/                        Future Rust control-plane modules
 ├─ packages/                      Future TypeScript contracts and adapters
 ├─ protocol/                      Protocol-facing module documentation
@@ -10,7 +10,7 @@ dsh-desktop-shell/
 ├─ tests/                         Future test-area contracts
 ├─ docs/                          Narrative architecture and governance
 ├─ tracking/                      Canonical project execution state
-└─ .github/                       Contribution templates, no workflows in M0
+└─ .github/                       Contribution templates; executable CI not yet added
 ```
 
 ## Desktop Features
@@ -44,3 +44,21 @@ dsh-desktop-shell/
 - `packages/terminal-agent-adapter`
 
 每个叶模块必须有 README、DEVELOPMENT、AGENTS；状态不写死在模块文档，链接到对应 `tracking/modules/MOD-*.yaml`。
+
+## Current M1 implementation paths
+
+```text
+apps/desktop/
+├─ src/                           frontend entry, shared contracts, Tauri facade
+├─ features/shell-ui/src/         Activity Rail and Desktop layout
+├─ features/environment-settings/src/
+│  └─                             Environment draft, form, validation tests
+├─ features/harness-surface/src/  native Surface slot, lifecycle and fail-closed UI
+├─ scripts/validate-acl.mjs       machine-checkable command/capability inventory gate
+└─ src-tauri/
+   ├─ build.rs                    AppManifest command allowlist
+   ├─ capabilities/shell.json     exact Shell-window permissions
+   └─ src/                        Tauri commands and Environment validation
+```
+
+`crates/`、`packages/`、`protocol/` 与 `tests/` 仍是模块契约镜像；后续实现不得绕过其中的 ownership 与接口边界。

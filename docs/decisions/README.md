@@ -18,3 +18,5 @@ ADR 是 ownership、public contract、状态机、transport、trust boundary、�
 - [ADR-0008](ADR-0008-supervisor-evolution.md)
 - [ADR-0009](ADR-0009-responsibility-exclusions.md)
 - [ADR-0010](ADR-0010-license-clean-room.md)
+- [ADR-0011](ADR-0011-platform-gated-native-dsh-surface.md)
+- [ADR-0012](ADR-0012-authenticated-managed-web-bootstrap.md)

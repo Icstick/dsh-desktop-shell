@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "explicitPaths": [
+    "C:/Tools/dsh.exe",
+    "C:/src/deepseek-harness"
+  ],
+  "includeDshPath": true,
+  "includePath": true
+}

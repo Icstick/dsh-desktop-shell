@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "activeEnvironmentId": "global-dsh",
+  "environments": [
+    {
+      "schemaVersion": 1,
+      "id": "global-dsh",
+      "label": "Invalid executable override",
+      "harness": {
+        "mode": "executable",
+        "path": "C:/Tools/dsh.exe"
+      },
+      "dshHome": "C:/Users/example/.dsh",
+      "profile": "default",
+      "nodePath": "C:/Program Files/nodejs/node.exe",
+      "endpoint": {
+        "host": "127.0.0.1",
+        "port": "auto"
+      },
+      "ownership": "managed"
+    }
+  ]
+}

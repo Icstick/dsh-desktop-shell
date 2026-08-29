@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "managed-local",
+  "expectedGeneration": 7,
+  "bounds": { "x": 252, "y": 80, "width": 980, "height": 680 },
+  "visible": false
+}

@@ -37,3 +37,9 @@
 - No standalone public interface; consumed through owning module contracts.
 
 规范真源见 [specs](../../specs/README.md)；架构原因见 [ADR index](../../docs/decisions/README.md)。
+
+## M1 integrated foothold
+
+- 当前 process-tree 实现在 [`apps/desktop/src-tauri/src/managed_runtime.rs`](../../apps/desktop/src-tauri/src/managed_runtime.rs)，尚未抽取到本 crate。
+- Windows 使用 retained Job Object 并设置 close-on-cleanup tree termination；Unix 使用 retained process group。只有 handle 所属 generation 可被 stop。
+- Windows 路径已有 child-tree 与 endpoint release 测试；macOS/Linux 仍需真实平台验证。Windows graceful stop 尚无上游契约，因此当前报告 forced disposition。

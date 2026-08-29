@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evaluate-dsh-surface-navigation"
+description = "Enables the evaluate_dsh_surface_navigation command without any pre-configured scope."
+commands.allow = ["evaluate_dsh_surface_navigation"]
+
+[[permission]]
+identifier = "deny-evaluate-dsh-surface-navigation"
+description = "Denies the evaluate_dsh_surface_navigation command without any pre-configured scope."
+commands.deny = ["evaluate_dsh_surface_navigation"]

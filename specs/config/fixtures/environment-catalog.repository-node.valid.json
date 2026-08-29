@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "activeEnvironmentId": "source-dsh",
+  "environments": [
+    {
+      "schemaVersion": 1,
+      "id": "source-dsh",
+      "label": "Prebuilt source DSH",
+      "harness": {
+        "mode": "repository",
+        "path": "C:/src/deepseek-harness/apps/cli/lib/bin.js",
+        "cwd": "C:/src/deepseek-harness"
+      },
+      "dshHome": "C:/Users/example/.dsh",
+      "profile": "default",
+      "nodePath": "C:/Program Files/nodejs/node.exe",
+      "endpoint": {
+        "host": "127.0.0.1",
+        "port": "auto"
+      },
+      "ownership": "managed"
+    }
+  ]
+}

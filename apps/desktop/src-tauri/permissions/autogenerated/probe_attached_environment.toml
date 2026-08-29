@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-probe-attached-environment"
+description = "Enables the probe_attached_environment command without any pre-configured scope."
+commands.allow = ["probe_attached_environment"]
+
+[[permission]]
+identifier = "deny-probe-attached-environment"
+description = "Denies the probe_attached_environment command without any pre-configured scope."
+commands.deny = ["probe_attached_environment"]

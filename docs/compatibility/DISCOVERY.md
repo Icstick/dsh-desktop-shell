@@ -10,6 +10,18 @@
 
 不提供 private/bundled fallback。
 
+## M1 non-executing discovery contract
+
+首轮 discovery 只读取显式 path、`DSH_PATH` 与 `PATH` 目录，并返回结构化 evidence；它不启动候选、不执行 `--version`、不调用 npm/pnpm、不解析 shell command string。已知 global install discovery 在 report 的 `deferredSources` 中显式标记，直到独立 adapter fixture 与供应链门禁就绪。
+
+- 普通文件候选只证明路径存在，不证明 DSH 兼容；`version` 保持 `null`。
+- 目录候选标记为 `requires_recipe`，必须由用户提供预构建 launch recipe。
+- 显式缺失路径保留为 `missing` evidence，方便用户诊断；PATH 扫描只返回实际存在的候选。
+- canonical path 用于去重，但 discovery 不把路径写入日志、tracking 或 error message。
+- discovery report 是瞬时证据，不是 process ownership；选择候选后仍需执行 `DshEnvironment` validation。
+
+规范真源见 `harness-discovery-request.schema.json` 与 `harness-discovery-report.schema.json`。
+
 Validation 产生 resolved launch plan，包含 source type、canonical path、cwd、command/args、Node override、DSH_HOME、Profile、endpoint 与可识别版本。Validation 不执行安装、不修改 Profile、不写 DSH_HOME。
 
 ## Managed Launch Normalization

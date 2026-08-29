@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "managed-local",
+  "generation": 7,
+  "surfaceLabel": "dsh-surface",
+  "state": "unsupported_platform",
+  "platform": "macos",
+  "verifiedOrigin": { "scheme": "http", "host": "127.0.0.1", "port": 13579 },
+  "bounds": null,
+  "visible": false,
+  "policy": {
+    "sameOriginNavigation": "allow",
+    "crossOriginNavigation": "deny",
+    "newWindow": "deny",
+    "downloads": "deny",
+    "pagePermissions": "deny",
+    "privilegedIpc": "denied",
+    "domInjection": "denied",
+    "automaticExternalOpen": false
+  },
+  "error": {
+    "code": "UNAVAILABLE",
+    "reason": "unsupported_platform",
+    "message": "Native DSH Surface is not enabled on this platform."
+  }
+}

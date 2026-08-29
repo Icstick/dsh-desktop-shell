@@ -1,7 +1,7 @@
 schema_version: 1
 id: M1
 title: "Shell MVP"
-status: ready
+status: in_progress
 relative_weeks: "1-4"
 depends_on:
   - M0
@@ -9,5 +9,29 @@ exit_criteria:
   - "Environment discovery/validation 可用"
   - "Managed/Attached UX 与行为通过 acceptance"
   - "原版 DSH Surface 无 privileged bridge"
-evidence: []
-updated_at: "2026-08-25T13:12:46Z"
+evidence:
+  - "commit 1c5f5ab: first Shell MVP vertical slice"
+  - "tracking/reviews/REVIEW-M1-SHELL-SLICE-1.yaml"
+  - "tracking/reviews/REVIEW-M1-SHELL-SLICE-1-ACCEPTANCE.yaml"
+  - "commit 36c6af6: Environment catalog persistence and non-executing discovery"
+  - "commit 0739734: Shell restore, discovery and explicit save UX"
+  - "tracking/reviews/REVIEW-M1-ENV-DISCOVERY-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-ENV-DISCOVERY-SLICE-ACCEPTANCE.yaml"
+  - "commit f1eb75d: bounded Attached health probe and ownership boundaries"
+  - "commit 5b9b761: Attached Runtime evidence UI"
+  - "tracking/reviews/REVIEW-M1-ATTACHED-HEALTH-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-ATTACHED-HEALTH-SLICE-ACCEPTANCE.yaml"
+  - "commit 7c38238: DSH Surface exact-origin evaluator and Shell-only ACL"
+  - "commit a0f9bd9: DSH Surface policy preview without WebView creation"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-POLICY-SLICE-ACCEPTANCE.yaml"
+  - "commit c737af9: P0 integrated Managed Supervisor and verified endpoint readiness"
+  - "commit 2aa332a: exact-generation Managed Runtime controls"
+  - "tracking/reviews/REVIEW-M1-MANAGED-READINESS-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-MANAGED-READINESS-SLICE-ACCEPTANCE.yaml"
+  - "commit a8f0b52: Windows native DSH Surface lifecycle and deny hooks"
+  - "commit 7260099: Shell native Surface orchestration and frontend tests"
+  - "commit 6ac3539: minimum visible-bounds gate"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE-ACCEPTANCE.yaml"
+updated_at: "2026-08-28T07:37:46Z"

@@ -3,10 +3,10 @@ id: MOD-PROCESS-MANAGER
 name: "process-manager"
 path: "crates/process-manager"
 owner_role: runtime-and-security-owner
-status: proposed
+status: in_progress
 milestone: M2
 interfaces: []
 depends_on: []
-security_review: required
-updated_at: "2026-08-25T12:52:20Z"
-next_action: "M2 实现前验证 structured argv、reserved arg collision 与 no-install/no-build/no-bootstrap boundary。"
+security_review: in_progress
+updated_at: "2026-08-28T01:04:54Z"
+next_action: "等待 M1 Managed readiness handoff review；后续 extraction 必须保留 retained handle、exact generation、tree cleanup 与 endpoint release 语义。"

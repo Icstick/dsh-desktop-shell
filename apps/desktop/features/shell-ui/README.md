@@ -35,5 +35,15 @@
 ## Interfaces
 
 - `IF-RUNTIME-STATUS`
+- `IF-RUNTIME-CONTROL`
+- `IF-ENVIRONMENT`
+- `IF-DSH-SURFACE-POLICY`
+- `IF-DSH-SURFACE-LIFECYCLE`
 
 规范真源见 [specs](../../../../specs/README.md)；架构原因见 [ADR index](../../../../docs/decisions/README.md)。
+
+## Implementation entry
+
+- [`ShellApp.tsx`](src/ShellApp.tsx)：Shell layout、surface selection、active Environment 恢复、Attached health evidence、Managed status/start/generation-bound stop，以及 verified binding 驱动的 native Surface mount/status/layout/reload/unmount。Environment restore/save 不自动启动 DSH。
+- [`ActivityRail.tsx`](src/ActivityRail.tsx)：可访问导航入口。
+- [`ShellApp.test.tsx`](src/ShellApp.test.tsx)：导航、discovery、validation、save、startup restore、Attached probe、Managed controls、policy preview、native lifecycle最小请求、rail hide、error reload、undersized viewport 与无 DOM bridge 证据。

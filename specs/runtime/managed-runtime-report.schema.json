@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/runtime/managed-runtime-report.schema.json",
+  "title": "ManagedRuntimeReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId", "ownership", "state", "generation", "instanceId", "processOwnership", "lifecycleMutation", "readiness", "endpoint", "stopDisposition", "observedAtUnixMs", "evidence"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+    "ownership": { "const": "managed" },
+    "state": { "enum": ["stopped", "starting", "healthy", "stopping", "crashed"] },
+    "generation": { "type": "integer", "minimum": 0 },
+    "instanceId": { "type": ["string", "null"], "pattern": "^managed-[1-9][0-9]*-[1-9][0-9]*$" },
+    "processOwnership": { "enum": ["none", "owned"] },
+    "lifecycleMutation": { "const": "allowed" },
+    "readiness": { "enum": ["not_started", "waiting", "verified", "failed"] },
+    "endpoint": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scheme", "host", "port", "source", "verification"],
+          "properties": {
+            "scheme": { "const": "http" },
+            "host": { "const": "127.0.0.1" },
+            "port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+            "source": { "const": "managed_process_output" },
+            "verification": { "const": "owned_generation_output_and_tcp" }
+          }
+        }
+      ]
+    },
+    "stopDisposition": { "enum": ["not_requested", "graceful", "forced"] },
+    "observedAtUnixMs": { "type": "integer", "minimum": 0 },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
+          "severity": { "enum": ["info", "warning", "error"] },
+          "message": { "type": "string", "minLength": 1, "maxLength": 256 }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "healthy" } } },
+      "then": { "properties": { "generation": { "minimum": 1 }, "instanceId": { "type": "string" }, "processOwnership": { "const": "owned" }, "readiness": { "const": "verified" }, "endpoint": { "type": "object" }, "stopDisposition": { "const": "not_requested" } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "starting" } } },
+      "then": { "properties": { "generation": { "minimum": 1 }, "instanceId": { "type": "string" }, "processOwnership": { "const": "owned" }, "readiness": { "const": "waiting" }, "endpoint": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "stopped" } } },
+      "then": { "properties": { "instanceId": { "type": "null" }, "processOwnership": { "const": "none" }, "readiness": { "const": "not_started" }, "endpoint": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "crashed" } } },
+      "then": { "properties": { "processOwnership": { "const": "none" }, "readiness": { "const": "failed" }, "endpoint": { "type": "null" }, "stopDisposition": { "const": "not_requested" } } }
+    }
+  ]
+}

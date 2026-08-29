@@ -4,12 +4,12 @@ name: "RuntimeControl"
 owner_module: MOD-SUPERVISOR
 api_version: "runtime.dsh-desktop.local/v1alpha1"
 status: review
-implementation_status: not_authorized
+implementation_status: partial
 test_status: planned
-security_review: required
-spec: "specs/protocol/runtime-capability.schema.json"
+security_review: in_progress
+spec: "specs/runtime/managed-runtime-report.schema.json"
 operations:
   - "start"
   - "stop"
-  - "restart"
-updated_at: "2026-08-25T06:49:34Z"
+  - "status"
+updated_at: "2026-08-28T12:57:55Z"

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/runtime/attached-health-request.schema.json",
+  "title": "AttachedHealthRequest",
+  "description": "Requests one bounded, read-only probe of a persisted Attached environment. The caller cannot supply an arbitrary host, port, timeout, or lifecycle action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "environmentId"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "environmentId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stop-managed-environment"
+description = "Enables the stop_managed_environment command without any pre-configured scope."
+commands.allow = ["stop_managed_environment"]
+
+[[permission]]
+identifier = "deny-stop-managed-environment"
+description = "Denies the stop_managed_environment command without any pre-configured scope."
+commands.deny = ["stop_managed_environment"]

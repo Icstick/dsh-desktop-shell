@@ -1,0 +1,33 @@
+schema_version: 1
+id: REVIEW-M1-MANAGED-READINESS-SLICE-ACCEPTANCE
+scope: "Maintainer 对 HANDOFF-M1-MANAGED-READINESS-SLICE 的接受决定"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: explicit-maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-28 明确批准 HANDOFF-M1-MANAGED-READINESS-SLICE 并要求继续。"
+  - id: slice-evidence
+    status: passed
+    evidence: "REVIEW-M1-MANAGED-READINESS-SLICE 已记录 contract、Schema、process ownership/readiness、ACL、Rust、frontend、visual QA 与 repository integrity 门禁全部通过。"
+  - id: scope-preservation
+    status: passed
+    evidence: "本次批准接受 Managed readiness slice 并使 IF-RUNTIME-CONTROL verified；WI-M1-SHELL 与 M1 保持 in_progress，remote DSH Surface 尚未验收。"
+  - id: invariant-preservation
+    status: passed
+    evidence: "已接受基线继续要求 persisted Managed Environment-only launch、retained process-tree ownership、exact-generation stop，以及 output-plus-TCP verified endpoint。"
+  - id: next-slice-authorization
+    status: passed
+    evidence: "Maintainer 的继续指令授权创建新 session，contract-first 推进 verified endpoint 驱动的 remote DSH Surface native integration；零 privileged IPC、native callback policy 与无 DOM injection 仍是强制门禁。"
+findings: []
+evidence:
+  - "tracking/handoffs/HANDOFF-M1-MANAGED-READINESS-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-MANAGED-READINESS-SLICE.yaml"
+  - "commit 39181b3"
+  - "commit c737af9"
+  - "commit 2aa332a"
+  - "commit ae2e2f6"
+next_action: "在 feature/wi-m1-shell 创建新 session、重新认领 WI-M1-SHELL，并 contract-first 推进 remote DSH Surface native integration。"
+created_at: "2026-08-28T02:27:35Z"
+updated_at: "2026-08-28T02:27:35Z"

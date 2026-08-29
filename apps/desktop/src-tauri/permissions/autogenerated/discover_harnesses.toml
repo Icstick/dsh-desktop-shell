@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discover-harnesses"
+description = "Enables the discover_harnesses command without any pre-configured scope."
+commands.allow = ["discover_harnesses"]
+
+[[permission]]
+identifier = "deny-discover-harnesses"
+description = "Denies the discover_harnesses command without any pre-configured scope."
+commands.deny = ["discover_harnesses"]

@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/config/harness-discovery-report.schema.json",
+  "title": "HarnessDiscoveryReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "scannedSources",
+    "deferredSources",
+    "candidates"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "scannedSources": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "deferredSources": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "enum": [
+        "explicit",
+        "dsh_path",
+        "path",
+        "global"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source",
+        "mode",
+        "requestedPath",
+        "canonicalPath",
+        "status",
+        "launchable",
+        "version",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^candidate-[0-9]{4}$"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "mode": {
+          "enum": [
+            "executable",
+            "repository"
+          ]
+        },
+        "requestedPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "canonicalPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "available",
+            "missing",
+            "requires_recipe",
+            "unverified"
+          ]
+        },
+        "launchable": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "available"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "launchable": {
+                "const": true
+              },
+              "canonicalPath": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "missing"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "launchable": {
+                "const": false
+              },
+              "canonicalPath": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "requires_recipe"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "repository"
+              },
+              "launchable": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unverified"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "launchable": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

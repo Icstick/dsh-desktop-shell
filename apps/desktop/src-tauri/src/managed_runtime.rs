@@ -1,0 +1,1429 @@
+use std::ffi::OsString;
+use std::io::{self, Read};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream};
+use std::path::PathBuf;
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+use tauri::Url;
+
+use crate::commands::{DshEnvironment, HarnessMode};
+
+const SCHEMA_VERSION: u8 = 1;
+const OUTPUT_MARKER: &str = "dsh web:";
+const MAX_OUTPUT_LINE_BYTES: usize = 2048;
+const START_TIMEOUT: Duration = Duration::from_secs(10);
+const CONNECT_TIMEOUT: Duration = Duration::from_millis(250);
+const STOP_TIMEOUT: Duration = Duration::from_secs(2);
+const ENDPOINT_RELEASE_TIMEOUT: Duration = Duration::from_secs(1);
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManagedRuntimeStartRequest {
+    schema_version: u8,
+    environment_id: String,
+}
+
+impl ManagedRuntimeStartRequest {
+    pub(crate) fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+
+    pub(crate) fn environment_id(&self) -> &str {
+        &self.environment_id
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManagedRuntimeStatusRequest {
+    schema_version: u8,
+    environment_id: String,
+}
+
+impl ManagedRuntimeStatusRequest {
+    pub(crate) fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+
+    pub(crate) fn environment_id(&self) -> &str {
+        &self.environment_id
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManagedRuntimeStopRequest {
+    schema_version: u8,
+    environment_id: String,
+    expected_generation: u64,
+}
+
+impl ManagedRuntimeStopRequest {
+    pub(crate) fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+
+    pub(crate) fn environment_id(&self) -> &str {
+        &self.environment_id
+    }
+
+    pub(crate) fn expected_generation(&self) -> u64 {
+        self.expected_generation
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRuntimeReport {
+    schema_version: u8,
+    environment_id: String,
+    ownership: &'static str,
+    state: ManagedState,
+    generation: u64,
+    instance_id: Option<String>,
+    process_ownership: ProcessOwnership,
+    lifecycle_mutation: &'static str,
+    readiness: Readiness,
+    endpoint: Option<ManagedEndpoint>,
+    stop_disposition: StopDisposition,
+    observed_at_unix_ms: u64,
+    evidence: Vec<RuntimeEvidence>,
+}
+
+impl ManagedRuntimeReport {
+    pub(crate) fn runtime_state(&self) -> &'static str {
+        self.state.as_str()
+    }
+
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ManagedState {
+    Stopped,
+    Starting,
+    Healthy,
+    Stopping,
+    Crashed,
+}
+
+impl ManagedState {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Stopped => "stopped",
+            Self::Starting => "starting",
+            Self::Healthy => "healthy",
+            Self::Stopping => "stopping",
+            Self::Crashed => "crashed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ProcessOwnership {
+    None,
+    Owned,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Readiness {
+    NotStarted,
+    Waiting,
+    Verified,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum StopDisposition {
+    NotRequested,
+    Graceful,
+    Forced,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+struct ManagedEndpoint {
+    scheme: &'static str,
+    host: &'static str,
+    port: u16,
+    source: &'static str,
+    verification: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct VerifiedSurfaceBinding {
+    generation: u64,
+    port: u16,
+    bootstrap_url: Url,
+}
+
+impl VerifiedSurfaceBinding {
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    pub(crate) fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub(crate) fn url(&self) -> Url {
+        self.bootstrap_url.clone()
+    }
+}
+
+#[derive(Debug)]
+struct ParsedCandidate {
+    endpoint: ManagedEndpoint,
+    bootstrap_url: Url,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+struct RuntimeEvidence {
+    code: &'static str,
+    severity: &'static str,
+    message: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ManagedRuntimeError {
+    NotManaged,
+    InvalidEnvironment,
+    UnsupportedSource,
+    NodeOverrideUnsupported,
+    SpawnUnavailable,
+    ProcessTreeUnavailable,
+    Conflict,
+    StaleGeneration,
+    CandidateInvalid,
+    CandidatePortMismatch,
+    ProcessExited,
+    ReadinessTimeout,
+    StopFailed,
+    EndpointStillReachable,
+    SurfaceBindingUnavailable,
+    StateUnavailable,
+    ClockUnavailable,
+}
+
+#[derive(Clone, Default)]
+pub struct ManagedRuntimeState {
+    inner: Arc<Mutex<Supervisor>>,
+}
+
+#[derive(Default)]
+struct Supervisor {
+    environment_id: Option<String>,
+    state: Option<ManagedState>,
+    generation: u64,
+    instance_id: Option<String>,
+    endpoint: Option<ManagedEndpoint>,
+    bootstrap_url: Option<Url>,
+    stop_disposition: Option<StopDisposition>,
+    evidence: Vec<RuntimeEvidence>,
+    process: Option<ManagedProcess>,
+}
+
+#[derive(Debug)]
+struct LaunchSpec {
+    executable: OsString,
+    args: Vec<OsString>,
+    cwd: Option<PathBuf>,
+    environment: Vec<(OsString, OsString)>,
+    expected_port: Option<u16>,
+}
+
+struct ManagedProcess {
+    child: Child,
+    tree: ProcessTree,
+}
+
+pub(crate) fn start_managed_environment(
+    state: &ManagedRuntimeState,
+    environment: &DshEnvironment,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    let spec = build_launch_spec(environment)?;
+    start_with_spec(state, environment.id(), spec, START_TIMEOUT)
+}
+
+pub(crate) fn get_managed_runtime_status(
+    state: &ManagedRuntimeState,
+    environment: &DshEnvironment,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    if !environment.is_managed() {
+        return Err(ManagedRuntimeError::NotManaged);
+    }
+    let mut supervisor = lock_supervisor(state)?;
+    supervisor.refresh_exit();
+    supervisor.report(environment.id())
+}
+
+pub(crate) fn verified_surface_binding(
+    state: &ManagedRuntimeState,
+    environment: &DshEnvironment,
+    expected_generation: u64,
+) -> Result<VerifiedSurfaceBinding, ManagedRuntimeError> {
+    if !environment.is_managed() {
+        return Err(ManagedRuntimeError::NotManaged);
+    }
+    if expected_generation == 0 {
+        return Err(ManagedRuntimeError::StaleGeneration);
+    }
+
+    let mut supervisor = lock_supervisor(state)?;
+    supervisor.refresh_exit();
+    if supervisor.generation != expected_generation {
+        return Err(ManagedRuntimeError::StaleGeneration);
+    }
+    if supervisor.environment_id.as_deref() != Some(environment.id())
+        || supervisor.state != Some(ManagedState::Healthy)
+        || supervisor.process.is_none()
+    {
+        return Err(ManagedRuntimeError::SurfaceBindingUnavailable);
+    }
+    let endpoint = supervisor
+        .endpoint
+        .ok_or(ManagedRuntimeError::SurfaceBindingUnavailable)?;
+    let bootstrap_url = supervisor
+        .bootstrap_url
+        .clone()
+        .ok_or(ManagedRuntimeError::SurfaceBindingUnavailable)?;
+
+    Ok(VerifiedSurfaceBinding {
+        generation: supervisor.generation,
+        port: endpoint.port,
+        bootstrap_url,
+    })
+}
+
+pub(crate) fn stop_managed_environment(
+    state: &ManagedRuntimeState,
+    environment: &DshEnvironment,
+    expected_generation: u64,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    if !environment.is_managed() {
+        return Err(ManagedRuntimeError::NotManaged);
+    }
+
+    let (process, endpoint) = {
+        let mut supervisor = lock_supervisor(state)?;
+        supervisor.refresh_exit();
+        if supervisor
+            .environment_id
+            .as_deref()
+            .is_some_and(|id| id != environment.id())
+        {
+            return Err(ManagedRuntimeError::Conflict);
+        }
+        if expected_generation == 0 || expected_generation != supervisor.generation {
+            return Err(ManagedRuntimeError::StaleGeneration);
+        }
+
+        if supervisor.process.is_none() {
+            supervisor.state = Some(ManagedState::Stopped);
+            supervisor.instance_id = None;
+            supervisor.endpoint = None;
+            supervisor.bootstrap_url = None;
+            supervisor.stop_disposition = Some(StopDisposition::NotRequested);
+            supervisor.evidence = vec![evidence(
+                "MANAGED_ALREADY_STOPPED",
+                "info",
+                "The requested Managed generation has no retained process tree.",
+            )];
+            return supervisor.report(environment.id());
+        }
+
+        supervisor.state = Some(ManagedState::Stopping);
+        supervisor.bootstrap_url = None;
+        supervisor.evidence = vec![evidence(
+            "MANAGED_STOPPING",
+            "info",
+            "The retained Managed process tree is stopping.",
+        )];
+        (
+            supervisor.process.take().expect("checked process"),
+            supervisor.endpoint.take(),
+        )
+    };
+
+    let disposition = match process.stop() {
+        Ok(disposition) => disposition,
+        Err(_) => {
+            let mut supervisor = lock_supervisor(state)?;
+            if supervisor.generation == expected_generation
+                && supervisor.environment_id.as_deref() == Some(environment.id())
+            {
+                supervisor.state = Some(ManagedState::Crashed);
+                supervisor.endpoint = None;
+                supervisor.bootstrap_url = None;
+                supervisor.stop_disposition = Some(StopDisposition::NotRequested);
+                supervisor.evidence = vec![evidence(
+                    "MANAGED_STOP_FAILED",
+                    "error",
+                    "The retained process-tree stop did not complete cleanly.",
+                )];
+            }
+            return Err(ManagedRuntimeError::StopFailed);
+        }
+    };
+    let endpoint_released = endpoint.is_none_or(|value| endpoint_is_released(value.port));
+
+    let mut supervisor = lock_supervisor(state)?;
+    if supervisor.generation != expected_generation
+        || supervisor.environment_id.as_deref() != Some(environment.id())
+    {
+        return Err(ManagedRuntimeError::StaleGeneration);
+    }
+    supervisor.state = Some(ManagedState::Stopped);
+    supervisor.instance_id = None;
+    supervisor.endpoint = None;
+    supervisor.bootstrap_url = None;
+    supervisor.stop_disposition = Some(disposition);
+    supervisor.evidence = vec![evidence(
+        "MANAGED_PROCESS_TREE_STOPPED",
+        "info",
+        "The retained Managed process tree stopped and its endpoint was checked.",
+    )];
+    let report = supervisor.report(environment.id())?;
+    if !endpoint_released {
+        return Err(ManagedRuntimeError::EndpointStillReachable);
+    }
+    Ok(report)
+}
+
+fn start_with_spec(
+    state: &ManagedRuntimeState,
+    environment_id: &str,
+    spec: LaunchSpec,
+    timeout: Duration,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    let expected_port = spec.expected_port;
+    let (generation, receiver) = {
+        let mut supervisor = lock_supervisor(state)?;
+        supervisor.refresh_exit();
+        if supervisor.process.is_some() {
+            if supervisor.environment_id.as_deref() == Some(environment_id) {
+                return supervisor.report(environment_id);
+            }
+            return Err(ManagedRuntimeError::Conflict);
+        }
+
+        let next_generation = supervisor
+            .generation
+            .checked_add(1)
+            .ok_or(ManagedRuntimeError::StateUnavailable)?;
+        let launched_at = unix_ms()?;
+        let instance_id = format!("managed-{next_generation}-{launched_at}");
+        let (process, receiver) = ManagedProcess::spawn(spec)?;
+
+        supervisor.environment_id = Some(environment_id.to_string());
+        supervisor.state = Some(ManagedState::Starting);
+        supervisor.generation = next_generation;
+        supervisor.instance_id = Some(instance_id);
+        supervisor.endpoint = None;
+        supervisor.bootstrap_url = None;
+        supervisor.stop_disposition = Some(StopDisposition::NotRequested);
+        supervisor.evidence = vec![evidence(
+            "MANAGED_PROCESS_SPAWNED",
+            "info",
+            "A new Managed generation was created with a retained process-tree handle.",
+        )];
+        supervisor.process = Some(process);
+        (next_generation, receiver)
+    };
+
+    let deadline = Instant::now() + timeout;
+    let candidate = loop {
+        if !generation_is_alive(state, environment_id, generation)? {
+            return fail_start(
+                state,
+                environment_id,
+                generation,
+                ManagedRuntimeError::ProcessExited,
+            );
+        }
+        match receiver.try_recv() {
+            Ok(value) => {
+                break parse_candidate(&value, expected_port).inspect_err(|error| {
+                    let _ = fail_start(state, environment_id, generation, *error);
+                })?;
+            }
+            Err(TryRecvError::Disconnected) | Err(TryRecvError::Empty) => {}
+        }
+        if Instant::now() >= deadline {
+            return fail_start(
+                state,
+                environment_id,
+                generation,
+                ManagedRuntimeError::ReadinessTimeout,
+            );
+        }
+        thread::sleep(Duration::from_millis(20));
+    };
+
+    loop {
+        if !generation_is_alive(state, environment_id, generation)? {
+            return fail_start(
+                state,
+                environment_id,
+                generation,
+                ManagedRuntimeError::ProcessExited,
+            );
+        }
+        let address = SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::LOCALHOST,
+            candidate.endpoint.port,
+        ));
+        if TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).is_ok() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            return fail_start(
+                state,
+                environment_id,
+                generation,
+                ManagedRuntimeError::ReadinessTimeout,
+            );
+        }
+        thread::sleep(Duration::from_millis(40));
+    }
+
+    let mut supervisor = lock_supervisor(state)?;
+    supervisor.refresh_exit();
+    if supervisor.environment_id.as_deref() != Some(environment_id)
+        || supervisor.generation != generation
+        || supervisor.process.is_none()
+    {
+        return Err(ManagedRuntimeError::StaleGeneration);
+    }
+    supervisor.state = Some(ManagedState::Healthy);
+    supervisor.endpoint = Some(candidate.endpoint);
+    supervisor.bootstrap_url = Some(candidate.bootstrap_url);
+    supervisor.evidence = vec![evidence(
+        "MANAGED_ENDPOINT_VERIFIED",
+        "info",
+        "The owned generation emitted an exact loopback endpoint and accepted a bounded TCP connection.",
+    )];
+    supervisor.report(environment_id)
+}
+
+fn fail_start(
+    state: &ManagedRuntimeState,
+    environment_id: &str,
+    generation: u64,
+    error: ManagedRuntimeError,
+) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+    let process = {
+        let mut supervisor = lock_supervisor(state)?;
+        if supervisor.environment_id.as_deref() != Some(environment_id)
+            || supervisor.generation != generation
+        {
+            return Err(ManagedRuntimeError::StaleGeneration);
+        }
+        supervisor.state = Some(ManagedState::Crashed);
+        supervisor.endpoint = None;
+        supervisor.bootstrap_url = None;
+        supervisor.stop_disposition = Some(StopDisposition::NotRequested);
+        supervisor.evidence = vec![evidence(
+            "MANAGED_READINESS_FAILED",
+            "error",
+            "The Managed generation failed before endpoint publication and was cleaned up.",
+        )];
+        supervisor.process.take()
+    };
+    if let Some(process) = process {
+        let _ = process.stop();
+    }
+    Err(error)
+}
+
+fn generation_is_alive(
+    state: &ManagedRuntimeState,
+    environment_id: &str,
+    generation: u64,
+) -> Result<bool, ManagedRuntimeError> {
+    let mut supervisor = lock_supervisor(state)?;
+    supervisor.refresh_exit();
+    Ok(supervisor.environment_id.as_deref() == Some(environment_id)
+        && supervisor.generation == generation
+        && supervisor.process.is_some())
+}
+
+fn build_launch_spec(environment: &DshEnvironment) -> Result<LaunchSpec, ManagedRuntimeError> {
+    if !environment.is_managed() {
+        return Err(ManagedRuntimeError::NotManaged);
+    }
+    if !crate::commands::validate_environment_value(environment.clone()).is_valid() {
+        return Err(ManagedRuntimeError::InvalidEnvironment);
+    }
+    let harness_path = PathBuf::from(environment.harness_path());
+    if environment.harness_mode() == HarnessMode::Repository
+        && (!harness_path.is_absolute() || !harness_path.is_file())
+    {
+        return Err(ManagedRuntimeError::UnsupportedSource);
+    }
+    if environment.harness_mode() != HarnessMode::Repository
+        && environment
+            .node_path()
+            .is_some_and(|value| !value.is_empty())
+    {
+        return Err(ManagedRuntimeError::NodeOverrideUnsupported);
+    }
+
+    let node_path = environment
+        .node_path()
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    if let Some(path) = &node_path
+        && (!path.is_absolute() || !path.is_file())
+    {
+        return Err(ManagedRuntimeError::NodeOverrideUnsupported);
+    }
+    #[cfg(windows)]
+    if environment.harness_mode() == HarnessMode::Repository && node_path.is_none() {
+        return Err(ManagedRuntimeError::NodeOverrideUnsupported);
+    }
+
+    let mut args = Vec::new();
+    let executable = if let Some(path) = node_path {
+        if environment.harness_mode() != HarnessMode::Repository {
+            return Err(ManagedRuntimeError::NodeOverrideUnsupported);
+        }
+        args.push(harness_path.into_os_string());
+        path.into_os_string()
+    } else {
+        if environment.harness_mode() == HarnessMode::Repository && !harness_path.is_file() {
+            return Err(ManagedRuntimeError::UnsupportedSource);
+        }
+        OsString::from(environment.harness_path())
+    };
+
+    let port = environment.managed_expected_port();
+    let port_argument = port.unwrap_or(0).to_string();
+    if environment.profile() != "default" {
+        args.push(OsString::from("--profile"));
+        args.push(OsString::from(environment.profile()));
+    }
+    args.push(OsString::from("web"));
+    args.push(OsString::from("--host"));
+    args.push(OsString::from("127.0.0.1"));
+    args.push(OsString::from("--port"));
+    args.push(OsString::from(port_argument));
+    args.push(OsString::from("--no-open"));
+    args.extend(environment.harness_args().iter().map(OsString::from));
+
+    Ok(LaunchSpec {
+        executable,
+        args,
+        cwd: environment.harness_cwd().map(PathBuf::from),
+        environment: vec![(
+            OsString::from("DSH_HOME"),
+            OsString::from(environment.dsh_home()),
+        )],
+        expected_port: port,
+    })
+}
+
+fn parse_candidate(
+    candidate: &str,
+    expected_port: Option<u16>,
+) -> Result<ParsedCandidate, ManagedRuntimeError> {
+    if candidate.is_empty() || candidate.len() > MAX_OUTPUT_LINE_BYTES {
+        return Err(ManagedRuntimeError::CandidateInvalid);
+    }
+    let url = Url::parse(candidate).map_err(|_| ManagedRuntimeError::CandidateInvalid)?;
+    if url.scheme() != "http"
+        || url.host_str() != Some("127.0.0.1")
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.path() != "/"
+        || url.fragment().is_some()
+    {
+        return Err(ManagedRuntimeError::CandidateInvalid);
+    }
+    if let Some(query) = url.query() {
+        let token = query
+            .strip_prefix("token=")
+            .ok_or(ManagedRuntimeError::CandidateInvalid)?;
+        if token.len() != 43
+            || !token
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+        {
+            return Err(ManagedRuntimeError::CandidateInvalid);
+        }
+    }
+    let port = url.port().ok_or(ManagedRuntimeError::CandidateInvalid)?;
+    if port < 1024 || raw_authority(candidate) != Some(format!("127.0.0.1:{port}").as_str()) {
+        return Err(ManagedRuntimeError::CandidateInvalid);
+    }
+    if expected_port.is_some_and(|expected| expected != port) {
+        return Err(ManagedRuntimeError::CandidatePortMismatch);
+    }
+    Ok(ParsedCandidate {
+        endpoint: ManagedEndpoint {
+            scheme: "http",
+            host: "127.0.0.1",
+            port,
+            source: "managed_process_output",
+            verification: "owned_generation_output_and_tcp",
+        },
+        bootstrap_url: url,
+    })
+}
+
+fn raw_authority(candidate_url: &str) -> Option<&str> {
+    let (_, remainder) = candidate_url.split_once("://")?;
+    let end = remainder.find(['/', '?', '#']).unwrap_or(remainder.len());
+    Some(&remainder[..end])
+}
+
+fn endpoint_is_released(port: u16) -> bool {
+    let deadline = Instant::now() + ENDPOINT_RELEASE_TIMEOUT;
+    let address = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
+    loop {
+        if TcpStream::connect_timeout(&address, Duration::from_millis(100)).is_err() {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(30));
+    }
+}
+
+fn lock_supervisor(
+    state: &ManagedRuntimeState,
+) -> Result<MutexGuard<'_, Supervisor>, ManagedRuntimeError> {
+    state
+        .inner
+        .lock()
+        .map_err(|_| ManagedRuntimeError::StateUnavailable)
+}
+
+fn unix_ms() -> Result<u64, ManagedRuntimeError> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| ManagedRuntimeError::ClockUnavailable)?
+        .as_millis()
+        .try_into()
+        .map_err(|_| ManagedRuntimeError::ClockUnavailable)
+}
+
+fn evidence(code: &'static str, severity: &'static str, message: &'static str) -> RuntimeEvidence {
+    RuntimeEvidence {
+        code,
+        severity,
+        message,
+    }
+}
+
+impl Supervisor {
+    fn refresh_exit(&mut self) {
+        let exited = self
+            .process
+            .as_mut()
+            .is_some_and(|process| process.try_wait().map_or(true, |status| status.is_some()));
+        if exited {
+            self.process.take();
+            self.state = Some(ManagedState::Crashed);
+            self.endpoint = None;
+            self.bootstrap_url = None;
+            self.stop_disposition = Some(StopDisposition::NotRequested);
+            self.evidence = vec![evidence(
+                "MANAGED_PROCESS_EXITED",
+                "error",
+                "The retained Managed process exited before an explicit stop completed.",
+            )];
+        }
+    }
+
+    fn report(&self, environment_id: &str) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
+        let state = self.state.unwrap_or(ManagedState::Stopped);
+        let process_ownership = if self.process.is_some() {
+            ProcessOwnership::Owned
+        } else {
+            ProcessOwnership::None
+        };
+        let readiness = match state {
+            ManagedState::Stopped => Readiness::NotStarted,
+            ManagedState::Starting | ManagedState::Stopping => Readiness::Waiting,
+            ManagedState::Healthy => Readiness::Verified,
+            ManagedState::Crashed => Readiness::Failed,
+        };
+        let default_evidence = match state {
+            ManagedState::Stopped => evidence(
+                "MANAGED_STOPPED",
+                "info",
+                "No Managed process tree is currently retained.",
+            ),
+            ManagedState::Starting => evidence(
+                "MANAGED_STARTING",
+                "info",
+                "The current Managed generation is waiting for verified readiness.",
+            ),
+            ManagedState::Healthy => evidence(
+                "MANAGED_ENDPOINT_VERIFIED",
+                "info",
+                "The current Managed endpoint passed publication gates.",
+            ),
+            ManagedState::Stopping => evidence(
+                "MANAGED_STOPPING",
+                "info",
+                "The retained Managed process tree is stopping.",
+            ),
+            ManagedState::Crashed => evidence(
+                "MANAGED_PROCESS_EXITED",
+                "error",
+                "The current Managed generation is not running.",
+            ),
+        };
+        Ok(ManagedRuntimeReport {
+            schema_version: SCHEMA_VERSION,
+            environment_id: environment_id.to_string(),
+            ownership: "managed",
+            state,
+            generation: self.generation,
+            instance_id: self
+                .instance_id
+                .clone()
+                .filter(|_| state != ManagedState::Stopped),
+            process_ownership,
+            lifecycle_mutation: "allowed",
+            readiness,
+            endpoint: self.endpoint,
+            stop_disposition: self
+                .stop_disposition
+                .unwrap_or(StopDisposition::NotRequested),
+            observed_at_unix_ms: unix_ms()?,
+            evidence: if self.evidence.is_empty() {
+                vec![default_evidence]
+            } else {
+                self.evidence.clone()
+            },
+        })
+    }
+}
+
+impl ManagedProcess {
+    fn spawn(spec: LaunchSpec) -> Result<(Self, Receiver<String>), ManagedRuntimeError> {
+        let mut command = Command::new(&spec.executable);
+        command
+            .args(&spec.args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        if let Some(cwd) = &spec.cwd {
+            command.current_dir(cwd);
+        }
+        for (key, value) in &spec.environment {
+            command.env(key, value);
+        }
+        configure_process_group(&mut command);
+
+        let mut child = command
+            .spawn()
+            .map_err(|_| ManagedRuntimeError::SpawnUnavailable)?;
+        let tree = match ProcessTree::attach(&child) {
+            Ok(tree) => tree,
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(ManagedRuntimeError::ProcessTreeUnavailable);
+            }
+        };
+
+        let (sender, receiver) = mpsc::sync_channel(4);
+        if let Some(stdout) = child.stdout.take() {
+            spawn_output_reader(stdout, sender.clone());
+        }
+        if let Some(stderr) = child.stderr.take() {
+            spawn_output_reader(stderr, sender);
+        }
+        Ok((Self { child, tree }, receiver))
+    }
+
+    fn try_wait(&mut self) -> io::Result<Option<ExitStatus>> {
+        self.child.try_wait()
+    }
+
+    fn stop(mut self) -> io::Result<StopDisposition> {
+        if self.child.try_wait()?.is_some() {
+            return Ok(StopDisposition::Graceful);
+        }
+        let disposition = self.tree.stop(&mut self.child)?;
+        let _ = self.child.wait();
+        Ok(disposition)
+    }
+}
+
+impl Drop for ManagedProcess {
+    fn drop(&mut self) {
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.tree.force_stop(&mut self.child);
+            let _ = self.child.wait();
+        }
+    }
+}
+
+fn spawn_output_reader<R>(mut reader: R, sender: SyncSender<String>)
+where
+    R: Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut chunk = [0_u8; 512];
+        let mut line = Vec::with_capacity(256);
+        let mut overflow = false;
+        loop {
+            let read = match reader.read(&mut chunk) {
+                Ok(0) | Err(_) => break,
+                Ok(read) => read,
+            };
+            for byte in &chunk[..read] {
+                if *byte == b'\n' {
+                    if !overflow {
+                        maybe_send_candidate(&line, &sender);
+                    }
+                    line.clear();
+                    overflow = false;
+                } else if *byte != b'\r' {
+                    if line.len() < MAX_OUTPUT_LINE_BYTES {
+                        line.push(*byte);
+                    } else {
+                        overflow = true;
+                    }
+                }
+            }
+        }
+        if !line.is_empty() && !overflow {
+            maybe_send_candidate(&line, &sender);
+        }
+    });
+}
+
+fn maybe_send_candidate(line: &[u8], sender: &SyncSender<String>) {
+    let Ok(line) = std::str::from_utf8(line) else {
+        return;
+    };
+    let Some(candidate) = line.trim().strip_prefix(OUTPUT_MARKER) else {
+        return;
+    };
+    let _ = sender.try_send(candidate.trim().to_string());
+}
+
+#[cfg(windows)]
+fn configure_process_group(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    use windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
+    command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+}
+
+#[cfg(unix)]
+fn configure_process_group(command: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    command.process_group(0);
+}
+
+#[cfg(windows)]
+struct ProcessTree {
+    job: windows_sys::Win32::Foundation::HANDLE,
+}
+
+// SAFETY: `job` is an owned kernel handle. All access is mediated by the
+// Supervisor mutex, and ProcessTree closes the handle exactly once in Drop.
+#[cfg(windows)]
+unsafe impl Send for ProcessTree {}
+
+#[cfg(windows)]
+impl ProcessTree {
+    fn attach(child: &Child) -> io::Result<Self> {
+        use std::mem::{size_of, zeroed};
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+            SetInformationJobObject,
+        };
+
+        let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if job.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        let mut information: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { zeroed() };
+        information.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let configured = unsafe {
+            SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                (&raw const information).cast(),
+                size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            )
+        };
+        let assigned = configured != 0
+            && unsafe { AssignProcessToJobObject(job, child.as_raw_handle().cast()) } != 0;
+        if !assigned {
+            unsafe { windows_sys::Win32::Foundation::CloseHandle(job) };
+            return Err(io::Error::last_os_error());
+        }
+        Ok(Self { job })
+    }
+
+    fn stop(&self, child: &mut Child) -> io::Result<StopDisposition> {
+        self.force_stop(child)?;
+        wait_for_exit(child, STOP_TIMEOUT)?;
+        Ok(StopDisposition::Forced)
+    }
+
+    fn force_stop(&self, _child: &mut Child) -> io::Result<()> {
+        use windows_sys::Win32::System::JobObjects::TerminateJobObject;
+        if unsafe { TerminateJobObject(self.job, 1) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ProcessTree {
+    fn drop(&mut self) {
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(self.job) };
+    }
+}
+
+#[cfg(unix)]
+struct ProcessTree {
+    process_group: i32,
+}
+
+#[cfg(unix)]
+impl ProcessTree {
+    fn attach(child: &Child) -> io::Result<Self> {
+        let process_group = i32::try_from(child.id())
+            .map_err(|_| io::Error::other("child id exceeds process-group range"))?;
+        Ok(Self { process_group })
+    }
+
+    fn stop(&self, child: &mut Child) -> io::Result<StopDisposition> {
+        if self.signal(libc::SIGTERM).is_ok() && wait_for_exit(child, STOP_TIMEOUT).is_ok() {
+            return Ok(StopDisposition::Graceful);
+        }
+        self.force_stop(child)?;
+        wait_for_exit(child, STOP_TIMEOUT)?;
+        Ok(StopDisposition::Forced)
+    }
+
+    fn force_stop(&self, _child: &mut Child) -> io::Result<()> {
+        self.signal(libc::SIGKILL)
+    }
+
+    fn signal(&self, signal: i32) -> io::Result<()> {
+        if unsafe { libc::kill(-self.process_group, signal) } == 0 {
+            Ok(())
+        } else {
+            Err(io::Error::last_os_error())
+        }
+    }
+}
+
+fn wait_for_exit(child: &mut Child, timeout: Duration) -> io::Result<()> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if child.try_wait()?.is_some() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "process stop timed out",
+            ));
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+
+    use super::*;
+
+    fn environment(ownership: &str, mode: &str, port: serde_json::Value) -> DshEnvironment {
+        serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1,
+            "id": "managed-local",
+            "label": "Managed DSH",
+            "harness": { "mode": mode, "path": "dsh" },
+            "dshHome": "C:/Users/example/.dsh",
+            "profile": "default",
+            "endpoint": { "host": "127.0.0.1", "port": port },
+            "ownership": ownership
+        }))
+        .expect("environment fixture")
+    }
+
+    #[test]
+    fn launch_spec_forces_structured_loopback_no_open_arguments() {
+        let spec = build_launch_spec(&environment(
+            "managed",
+            "executable",
+            serde_json::json!("auto"),
+        ))
+        .expect("launch spec");
+        let args: Vec<_> = spec
+            .args
+            .iter()
+            .map(|value| value.to_string_lossy())
+            .collect();
+        assert_eq!(
+            args,
+            ["web", "--host", "127.0.0.1", "--port", "0", "--no-open"]
+        );
+        assert_eq!(spec.expected_port, None);
+    }
+
+    #[test]
+    fn repository_node_recipe_is_structured_without_shell_or_package_manager() {
+        let executable = std::env::current_exe().expect("test executable");
+        let value: DshEnvironment = serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1,
+            "id": "managed-local",
+            "label": "Managed source DSH",
+            "harness": {
+                "mode": "repository",
+                "path": executable,
+                "cwd": executable.parent().expect("executable parent")
+            },
+            "dshHome": "C:/Users/example/.dsh",
+            "profile": "work",
+            "nodePath": executable,
+            "endpoint": { "host": "127.0.0.1", "port": 4317 },
+            "ownership": "managed"
+        }))
+        .expect("repository environment");
+        let spec = build_launch_spec(&value).expect("repository launch spec");
+        assert_eq!(PathBuf::from(&spec.executable), executable);
+        let args: Vec<_> = spec.args.iter().map(PathBuf::from).collect();
+        assert_eq!(args[0], executable);
+        let displays: Vec<_> = spec
+            .args
+            .iter()
+            .skip(1)
+            .map(|value| value.to_string_lossy())
+            .collect();
+        assert_eq!(
+            displays,
+            [
+                "--profile",
+                "work",
+                "web",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "4317",
+                "--no-open"
+            ]
+        );
+    }
+
+    #[test]
+    fn repository_node_recipe_rejects_missing_node_executable() {
+        let executable = std::env::current_exe().expect("test executable");
+        let value: DshEnvironment = serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1,
+            "id": "managed-local",
+            "label": "Managed source DSH",
+            "harness": {
+                "mode": "repository",
+                "path": executable,
+                "cwd": executable.parent().expect("executable parent")
+            },
+            "dshHome": "C:/Users/example/.dsh",
+            "profile": "default",
+            "nodePath": "C:/does-not-exist/node.exe",
+            "endpoint": { "host": "127.0.0.1", "port": 4317 },
+            "ownership": "managed"
+        }))
+        .expect("repository environment");
+        assert_eq!(
+            build_launch_spec(&value).expect_err("missing Node reject"),
+            ManagedRuntimeError::NodeOverrideUnsupported
+        );
+    }
+
+    #[test]
+    fn attached_and_unprepared_repository_sources_are_rejected() {
+        assert_eq!(
+            build_launch_spec(&environment(
+                "attached",
+                "executable",
+                serde_json::json!(4317)
+            ))
+            .expect_err("attached reject"),
+            ManagedRuntimeError::NotManaged
+        );
+        assert_eq!(
+            build_launch_spec(&environment(
+                "managed",
+                "repository",
+                serde_json::json!(4317)
+            ))
+            .expect_err("repository reject"),
+            ManagedRuntimeError::UnsupportedSource
+        );
+    }
+
+    #[test]
+    fn candidate_parser_requires_exact_root_loopback_and_expected_port() {
+        assert_eq!(
+            parse_candidate("http://127.0.0.1:4317", Some(4317))
+                .expect("candidate")
+                .endpoint
+                .port,
+            4317
+        );
+        let token = "A234567890123456789012345678901234567890123";
+        let authenticated =
+            parse_candidate(&format!("http://127.0.0.1:4317/?token={token}"), Some(4317))
+                .expect("authenticated candidate");
+        assert_eq!(authenticated.endpoint.port, 4317);
+        assert_eq!(
+            authenticated.bootstrap_url.as_str(),
+            format!("http://127.0.0.1:4317/?token={token}")
+        );
+        for invalid in [
+            "http://localhost:4317/",
+            "http://127.0.0.1:4318/",
+            "http://user@127.0.0.1:4317/",
+            "https://127.0.0.1:4317/",
+            "http://127.0.0.1:4317/path",
+            "http://127.1:4317/",
+            "http://127.0.0.1:4317/?token=short",
+            "http://127.0.0.1:4317/?token=A234567890123456789012345678901234567890123&token=again",
+            "http://127.0.0.1:4317/?token=A234567890123456789012345678901234567890123&debug=1",
+            "http://127.0.0.1:4317/?debug=A234567890123456789012345678901234567890123",
+            "http://127.0.0.1:4317/?token=A234567890123456789012345678901234567890123#fragment",
+        ] {
+            assert!(parse_candidate(invalid, Some(4317)).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn authenticated_candidate_is_absent_from_public_runtime_report() {
+        let token = "A234567890123456789012345678901234567890123";
+        let candidate =
+            parse_candidate(&format!("http://127.0.0.1:4317/?token={token}"), Some(4317))
+                .expect("authenticated candidate");
+        let supervisor = Supervisor {
+            environment_id: Some("managed-local".into()),
+            state: Some(ManagedState::Healthy),
+            generation: 7,
+            instance_id: Some("managed-7-1787792400000".into()),
+            endpoint: Some(candidate.endpoint),
+            bootstrap_url: Some(candidate.bootstrap_url),
+            stop_disposition: Some(StopDisposition::NotRequested),
+            evidence: Vec::new(),
+            process: None,
+        };
+        let serialized =
+            serde_json::to_string(&supervisor.report("managed-local").expect("runtime report"))
+                .expect("serialize report");
+        assert!(!serialized.contains(token));
+        assert!(!serialized.contains("token="));
+        assert!(!serialized.contains("?"));
+    }
+
+    #[test]
+    fn authenticated_binding_carries_private_bootstrap_url_and_public_report_redacts() {
+        let state = ManagedRuntimeState::default();
+        let report = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("authenticated-server"),
+            Duration::from_secs(8),
+        )
+        .expect("managed start");
+        assert_eq!(report.state, ManagedState::Healthy);
+        let token = "A234567890123456789012345678901234567890123";
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let binding = verified_surface_binding(&state, &managed, report.generation)
+            .expect("verified authenticated binding");
+        let expected_url = format!("http://127.0.0.1:{}/?token={token}", binding.port());
+        assert_eq!(binding.url().as_str(), expected_url);
+        let serialized = serde_json::to_string(&report).expect("serialize report");
+        assert!(!serialized.contains(token));
+        assert!(!serialized.contains("token="));
+        assert!(!serialized.contains("?"));
+        stop_managed_environment(&state, &managed, report.generation).expect("stop");
+    }
+
+    #[test]
+    fn owned_tree_reaches_ready_rejects_stale_stop_and_releases_endpoint() {
+        let state = ManagedRuntimeState::default();
+        let report = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("tree-parent"),
+            Duration::from_secs(8),
+        )
+        .expect("managed start");
+        assert_eq!(report.state, ManagedState::Healthy);
+        assert_eq!(report.process_ownership, ProcessOwnership::Owned);
+        assert_eq!(report.readiness, Readiness::Verified);
+        let endpoint = report.endpoint.expect("published endpoint");
+
+        let managed = environment("managed", "executable", serde_json::json!("auto"));
+        let binding = verified_surface_binding(&state, &managed, report.generation)
+            .expect("verified Surface binding");
+        assert_eq!(binding.generation(), report.generation);
+        assert_eq!(binding.port(), endpoint.port);
+        assert_eq!(
+            binding.url().as_str(),
+            format!("http://127.0.0.1:{}/", endpoint.port)
+        );
+        assert_eq!(
+            verified_surface_binding(&state, &managed, report.generation + 1)
+                .expect_err("stale Surface binding"),
+            ManagedRuntimeError::StaleGeneration
+        );
+        assert_eq!(
+            stop_managed_environment(&state, &managed, report.generation + 1)
+                .expect_err("stale stop"),
+            ManagedRuntimeError::StaleGeneration
+        );
+        assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, endpoint.port)).is_ok());
+
+        let stopped =
+            stop_managed_environment(&state, &managed, report.generation).expect("owned stop");
+        assert_eq!(stopped.state, ManagedState::Stopped);
+        assert_eq!(stopped.process_ownership, ProcessOwnership::None);
+        assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, endpoint.port)).is_err());
+        assert_eq!(
+            verified_surface_binding(&state, &managed, report.generation)
+                .expect_err("stopped Surface binding"),
+            ManagedRuntimeError::SurfaceBindingUnavailable
+        );
+
+        let second = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("server"),
+            Duration::from_secs(8),
+        )
+        .expect("second start");
+        assert_eq!(second.generation, report.generation + 1);
+        stop_managed_environment(&state, &managed, second.generation).expect("second stop");
+    }
+
+    #[test]
+    fn invalid_owned_output_fails_closed_and_cleans_process() {
+        let state = ManagedRuntimeState::default();
+        let result = start_with_spec(
+            &state,
+            "managed-local",
+            fake_spec("invalid-candidate"),
+            Duration::from_secs(8),
+        );
+        assert_eq!(
+            result.expect_err("invalid candidate"),
+            ManagedRuntimeError::CandidateInvalid
+        );
+        let report = lock_supervisor(&state)
+            .expect("state")
+            .report("managed-local")
+            .expect("report");
+        assert_eq!(report.state, ManagedState::Crashed);
+        assert_eq!(report.process_ownership, ProcessOwnership::None);
+        assert!(report.endpoint.is_none());
+    }
+
+    fn fake_spec(mode: &str) -> LaunchSpec {
+        LaunchSpec {
+            executable: std::env::current_exe()
+                .expect("test executable")
+                .into_os_string(),
+            args: [
+                "--exact",
+                "managed_runtime::tests::fake_managed_child",
+                "--nocapture",
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect(),
+            cwd: None,
+            environment: vec![(OsString::from("DSH_FAKE_MANAGED"), OsString::from(mode))],
+            expected_port: None,
+        }
+    }
+
+    #[test]
+    fn fake_managed_child() {
+        let Ok(mode) = std::env::var("DSH_FAKE_MANAGED") else {
+            return;
+        };
+        match mode.as_str() {
+            "server" => fake_server(),
+            "authenticated-server" => fake_authenticated_server(),
+            "invalid-candidate" => {
+                println!("dsh web: http://localhost:4317/");
+                io::stdout().flush().expect("flush invalid candidate");
+                loop {
+                    thread::sleep(Duration::from_secs(1));
+                }
+            }
+            "tree-parent" => {
+                thread::sleep(Duration::from_millis(250));
+                let mut child = Command::new(std::env::current_exe().expect("test executable"))
+                    .args([
+                        "--exact",
+                        "managed_runtime::tests::fake_managed_child",
+                        "--nocapture",
+                    ])
+                    .env("DSH_FAKE_MANAGED", "server")
+                    .stdout(Stdio::piped())
+                    .spawn()
+                    .expect("spawn tree child");
+                let stdout = child.stdout.take().expect("tree child stdout");
+                for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                    if line.contains(OUTPUT_MARKER) {
+                        println!("{line}");
+                        io::stdout().flush().expect("flush relayed candidate");
+                        break;
+                    }
+                }
+                let _ = child.wait();
+            }
+            _ => panic!("unexpected fake mode"),
+        }
+    }
+
+    fn fake_server() -> ! {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fake server");
+        let port = listener.local_addr().expect("fake address").port();
+        println!("dsh web: http://127.0.0.1:{port}/");
+        io::stdout().flush().expect("flush candidate");
+        loop {
+            let _ = listener.accept();
+        }
+    }
+
+    fn fake_authenticated_server() -> ! {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fake server");
+        let port = listener.local_addr().expect("fake address").port();
+        let token = "A234567890123456789012345678901234567890123";
+        println!("dsh web: http://127.0.0.1:{port}/?token={token}");
+        io::stdout().flush().expect("flush candidate");
+        loop {
+            let _ = listener.accept();
+        }
+    }
+}

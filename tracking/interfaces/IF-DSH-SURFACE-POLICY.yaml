@@ -1,0 +1,14 @@
+schema_version: 1
+id: IF-DSH-SURFACE-POLICY
+name: "DshSurfacePolicy"
+owner_module: MOD-HARNESS-SURFACE
+api_version: "webview.dsh-desktop.local/v1alpha1"
+status: verified
+implementation_status: implemented
+test_status: passed
+security_review: passed
+spec: "specs/webview/dsh-surface-policy.schema.json"
+operations:
+  - "derive_policy"
+  - "evaluate_navigation"
+updated_at: "2026-08-27T06:47:54Z"

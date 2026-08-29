@@ -1,0 +1,55 @@
+schema_version: 1
+id: REVIEW-M1-DSH-SURFACE-POLICY-SLICE
+scope: "M1 DSH Surface exact-origin policy, sanitized navigation evaluator, Shell preview and zero-privileged-IPC negative gates"
+status: passed
+reviewers:
+  - codex-primary
+checks:
+  - id: contract-first
+    status: passed
+    evidence: "IF-DSH-SURFACE-POLICY, 4 JSON Schemas, 5 fixtures, semantic matrix, ADR-0004 elaboration, AC-WEB-004, migration and compatibility notes were committed before implementation."
+  - id: schema-fixtures
+    status: passed
+    evidence: "4 WebView policy schemas passed Draft 2020-12 validation; 4 valid fixtures passed and the privilege-expanding decision fixture was rejected."
+  - id: tauri-acl
+    status: passed
+    evidence: "validate-acl.mjs: 8 AppManifest/invoke commands, exact Shell capability, no remote access, no dsh-surface window/webview target, and policy source contains no WebView builder, injection, opener or eval path."
+  - id: policy-derivation
+    status: passed
+    evidence: "Policy request contains only environmentId; backend resolves the persisted Environment and refuses auto/non-fixed endpoints. Descriptor fixes surface label, exact http://127.0.0.1:<port>, privileged IPC/DOM injection/renderer patch denied and automatic external open false."
+  - id: navigation-matrix
+    status: passed
+    evidence: "Rust tests cover exact-origin path/query/fragment allow; external HTTP(S) gesture delegation; no-gesture denial; another port, localhost, 127/8 alias and bracketed IPv6 loopback denial; credential/non-HTTP denial; popup/download/permission denial."
+  - id: sanitized-decision
+    status: passed
+    evidence: "Decision emits at most a sanitized origin and never echoes path, query, fragment or credential; delegated targets still require human confirmation and are never opened automatically."
+  - id: rust-gates
+    status: passed
+    evidence: "Rust 1.98.0 fmt/check passed; cargo test passed 21 tests; strict Clippy passed. The first negative run caught bracketed IPv6 loopback misclassification, which was fixed before final pass."
+  - id: frontend-gates
+    status: passed
+    evidence: "TypeScript 7.0.2 passed; Vitest 4.1.11 passed 2 files/18 tests; Vite 8.2.2 production build transformed 24 modules (JS 212.75 kB, CSS 12.04 kB before gzip)."
+  - id: visual-qa
+    status: passed
+    evidence: "In-app browser full-page QA showed exact origin, Native IPC denied, external links user action and automatic open denied; iframe/webview count 0, lifecycle control count 0 and console warnings/errors 0."
+  - id: no-webview-creation
+    status: passed
+    evidence: "This slice adds no dsh-surface Tauri window/webview configuration and no WebView builder. Harness Surface explicitly states that the remote WebView has not been created."
+  - id: tracking-schema
+    status: passed
+    evidence: "95 tracking records with 94 unique IDs passed repository schemas and structured cross-reference validation."
+  - id: repository-integrity
+    status: passed
+    evidence: "48 JSON files and 97 tracking YAML files parse; 184 Markdown files with 247 relative links/anchors pass; 28 leaf modules contain 84 required pickup documents; 383 project-owned text files are UTF-8/LF, all 576 Markdown fences are closed, heading hierarchy passes and project-owned TODO/TBD placeholders are absent."
+findings: []
+evidence:
+  - "commit 086f2c9"
+  - "commit 7c38238"
+  - "commit a0f9bd9"
+  - "commit 1b0f958"
+  - "apps/desktop/scripts/validate-acl.mjs"
+  - "specs/webview/dsh-surface-policy.schema.json"
+  - "tracking/handoffs/HANDOFF-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+next_action: "Maintainer reviews HANDOFF-M1-DSH-SURFACE-POLICY-SLICE; after acceptance, the recommended next independent slice is Managed lifecycle/verified endpoint readiness before any remote DSH WebView creation."
+created_at: "2026-08-27T03:40:22Z"
+updated_at: "2026-08-27T03:40:22Z"

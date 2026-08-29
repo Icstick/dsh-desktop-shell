@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "shell",
+  "description": "Minimal application commands available only to the bundled trusted Shell webview.",
+  "webviews": ["shell"],
+  "permissions": [
+    "allow-discover-harnesses",
+    "allow-evaluate-dsh-surface-navigation",
+    "allow-get-dsh-surface-status",
+    "allow-get-dsh-surface-policy",
+    "allow-get-environment-catalog",
+    "allow-get-managed-runtime-status",
+    "allow-get-shell-snapshot",
+    "allow-mount-dsh-surface",
+    "allow-probe-attached-environment",
+    "allow-reload-dsh-surface",
+    "allow-save-environment",
+    "allow-start-managed-environment",
+    "allow-stop-managed-environment",
+    "allow-unmount-dsh-surface",
+    "allow-update-dsh-surface-layout",
+    "allow-validate-environment"
+  ]
+}

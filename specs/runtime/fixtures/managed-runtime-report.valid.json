@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "local-dsh",
+  "ownership": "managed",
+  "state": "healthy",
+  "generation": 7,
+  "instanceId": "managed-7-1787792400000",
+  "processOwnership": "owned",
+  "lifecycleMutation": "allowed",
+  "readiness": "verified",
+  "endpoint": { "scheme": "http", "host": "127.0.0.1", "port": 4317, "source": "managed_process_output", "verification": "owned_generation_output_and_tcp" },
+  "stopDisposition": "not_requested",
+  "observedAtUnixMs": 1787792400100,
+  "evidence": [
+    { "code": "MANAGED_ENDPOINT_VERIFIED", "severity": "info", "message": "The owned generation emitted an exact loopback endpoint and accepted a bounded TCP connection." }
+  ]
+}

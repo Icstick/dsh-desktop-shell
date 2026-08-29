@@ -1,0 +1,17 @@
+schema_version: 1
+id: SESSION-20260827-M1-ATTACHED-HEALTH
+status: closed
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: feature/wi-m1-shell
+started_at: "2026-08-27T01:13:05Z"
+ended_at: "2026-08-27T02:36:48Z"
+summary: "已 contract-first 交付 Attached-only bounded health probe 与 Runtime evidence UI；identity 保持 unverified、process ownership external、lifecycle mutation denied。"
+artifacts:
+  - "specs/runtime/attached-health-report.schema.json"
+  - "apps/desktop/src-tauri/src/attached_health.rs"
+  - "apps/desktop/features/shell-ui/src/ShellApp.tsx"
+  - "tracking/reviews/REVIEW-M1-ATTACHED-HEALTH-SLICE.yaml"
+  - "tracking/handoffs/HANDOFF-M1-ATTACHED-HEALTH-SLICE.yaml"
+next_action: "Maintainer 已接受本 session handoff；在 feature/wi-m1-shell 创建新 session 并重新认领 WI-M1-SHELL，推进 DSH Surface origin/navigation policy。"

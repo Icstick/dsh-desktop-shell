@@ -1,0 +1,18 @@
+schema_version: 1
+id: SESSION-20260826-M1-ENV-DISCOVERY
+status: closed
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: feature/wi-m1-shell
+started_at: "2026-08-26T07:32:05Z"
+ended_at: "2026-08-26T08:44:58Z"
+summary: "已冻结并实现 Desktop-owned Environment catalog、non-executing discovery、Shell restore/save UX 与精确 ACL；未启动或修改用户 DSH。"
+artifacts:
+  - "tracking/reviews/REVIEW-M1-ENV-DISCOVERY-SLICE.yaml"
+  - "tracking/handoffs/HANDOFF-M1-ENV-DISCOVERY-SLICE.yaml"
+  - "specs/config/environment-catalog.schema.json"
+  - "specs/config/harness-discovery-report.schema.json"
+  - "apps/desktop/src-tauri/src/environment_store.rs"
+  - "apps/desktop/src-tauri/src/discovery.rs"
+next_action: "Maintainer 已接受本 session handoff；在 feature/wi-m1-shell 创建新 session 并重新认领 WI-M1-SHELL，推进 Attached health/status。"

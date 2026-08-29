@@ -1,6 +1,6 @@
 schema_version: 1
-verified_on: "2026-08-25"
-verified_at: "2026-08-25T12:19:55Z"
+verified_on: "2026-08-28"
+verified_at: "2026-08-28T12:57:55Z"
 verification_policy:
   repository_metadata: "GitHub REST API and immutable commit permalinks"
   package_metadata: "npm registry metadata; dist-tags are recorded independently from semantic version order"
@@ -16,21 +16,31 @@ sources:
     license: MIT
     repository:
       default_ref: master
-      revision: b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
-      committed_at: "2026-08-21T12:03:37Z"
-      revision_url: https://github.com/deepseek-ai/deepseek-harness/commit/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
+      revision: cd5ef8148158c3a752a658978873241fdf8e2bbc
+      committed_at: "2026-08-27T16:57:43Z"
+      revision_url: https://github.com/deepseek-ai/deepseek-harness/commit/cd5ef8148158c3a752a658978873241fdf8e2bbc
     evidence:
       path: README.md
-      blob_sha: 9ccd27b8934449bd0d2311317dc38aee5a5c0cdc
-      url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/README.md
+      blob_sha: 9f89db3d4502dea4a0d181799164f304d4976740
+      url: https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/README.md
       launch_contract:
         path: packages/bundle/web-app/README.md
-        blob_sha: c8a6874bc01696fc7c9ca65faf772da81ac1e964
-        url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/web-app/README.md
-      launch_parser:
-        path: packages/bundle/web-app/src/startup.ts
-        blob_sha: 9faad244ddb0f7e431c672ba413146da731793af
-        url: https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/web-app/src/startup.ts
+        blob_sha: 5588c7e72e6d61454620075c239ea571d026c5cf
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/bundle/web-app/README.md
+      launch_implementation:
+        path: packages/bundle/web-app/src/index.ts
+        blob_sha: d0b2635f8ec83d16b96a098dd0c9f53a5cecb657
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/bundle/web-app/src/index.ts
+      browser_auth_contract:
+        path: packages/client/connection/README.md
+        blob_sha: af757608aa7face6854aaf9d103654f974b51ed4
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/client/connection/README.md
+      advisory_source_package:
+        path: apps/cli/package.json
+        blob_sha: 8f82b8fdf77bf9ad0dc67c20e3b7ce51fca142e2
+        version: 0.1.2-alpha.1
+        registry_status: not-published-as-of-2026-08-28T12:57:55Z
+        url: https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/apps/cli/package.json
     distribution:
       registry: https://registry.npmjs.org/
       package: "@deepseek-ai/dsh"
@@ -53,7 +63,7 @@ sources:
     review:
       reviewer_role: interop-owner
       decision: use-official-behavior-reference
-      reviewed_at: "2026-08-25T12:19:55Z"
+      reviewed_at: "2026-08-28T12:57:55Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true
@@ -132,6 +142,36 @@ sources:
       reviewer_role: security-owner
       decision: use-official-platform-security-reference
       reviewed_at: "2026-08-25T12:19:55Z"
+    code_copied: false
+    assets_copied: false
+    review_required_before_copy: true
+
+  - id: SRC-WRY-NATIVE-PERMISSIONS
+    source_kind: pinned-crate-and-official-source-tag
+    project: tauri-apps/wry
+    url: https://github.com/tauri-apps/wry
+    purpose: native-webview-permission-and-callback-review
+    normative: true
+    license: Apache-2.0-or-MIT
+    verified_on: "2026-08-28"
+    pinned_distribution:
+      package: wry
+      version: 0.55.1
+      crates_io_checksum_sha256: 186f9871daa55fd9c016578b810d149de58367113db7fb72b462d2323ce19514
+      lockfile: Cargo.lock
+    evidence:
+      windows_backend_url: https://github.com/tauri-apps/wry/blob/wry-v0.55.1/src/webview2/mod.rs
+      macos_delegate_url: https://github.com/tauri-apps/wry/blob/wry-v0.55.1/src/wkwebview/class/wry_web_view_ui_delegate.rs
+      tauri_builder_url: https://docs.rs/tauri/2.11.5/tauri/webview/struct.WebviewBuilder.html
+      capability_url: https://v2.tauri.app/security/capabilities/
+    security_statements:
+      - "Pinned Tauri child WebviewBuilder requires the unstable feature and exposes native navigation, new-window, download and page-load callbacks."
+      - "Pinned Wry has no proven cross-platform builder-level permission deny hook available through pinned Tauri."
+      - "Windows can install an explicit WebView2 PermissionRequested deny handler through the native handle; unsupported platforms remain unmounted."
+    review:
+      reviewer_role: security-owner
+      decision: windows-only-native-surface-and-fail-closed-elsewhere
+      reviewed_at: "2026-08-28T02:41:49Z"
     code_copied: false
     assets_copied: false
     review_required_before_copy: true

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/webview/dsh-surface-status-request.schema.json",
+  "title": "DshSurfaceStatusRequest",
+  "description": "Reads lifecycle state for the fixed DSH Surface binding without accepting caller-supplied endpoint data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId", "expectedGeneration"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+    "expectedGeneration": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+  }
+}

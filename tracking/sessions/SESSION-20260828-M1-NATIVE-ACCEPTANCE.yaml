@@ -1,0 +1,16 @@
+schema_version: 1
+id: SESSION-20260828-M1-NATIVE-ACCEPTANCE
+status: in_progress
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: codex/wi-m1-shell-native-acceptance
+started_at: "2026-08-28T12:36:05Z"
+summary: "实现 ADR-0012 Authenticated Managed Web Bootstrap：backend-only bootstrap URL、Node structured repository launch、认证 candidate 解析与 redaction；Rust/frontend/ACL/build 门禁已通过。真实 DSH process/HTTP smoke 已确认输出 43-char token URL，首次请求 303 设置 HttpOnly SameSite=Strict cookie 后重定向到 clean root 并返回 200 HTML。"
+artifacts:
+  - "docs/decisions/ADR-0012-authenticated-managed-web-bootstrap.md"
+  - "specs/config/dsh-environment.schema.json"
+  - "apps/desktop/src-tauri/src/commands.rs"
+  - "apps/desktop/src-tauri/src/managed_runtime.rs"
+  - "apps/desktop/features/environment-settings/src/EnvironmentSetup.tsx"
+next_action: "继续执行 Windows real-DSH WebView2 native smoke/compatibility matrix（resize/hide/show/reload/unmount 与 permission/popup/download/cross-origin negative），并补齐 macOS/Linux unsupported_platform 证据。"

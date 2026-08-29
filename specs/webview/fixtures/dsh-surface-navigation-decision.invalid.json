@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "attached-local",
+  "navigationKind": "main_frame",
+  "candidateOrigin": "https://example.com",
+  "disposition": "allow_in_surface",
+  "reason": "EXTERNAL_HTTP_USER_ACTION",
+  "userGestureRequired": false,
+  "userConfirmationRequired": false,
+  "privilegedIpc": "allowed",
+  "openAutomatically": true
+}

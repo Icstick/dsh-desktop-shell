@@ -23,12 +23,13 @@ Z0 Supervisor/Broker/native providers；Z1 Shell UI；Z2 DSH Core/plugins；Z3 u
 
 | ID | Threat | Control | Owner | Verification |
 |---|---|---|---|---|
-| TM-OWN-001 | 误杀外部 DSH / PID reuse | explicit ownership + handle/start-time/launch identity | MOD-SUPERVISOR、MOD-PROCESS-MANAGER | AC-OWN-001、chaos |
+| TM-OWN-001 | 误杀外部 DSH / PID reuse | explicit ownership + retained process-tree handle + instance/generation；stop 不从 PID/port 重建 authority | MOD-SUPERVISOR、MOD-PROCESS-MANAGER | AC-OWN-001、AC-RUN-005、chaos |
 | TM-IPC-001 | IPC spoof/replay/stale generation | ACL/mode + ephemeral credential + generation | MOD-LOCAL-TRANSPORT | AC-IPC-001 |
 | TM-IPC-002 | malformed/oversized/slow client 导致资源耗尽 | framing limits + deadline + bounded concurrency + cancellation | MOD-LOCAL-TRANSPORT | AC-IPC-002 |
 | TM-WEB-001 | DSH/Browser WebView privilege escalation | zero privileged capability + exact window/webview allowlist | MOD-HARNESS-SURFACE、MOD-SHELL-UI | AC-WEB-001、AC-BRW-001 |
 | TM-WEB-002 | hostile page 通过 DNS rebinding/loopback CSRF 触达 fallback | credential 不进入 Web、Origin policy、127.0.0.1 only | MOD-LOCAL-TRANSPORT、MOD-HARNESS-SURFACE | AC-WEB-002 |
 | TM-WEB-003 | invoke-handler-only custom command 绕过预期 capability ACL | complete AppManifest command inventory + minimal permission + exact label + no remote URL | MOD-SHELL-UI、MOD-HARNESS-SURFACE | AC-WEB-003 |
+| TM-WEB-004 | remote DSH page 获得 camera/microphone/geolocation/notification 等 native permission | Windows WebView2 load 前安装全拒绝 handler；无可复查 deny hook 的平台 fail closed，不创建 WebView | MOD-HARNESS-SURFACE | AC-WEB-006、AC-WEB-007 |
 | TM-PLG-001 | Plugin/Agent 越权 | DSH policy + Desktop grant/lease/scope/generation | MOD-CAPABILITY-CONTRACTS、MOD-SUPERVISOR | adversarial adapter fixture、AC-LEASE-001 |
 | TM-CMD-001 | Harness path/args/cwd 触发 shell injection | structured executable + argv；禁止 shell parsing；secret 不进入 argv | MOD-ENVIRONMENT-SETTINGS、MOD-PROCESS-MANAGER | AC-CMD-001 |
 | TM-PATH-001 | path/symlink/TOCTOU escape | canonicalization、scope、open handle/final identity recheck | MOD-ENVIRONMENT-SETTINGS、native providers | AC-PATH-001 |

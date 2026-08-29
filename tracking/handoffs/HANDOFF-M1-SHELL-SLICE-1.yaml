@@ -1,0 +1,33 @@
+schema_version: 1
+id: HANDOFF-M1-SHELL-SLICE-1
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "Maintainer 于 2026-08-26 明确批准 HANDOFF-M1-SHELL-SLICE-1；本次批准接受首个 slice 证据，不代表 WI-M1-SHELL 或 M1 完成。"
+  - "Merged the approved M0 review branch into main as 44fa9bc and pushed origin/main."
+  - "Created feature/wi-m1-shell and claimed WI-M1-SHELL in commit c720fc9."
+  - "Added pinned Tauri 2.11.5, React 19.2.8, TypeScript 7.0.2 and Rust 1.98.0 workspace manifests and lockfiles."
+  - "Implemented Activity Rail, Shell layout, backend snapshot, schema-aligned Environment validation and redacted launch preview."
+  - "Added a non-privileged Harness placeholder; no DSH WebView, DOM injection, process launch or Profile mutation exists."
+  - "Restricted custom commands to exact Shell-window permissions through AppManifest inventory and generated permissions."
+  - "Added repository-authored SVG icon source and Tauri-generated platform assets required by Windows resource compilation."
+remaining:
+  - "Persist canonical DshEnvironment records without mutating DSH_HOME or Profile."
+  - "Implement discovery candidates with source, revision/version and validation evidence."
+  - "Implement Attached health/status without lifecycle mutation or port-ownership inference."
+  - "Implement Managed start/stop only after process ownership, generation and recovery tests exist."
+  - "Define and test DSH Surface origin/navigation policy before creating an unprivileged remote WebView."
+  - "Complete M1 Setup and DSH Surface acceptance; WI-M1-SHELL and M1 must remain in_progress until then."
+verification:
+  - "REVIEW-M1-SHELL-SLICE-1 passed all frontend, Rust, ACL and clean-room checks."
+  - "Feature implementation commit: 1c5f5ab."
+  - "Frontend: 9 tests passed; Rust: 3 tests passed; TypeScript, Vite build, cargo check and strict Clippy passed."
+  - "Tracking schemas, unique IDs, record references, repository JSON and changed-document relative links passed."
+risks:
+  - "Windows UNC checkouts can break pnpm project registration and Vitest worker drive inheritance; use a local checkout or frozen local QA copy for reliable execution."
+  - "Current runtime snapshot is intentionally static and Environment validation is read-only; it must not be represented as lifecycle completion."
+  - "Any new Tauri command or WebView changes the trust boundary and requires AppManifest, permission, capability and negative ACL evidence in one commit."
+next_action: "Create a new session on feature/wi-m1-shell, claim WI-M1-SHELL, and deliver Environment persistence plus discovery as the next independently verified slice."
+created_at: "2026-08-26T03:38:31Z"

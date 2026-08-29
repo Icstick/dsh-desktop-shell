@@ -1,0 +1,57 @@
+schema_version: 1
+id: REVIEW-M1-DSH-SURFACE-NATIVE-SLICE
+scope: "M1 verified-generation native DSH Surface contract, Windows WebView2 deny foothold, exact Shell-WebView ACL and fail-closed lifecycle UI"
+status: passed
+reviewers:
+  - codex-primary
+checks:
+  - id: contract-first
+    status: passed
+    evidence: "ADR-0011, IF-DSH-SURFACE-LIFECYCLE, six request/status Schemas, positive/negative fixtures, platform gate, trust boundary and AC-WEB-005..007 were committed before implementation."
+  - id: verified-binding
+    status: passed
+    evidence: "Mount consumes only Environment ID, expected generation, logical bounds and visibility. Rust resolves a current retained Managed process tree with owned process, verified readiness and exact output-plus-TCP endpoint; Attached, stale, unowned and unready bindings fail closed."
+  - id: webview2-deny-order
+    status: passed
+    evidence: "Windows creates fixed label dsh-surface at about:blank, disables extensions/devtools/autofill/password save, installs PermissionRequested and NavigationCompleted handlers, then navigates to the backend-derived URL."
+  - id: navigation-and-content
+    status: passed
+    evidence: "Native callback permits only bootstrap or exact verified origin; cross-origin, popup/new-window and download are denied. No initialization script, page eval, DOM injection, renderer patch or automatic external opener exists."
+  - id: exact-acl
+    status: passed
+    evidence: "validate-acl.mjs passed 16 AppManifest/invoke/permission commands with capability webviews:[shell], no remote access, no dsh-surface target and no caller-controlled endpoint/origin/URL/label fields."
+  - id: lifecycle-orchestration
+    status: passed
+    evidence: "Shell mounts only verified current generation, polls loading/ready, hides outside the DSH rail, unmounts on binding loss/stop/teardown, latches command failure until explicit retry or generation change, and never reuses a child across generation."
+  - id: responsive-slot
+    status: passed
+    evidence: "Slot measurement clips to the visible viewport and requires 320 x 240 CSS pixels. Browser QA at 1280, 420 and 390 pixels proved error, unsupported and minimum-bounds states with no horizontal overflow."
+  - id: automated-gates
+    status: passed
+    evidence: "Rust cargo test passed 30 tests and strict Clippy passed; TypeScript passed; Vitest passed 2 files/22 tests; Vite production build transformed 24 modules; git diff --check passed."
+  - id: real-windows-smoke
+    status: not_run
+    evidence: "No user-owned DSH installation was launched. Real WebView2 permission/redirect/popup/download/load-failure/reload/unmount evidence remains required before a Windows support declaration."
+  - id: non-windows-hosts
+    status: not_run
+    evidence: "macOS/Linux/other code path is explicit unsupported_platform before WebView creation, but target-host compile/runtime evidence was not produced in this Windows session."
+  - id: repository-integrity
+    status: passed
+    evidence: "75 JSON and 107 tracking YAML files parse/validate; 104 active records have 104 unique IDs and complete cross-references; 186 Markdown files/269 relative links and anchors, 426 project-owned UTF-8/LF text files and 29 module pickup triplets passed fence, heading and assigned-placeholder gates."
+findings:
+  - "Windows real-DSH native smoke and target-host non-Windows negative execution remain acceptance work; IF-DSH-SURFACE-LIFECYCLE security_review stays in_progress and no platform support is declared."
+evidence:
+  - "commit 9d85e00"
+  - "commit cd4475e"
+  - "commit ccf8e69"
+  - "commit a8f0b52"
+  - "commit 1862caf"
+  - "commit 7260099"
+  - "commit 6ac3539"
+  - "apps/desktop/src-tauri/src/dsh_surface.rs"
+  - "apps/desktop/scripts/validate-acl.mjs"
+  - "specs/webview/dsh-surface-status.schema.json"
+  - "tracking/handoffs/HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE.yaml"
+next_action: "Maintainer reviews HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE; after acceptance, run an independent real-DSH Windows WebView2 smoke/negative matrix and non-Windows unsupported-platform verification."
+created_at: "2026-08-28T07:12:44Z"
+updated_at: "2026-08-28T07:12:44Z"

@@ -1,0 +1,31 @@
+schema_version: 1
+id: HANDOFF-M1-ATTACHED-HEALTH-SLICE
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "Maintainer 于 2026-08-27 明确批准 HANDOFF-M1-ATTACHED-HEALTH-SLICE；该批准接受本 slice 证据，不关闭 IF-RUNTIME-STATUS、WI-M1-SHELL 或 M1。"
+  - "Froze AttachedHealth request/report schemas, fixtures, compatibility rules and AC-OWN-002 before implementation."
+  - "Implemented a Shell-only async Tauri probe that resolves persisted Attached Environment state and performs one fixed-loopback TCP connect with a backend-owned 750 ms timeout."
+  - "Mapped reachable, refused, timeout and I/O outcomes without raw OS errors; reachability never elevates identity, process ownership or lifecycle authority."
+  - "Added Runtime UI evidence, automatic startup probe, bounded manual re-probe, fixed-port error handling and explicit absence of lifecycle controls."
+  - "Updated desktop, Shell UI, Environment Settings and Runtime Diagnostics pickup documents and Changelog."
+  - "Recorded claim, contract, backend, frontend and documentation as five independently traceable commits."
+remaining:
+  - "Define and test DSH Surface origin/navigation policy before creating an unprivileged remote WebView."
+  - "Implement Managed start/stop only after process ownership, generation, process-tree cleanup and stale-generation tests exist."
+  - "Complete original DSH Surface acceptance and full Managed/Attached acceptance; WI-M1-SHELL and M1 remain in_progress."
+verification:
+  - "REVIEW-M1-ATTACHED-HEALTH-SLICE passed contract, ACL, frontend, Rust, ownership-boundary, visual QA and repository-integrity checks."
+  - "Frontend: TypeScript passed; 16 Vitest tests passed; Vite production build passed; Shell-only six-command ACL passed."
+  - "Rust: fmt/check passed; 15 tests passed; strict Clippy passed."
+  - "Browser QA showed reachable/unverified/external/denied, zero lifecycle controls and no console warnings/errors."
+  - "Final gates cover 90 tracking records/89 unique IDs, 39 JSON files, 92 tracking YAML files, 234 relative Markdown links/anchors and 28 leaf-module document triplets."
+risks:
+  - "A reachable TCP endpoint is not proof of DSH identity or readiness; identity remains unverified until a separately versioned application-level handshake exists."
+  - "Attached process ownership remains external, so Desktop must never start, stop, restart, kill or recover that process."
+  - "The 750 ms connect is bounded and runs off the UI thread, but OS/network scheduling can still return timeout or generic I/O evidence; callers must not reinterpret those outcomes."
+  - "Windows UNC workspaces can block TypeScript input discovery and worker startup; use a local checkout or frozen local QA copy for frontend gates."
+next_action: "Create a new session on feature/wi-m1-shell, claim WI-M1-SHELL, and deliver DSH Surface origin/navigation policy before creating any remote WebView."
+created_at: "2026-08-27T02:36:48Z"

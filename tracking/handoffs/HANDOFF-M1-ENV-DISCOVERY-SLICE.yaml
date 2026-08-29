@@ -1,0 +1,32 @@
+schema_version: 1
+id: HANDOFF-M1-ENV-DISCOVERY-SLICE
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "Maintainer 于 2026-08-26 明确批准 HANDOFF-M1-ENV-DISCOVERY-SLICE；该批准接受本 slice 证据，不关闭 WI-M1-SHELL 或 M1。"
+  - "Froze EnvironmentCatalog v1 and Harness discovery request/report schemas, fixtures, migrations and interface catalog before implementation."
+  - "Implemented an AppData/Application Support-owned Environment catalog with revision, active selection, backup, integrity rejection and no DSH_HOME/Profile mutation."
+  - "Implemented explicit/DSH_PATH/PATH discovery that inspects filesystem metadata but never executes candidates, shells, package managers, installers or builds."
+  - "Added exact Shell-only Tauri commands and generated permissions for catalog get/save and discovery; DSH Surface has no privileged capability."
+  - "Integrated candidate selection, backend validation, explicit save, active Environment startup restore and runtime snapshot refresh in the Shell UI."
+  - "Recorded contract, backend, frontend and module-documentation changes as four independently traceable commits."
+remaining:
+  - "Implement Attached health/status without lifecycle mutation or port-ownership inference."
+  - "Implement Managed start/stop only after process ownership, generation and recovery tests exist."
+  - "Define and test DSH Surface origin/navigation policy before creating an unprivileged remote WebView."
+  - "Complete M1 Setup and DSH Surface acceptance; WI-M1-SHELL and M1 remain in_progress."
+verification:
+  - "REVIEW-M1-ENV-DISCOVERY-SLICE passed contract, ACL, frontend, Rust, security-boundary and visual QA checks."
+  - "Frontend: TypeScript passed; 13 Vitest tests passed; Vite production build passed."
+  - "Rust: fmt/check passed; 10 tests passed; strict Clippy passed."
+  - "Browser QA exercised discovery, candidate selection, validation and explicit save with no console warnings/errors; DSH remained stopped."
+  - "86 tracking records/85 unique IDs, 38 JSON files, 230 relative Markdown links and 28 leaf-module document triplets passed repository gates."
+risks:
+  - "Global package-manager discovery and version probing are intentionally deferred; every candidate version remains null until a separately reviewed non-shell probe design exists."
+  - "Windows UNC workspaces can block pnpm registration and Vitest workers; use a local checkout or frozen local QA copy for frontend gates."
+  - "Catalog corruption fails closed and preserves the file; automated restore-from-backup is not part of this slice."
+  - "Attached remains unavailable and Managed remains stopped; no process lifecycle or DSH remote WebView is implemented."
+next_action: "Create a new session on feature/wi-m1-shell, claim WI-M1-SHELL, and deliver Attached health/status without lifecycle mutation or port-ownership inference."
+created_at: "2026-08-26T08:44:58Z"

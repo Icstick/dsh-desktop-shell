@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "attached-local",
+  "candidateUrl": "http://127.0.0.1:4317/chat?thread=local#latest",
+  "navigationKind": "main_frame",
+  "userGesture": false
+}

@@ -3,11 +3,16 @@ id: MOD-SHELL-UI
 name: "shell-ui"
 path: "apps/desktop/features/shell-ui"
 owner_role: ui-owner
-status: proposed
+status: in_progress
 milestone: M1
 interfaces:
   - IF-RUNTIME-STATUS
-depends_on: []
-security_review: required
-updated_at: "2026-08-25T12:52:20Z"
-next_action: "M1 实现前冻结 AppManifest command inventory、最小 permission、精确 Shell label 与最终 capability merge review。"
+  - IF-RUNTIME-CONTROL
+  - IF-ENVIRONMENT
+  - IF-DSH-SURFACE-POLICY
+  - IF-DSH-SURFACE-LIFECYCLE
+depends_on:
+  - MOD-ENVIRONMENT-SETTINGS
+security_review: in_progress
+updated_at: "2026-08-28T07:12:44Z"
+next_action: "等待 native Surface handoff review；保持 minimal lifecycle request、generation failure latch、rail hide/unmount 与 minimum-bounds gate，真实 WebView2 smoke 前不提升支持状态。"

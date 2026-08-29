@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "activeEnvironmentId": "local-dsh",
+  "environments": [
+    {
+      "schemaVersion": 1,
+      "id": "local-dsh",
+      "label": "Local DSH",
+      "harness": {
+        "mode": "executable",
+        "path": "C:/Tools/dsh.exe"
+      },
+      "dshHome": "C:/Users/example/.dsh",
+      "profile": "default",
+      "endpoint": {
+        "host": "127.0.0.1",
+        "port": "auto"
+      },
+      "ownership": "managed"
+    }
+  ]
+}

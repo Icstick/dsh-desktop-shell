@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "managed-local",
+  "generation": 7,
+  "surfaceLabel": "dsh-surface",
+  "state": "ready",
+  "platform": "windows",
+  "verifiedOrigin": { "scheme": "http", "host": "127.0.0.1", "port": 13579 },
+  "bounds": { "x": 252, "y": 80, "width": 1052, "height": 720 },
+  "visible": true,
+  "policy": {
+    "sameOriginNavigation": "allow",
+    "crossOriginNavigation": "deny",
+    "newWindow": "deny",
+    "downloads": "deny",
+    "pagePermissions": "deny",
+    "privilegedIpc": "denied",
+    "domInjection": "denied",
+    "automaticExternalOpen": false
+  },
+  "error": null
+}

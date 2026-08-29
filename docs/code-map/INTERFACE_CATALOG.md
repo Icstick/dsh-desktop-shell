@@ -4,9 +4,11 @@
 
 | ID | Capability / Contract | Owner | 初始阶段 |
 |---|---|---|---|
-| IF-ENVIRONMENT | DshEnvironment | MOD-SUPERVISOR | M1 |
-| IF-RUNTIME-STATUS | RuntimeStatus | MOD-SUPERVISOR | M2 |
-| IF-RUNTIME-CONTROL | start/stop/restart | MOD-SUPERVISOR | M2 |
+| IF-ENVIRONMENT | DshEnvironment + EnvironmentCatalog + HarnessDiscovery | MOD-SUPERVISOR | M1 |
+| IF-RUNTIME-STATUS | RuntimeStatus + AttachedHealth | MOD-SUPERVISOR | M1/M2 |
+| IF-DSH-SURFACE-POLICY | DshSurfacePolicy + NavigationDecision | MOD-HARNESS-SURFACE | M1 |
+| IF-DSH-SURFACE-LIFECYCLE | generation-bound mount/status/layout/reload/unmount + DshSurfaceStatus | MOD-HARNESS-SURFACE | M1 |
+| IF-RUNTIME-CONTROL | M1 start/status/generation-bound stop；M2 restart/recovery | MOD-SUPERVISOR | M1/M2 |
 | IF-NEGOTIATION | Hello/Agreement | MOD-CAPABILITY-CONTRACTS | M2 |
 | IF-INVOCATION | Invocation/Result/Event | MOD-CAPABILITY-CONTRACTS | M2 |
 | IF-LEASE | CapabilityLease | MOD-CAPABILITY-CONTRACTS | M2 |

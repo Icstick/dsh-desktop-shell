@@ -3,7 +3,7 @@ id: MOD-SUPERVISOR
 name: "supervisor"
 path: "crates/supervisor"
 owner_role: runtime-owner
-status: proposed
+status: in_progress
 milestone: M2
 interfaces:
   - IF-ENVIRONMENT
@@ -13,6 +13,6 @@ interfaces:
 depends_on:
   - MOD-PROCESS-MANAGER
   - MOD-LOCAL-TRANSPORT
-security_review: required
-updated_at: "2026-08-25T12:52:20Z"
-next_action: "M2 实现前固定 loopback/no-open/auto-port recipe、candidate endpoint identity/readiness validation 与 bounded failure behavior。"
+security_review: in_progress
+updated_at: "2026-08-28T12:57:55Z"
+next_action: "按 ADR-0012 实现 Managed Repository structured Node launch 与 generation-bound authenticated Web bootstrap；通过真实 DSH Windows smoke 后再恢复 IF-RUNTIME-CONTROL verified。"

@@ -1,0 +1,31 @@
+schema_version: 1
+id: REVIEW-M1-ATTACHED-HEALTH-SLICE-ACCEPTANCE
+scope: "Maintainer 对 HANDOFF-M1-ATTACHED-HEALTH-SLICE 的接受决定"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: explicit-maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-27 明确批准 HANDOFF-M1-ATTACHED-HEALTH-SLICE。"
+  - id: slice-evidence
+    status: passed
+    evidence: "REVIEW-M1-ATTACHED-HEALTH-SLICE 已记录 contract、frontend、Rust、ACL、ownership boundary、visual QA 与 repository integrity 门禁全部通过。"
+  - id: scope-preservation
+    status: passed
+    evidence: "本次批准只接受 Attached health/status slice；IF-RUNTIME-STATUS、WI-M1-SHELL 与 M1 保持 in_progress，Managed lifecycle 和 DSH Surface 尚未验收。"
+  - id: invariant-preservation
+    status: passed
+    evidence: "已接受基线继续要求 Attached identity unverified、process ownership external、lifecycle mutation denied，TCP reachability 不得解释为 DSH identity 或 readiness。"
+  - id: next-slice-boundary
+    status: passed
+    evidence: "后续 DSH Surface origin/navigation policy 必须通过新 session 认领，并在创建远程 WebView 前证明其没有 privileged Tauri IPC。"
+findings: []
+evidence:
+  - "tracking/handoffs/HANDOFF-M1-ATTACHED-HEALTH-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-ATTACHED-HEALTH-SLICE.yaml"
+  - "commit f1eb75d"
+  - "commit 5b9b761"
+next_action: "在 feature/wi-m1-shell 创建新 session、重新认领 WI-M1-SHELL，并推进 DSH Surface origin/navigation policy 独立 slice。"
+created_at: "2026-08-27T02:55:31Z"
+updated_at: "2026-08-27T02:55:31Z"

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/runtime/managed-runtime-start-request.schema.json",
+  "title": "ManagedRuntimeStartRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }
+  }
+}

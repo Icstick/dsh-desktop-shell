@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/webview/dsh-surface-reload-request.schema.json",
+  "title": "DshSurfaceReloadRequest",
+  "description": "Reloads the current DSH Surface only when its Managed generation still matches.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId", "expectedGeneration"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+    "expectedGeneration": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+  }
+}

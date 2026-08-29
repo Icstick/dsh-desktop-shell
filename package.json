@@ -1,0 +1,17 @@
+{
+  "name": "dsh-desktop-shell-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "pnpm --dir apps/desktop build",
+    "check": "pnpm --dir apps/desktop check",
+    "check:acl": "pnpm --dir apps/desktop check:acl",
+    "desktop:dev": "pnpm --dir apps/desktop tauri dev",
+    "desktop:build": "pnpm --dir apps/desktop tauri build",
+    "test": "pnpm --dir apps/desktop test"
+  }
+}

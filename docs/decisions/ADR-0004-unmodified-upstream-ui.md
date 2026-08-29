@@ -30,6 +30,13 @@ DSH Web UI 作为 unprivileged remote WebView 原样承载。Activity Rail、ove
 - 上游 DOM/router 变化不影响 start/health/reconnect。
 - External navigation policy 测试。
 
+## M1 Policy Elaboration
+
+- Policy 只能从 persisted Environment 的 fixed `http://127.0.0.1:<port>` endpoint 派生；caller 不能提供 allowed origin、label 或 permission grant。
+- DSH Surface 只允许 exact same-origin main-frame navigation。另一 loopback host/port、URL credential、non-HTTP scheme、popup、download 与 permission request 默认拒绝。
+- 由明确 user gesture 触发的 external HTTP(S) navigation 只返回 `delegate_external`，仍需外层 human confirmation；policy evaluator 不自动打开目标。
+- Policy descriptor 固定 `privilegedIpc/domInjection/rendererPatch = denied`。本切片只交付 contract/evaluator，不创建 WebView。
+
 ## 受影响模块
 
 harness-surface、shell-ui、security

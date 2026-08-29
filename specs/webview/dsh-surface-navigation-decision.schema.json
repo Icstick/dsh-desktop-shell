@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/webview/dsh-surface-navigation-decision.schema.json",
+  "title": "DshSurfaceNavigationDecision",
+  "description": "Sanitized, fail-closed decision. It never echoes URL paths, queries, fragments, credentials, or automatically opens an external target.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "environmentId",
+    "navigationKind",
+    "candidateOrigin",
+    "disposition",
+    "reason",
+    "userGestureRequired",
+    "userConfirmationRequired",
+    "privilegedIpc",
+    "openAutomatically"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "environmentId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "navigationKind": {
+      "enum": [
+        "main_frame",
+        "new_window",
+        "download",
+        "permission"
+      ]
+    },
+    "candidateOrigin": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "disposition": {
+      "enum": [
+        "allow_in_surface",
+        "delegate_external",
+        "deny"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "SAME_ORIGIN",
+        "EXTERNAL_HTTP_USER_ACTION",
+        "EXTERNAL_NAVIGATION_NO_USER_GESTURE",
+        "INVALID_URL",
+        "CREDENTIALS_FORBIDDEN",
+        "SCHEME_FORBIDDEN",
+        "LOOPBACK_ORIGIN_MISMATCH",
+        "NEW_WINDOW_DENIED",
+        "DOWNLOAD_DENIED",
+        "PERMISSION_DENIED",
+        "POLICY_UNAVAILABLE"
+      ]
+    },
+    "userGestureRequired": {
+      "type": "boolean"
+    },
+    "userConfirmationRequired": {
+      "type": "boolean"
+    },
+    "privilegedIpc": {
+      "const": "denied"
+    },
+    "openAutomatically": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "allow_in_surface"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "SAME_ORIGIN"
+          },
+          "userGestureRequired": {
+            "const": false
+          },
+          "userConfirmationRequired": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "delegate_external"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "EXTERNAL_HTTP_USER_ACTION"
+          },
+          "userGestureRequired": {
+            "const": true
+          },
+          "userConfirmationRequired": {
+            "const": true
+          }
+        }
+      }
+    }
+  ]
+}

@@ -67,7 +67,9 @@
       "minLength": 1
     },
     "nodePath": {
-      "type": "string"
+      "description": "Absolute Node executable used only for a user-prebuilt Managed repository entrypoint. Desktop never installs Node or builds DSH.",
+      "type": "string",
+      "minLength": 1
     },
     "endpoint": {
       "type": "object",
@@ -112,5 +114,22 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["nodePath"]
+      },
+      "then": {
+        "properties": {
+          "harness": {
+            "properties": {
+              "mode": { "const": "repository" }
+            }
+          },
+          "ownership": { "const": "managed" }
+        }
+      }
+    }
+  ]
 }

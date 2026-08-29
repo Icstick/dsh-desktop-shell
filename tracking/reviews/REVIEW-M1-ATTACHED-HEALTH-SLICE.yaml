@@ -1,0 +1,58 @@
+schema_version: 1
+id: REVIEW-M1-ATTACHED-HEALTH-SLICE
+scope: "M1 Attached-only bounded health probe, Runtime evidence UI and lifecycle/ownership negative boundaries"
+status: passed
+reviewers:
+  - codex-primary
+checks:
+  - id: contract-first
+    status: passed
+    evidence: "AttachedHealth request/report schemas, fixtures, ADR/lifecycle/compatibility rules and AC-OWN-002 were committed before implementation; 2 schemas passed, 2 valid fixtures passed and the negative fixture was rejected."
+  - id: frontend-acl
+    status: passed
+    evidence: "validate-acl.mjs: 6 build-time commands, exact Shell capability, no remote access, and lifecycle/process execution patterns rejected."
+  - id: frontend-typecheck
+    status: passed
+    evidence: "TypeScript 7.0.2 tsc -b --pretty false exited 0 in a frozen local QA copy."
+  - id: frontend-tests
+    status: passed
+    evidence: "Vitest 4.1.11: 2 files and 16 tests passed, including Attached startup probe, manual re-probe, fixed-port error and absence of lifecycle controls."
+  - id: frontend-build
+    status: passed
+    evidence: "Vite 8.2.2 production build passed: 24 modules transformed; JS 211.07 kB and CSS 11.55 kB before gzip."
+  - id: rust-format-check
+    status: passed
+    evidence: "Rust 1.98.0 cargo fmt --all -- --check exited 0."
+  - id: rust-check
+    status: passed
+    evidence: "cargo check --workspace --all-targets --locked completed in the Visual Studio build environment."
+  - id: rust-tests
+    status: passed
+    evidence: "cargo test: 15 tests passed, including reachable/refused/timeout, Managed rejection and auto-port no-scan boundaries."
+  - id: rust-clippy
+    status: passed
+    evidence: "cargo clippy --workspace --all-targets --locked -- -D warnings exited 0."
+  - id: attached-ownership-boundary
+    status: passed
+    evidence: "Probe resolves only a persisted Attached Environment, permits one fixed-loopback TCP connect with backend-owned 750 ms timeout, and always reports identity unverified, process ownership external and lifecycle mutation denied."
+  - id: visual-qa
+    status: passed
+    evidence: "In-app browser full-page QA showed reachable/unverified/external/denied evidence, zero Start/Stop/Restart controls and no console warnings/errors; the temporary local mock and preview were removed afterward."
+  - id: tracking-schema
+    status: passed
+    evidence: "90 tracking records with 89 unique IDs validate against repository schemas; all structured cross-references pass."
+  - id: repository-integrity
+    status: passed
+    evidence: "39 JSON files and 92 tracking YAML files parse; 234 relative Markdown links/anchors pass; 28 leaf modules contain 84 required handoff documents; 362 text files are UTF-8/LF, all 576 Markdown fences are closed, heading hierarchy passes and project-owned TODO/TBD placeholders are absent."
+findings: []
+evidence:
+  - "commit 2bf2134"
+  - "commit f1eb75d"
+  - "commit 5b9b761"
+  - "commit 39970f1"
+  - "apps/desktop/scripts/validate-acl.mjs"
+  - "specs/runtime/attached-health-report.schema.json"
+  - "tracking/handoffs/HANDOFF-M1-ATTACHED-HEALTH-SLICE.yaml"
+next_action: "Maintainer reviews HANDOFF-M1-ATTACHED-HEALTH-SLICE; the recommended next independent slice is DSH Surface origin/navigation policy before any unprivileged remote WebView is created."
+created_at: "2026-08-27T02:36:48Z"
+updated_at: "2026-08-27T02:36:48Z"

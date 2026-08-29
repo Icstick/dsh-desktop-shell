@@ -1,22 +1,64 @@
 schema_version: 1
 id: WI-M1-SHELL
 title: "Deliver Shell MVP"
-status: ready
+status: in_progress
 milestone: M1
 module: MOD-SHELL-UI
 owner_role: milestone-owner
-claimed_by: null
-session: null
-branch_or_worktree: null
-claim_expires_at: null
+claimed_by: codex-primary
+session: codex-m1-native-acceptance-cont-20260828T1518Z
+branch_or_worktree: codex/wi-m1-shell-native-acceptance
+claim_expires_at: "2026-08-29T15:18:33Z"
 dependencies:
   - WI-M0-REVIEW
 acceptance_criteria:
   - "Setup and DSH Surface acceptance pass"
 security_impact: "WebView boundary"
 compatibility_impact: "DSH launch and UI compatibility"
-evidence: []
+evidence:
+  - "commit 1c5f5ab: Tauri/React/Rust Shell slice, Environment validation, Shell-only ACL and tests"
+  - "tracking/reviews/REVIEW-M1-SHELL-SLICE-1.yaml"
+  - "tracking/reviews/REVIEW-M1-SHELL-SLICE-1-ACCEPTANCE.yaml"
+  - "commit 4e2308c: Environment catalog and discovery contract freeze"
+  - "commit 36c6af6: AppData catalog persistence, discovery commands and exact ACL"
+  - "commit 0739734: Shell restore, discovery, validation and explicit save UX"
+  - "commit d3fb929: module documentation and changelog synchronization"
+  - "tracking/reviews/REVIEW-M1-ENV-DISCOVERY-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-ENV-DISCOVERY-SLICE-ACCEPTANCE.yaml"
+  - "commit 2bf2134: Attached health contract freeze"
+  - "commit f1eb75d: bounded Attached endpoint probe and exact ACL"
+  - "commit 5b9b761: Runtime evidence UI and frontend tests"
+  - "commit 39970f1: desktop module pickup documentation"
+  - "tracking/reviews/REVIEW-M1-ATTACHED-HEALTH-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-ATTACHED-HEALTH-SLICE-ACCEPTANCE.yaml"
+  - "commit 086f2c9: DSH Surface policy contract freeze"
+  - "commit 7c38238: Rust navigation evaluator and exact ACL"
+  - "commit a0f9bd9: read-only Shell policy preview"
+  - "commit 1b0f958: WebView policy pickup documentation"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-POLICY-SLICE-ACCEPTANCE.yaml"
+  - "commit 39181b3: Managed Runtime contract and readiness freeze"
+  - "commit c737af9: P0 integrated Supervisor, retained process tree and endpoint readiness"
+  - "commit 2aa332a: Managed Shell controls and frontend verification"
+  - "commit ae2e2f6: Managed readiness pickup documentation"
+  - "tracking/reviews/REVIEW-M1-MANAGED-READINESS-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-MANAGED-READINESS-SLICE-ACCEPTANCE.yaml"
+  - "commit 9d85e00: ADR-0011 and native Surface platform/security gate"
+  - "commit cd4475e: DSH Surface lifecycle Schemas and fixtures"
+  - "commit ccf8e69: verified current-generation Surface binding"
+  - "commit a8f0b52: Windows native child lifecycle, deny hooks and exact ACL"
+  - "commit 1862caf: TypeScript lifecycle contract/API binding"
+  - "commit 7260099: Shell native workspace orchestration and tests"
+  - "commit 6ac3539: undersized viewport fail-closed gate"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE-ACCEPTANCE.yaml"
+  - "commit 378f215: ADR-0012 and authenticated bootstrap contract/schema/fixtures"
+  - "commit 121dc30: ADR-0012 backend implementation: private bootstrap URL, structured Node launch, candidate parser and redaction"
+  - "commit 3e7f2f7: continuation claim and push of ADR-0012 commits to origin/codex/wi-m1-shell-native-acceptance via gh HTTPS credentials (SSH key absent)"
+  - "apps/desktop/scripts/smoke-native.mjs: repeatable Windows real-DSH WebView2 native smoke driver"
+  - "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json: 26/26 checks passed"
+  - "docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md: Windows real-DSH WebView2 native smoke summary (AC-WEB-005/006, ADR-0012 gates)"
 blocked_by: []
-next_action: "创建独立 M1 branch/worktree 与 session，认领本工作项并阅读目标模块文档后开始实现。"
-handoff: null
-updated_at: "2026-08-25T13:12:46Z"
+next_action: "Windows real-DSH WebView2 native smoke/compatibility matrix 26/26 通过（真实 DSH UI 加载、clean-root、cross-origin/popup/download/permission deny、resize/hide/show/reload/unmount、stop 后 binding fail-closed）；unsupported_platform 已提取为共享 helper 并有单测（结构性证据）。剩余：macOS/Linux target-host 实测证据与 M1 最终 acceptance review，之后才可关闭本工作项。"
+handoff: HANDOFF-M1-NATIVE-ACCEPTANCE
+updated_at: "2026-08-28T15:45:00Z"

@@ -10,5 +10,5 @@ interfaces:
 depends_on:
   - MOD-SUPERVISOR
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+updated_at: "2026-08-28T01:04:54Z"
+next_action: "保留 M1 Attached health 与 Managed generation/ownership/readiness evidence foothold；M2 前再审日志导出、恢复入口和完整 diagnostics contract。"

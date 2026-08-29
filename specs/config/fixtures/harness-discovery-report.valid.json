@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "scannedSources": [
+    "explicit",
+    "dsh_path",
+    "path"
+  ],
+  "deferredSources": [
+    "global"
+  ],
+  "candidates": [
+    {
+      "id": "candidate-0001",
+      "source": "explicit",
+      "mode": "executable",
+      "requestedPath": "C:/Tools/dsh.exe",
+      "canonicalPath": "C:/Tools/dsh.exe",
+      "status": "available",
+      "launchable": true,
+      "version": null,
+      "evidence": [
+        {
+          "code": "FILE_CANDIDATE",
+          "severity": "info",
+          "message": "A regular-file launch candidate exists; discovery did not execute it."
+        }
+      ]
+    },
+    {
+      "id": "candidate-0002",
+      "source": "explicit",
+      "mode": "repository",
+      "requestedPath": "C:/src/deepseek-harness",
+      "canonicalPath": "C:/src/deepseek-harness",
+      "status": "requires_recipe",
+      "launchable": false,
+      "version": null,
+      "evidence": [
+        {
+          "code": "DIRECTORY_REQUIRES_RECIPE",
+          "severity": "warning",
+          "message": "A source directory requires a user-provided prebuilt launch recipe."
+        }
+      ]
+    }
+  ]
+}

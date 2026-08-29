@@ -3,12 +3,15 @@ id: MOD-HARNESS-SURFACE
 name: "harness-surface"
 path: "apps/desktop/features/harness-surface"
 owner_role: ui-owner
-status: proposed
+status: review
 milestone: M1
 interfaces:
   - IF-RUNTIME-STATUS
+  - IF-DSH-SURFACE-POLICY
+  - IF-DSH-SURFACE-LIFECYCLE
 depends_on:
   - MOD-SHELL-UI
-security_review: required
-updated_at: "2026-08-25T12:52:20Z"
-next_action: "M1 实现前建立 DSH WebView 对完整 custom command inventory 的 negative invocation evidence，并验证 no-remote ACL。"
+  - MOD-SUPERVISOR
+security_review: in_progress
+updated_at: "2026-08-28T07:12:44Z"
+next_action: "Maintainer 审查 HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE；之后以真实 user-owned DSH 执行 Windows WebView2 smoke/negative matrix，并在 macOS/Linux host 复核 unsupported_platform。"

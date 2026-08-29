@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "attached-local",
+  "surfaceLabel": "dsh-surface",
+  "allowedOrigin": {
+    "scheme": "http",
+    "host": "127.0.0.1",
+    "port": 4317
+  },
+  "sameOriginMainFrame": "allow",
+  "externalHttpNavigation": "delegate_with_user_action",
+  "newWindow": "deny",
+  "downloads": "deny",
+  "permissions": "deny",
+  "privilegedIpc": "denied",
+  "domInjection": "denied",
+  "rendererPatch": "denied",
+  "automaticExternalOpen": false
+}

@@ -31,6 +31,7 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 - 所属 M2 acceptance catalog。
 - Security/reliability 边界的 negative tests。
 - Missing executable/build artifact、reserved arg override、shell metacharacter 与 unexpected child browser process tests。
+- Extraction 前不得把 retained Job Object/process group 降级为 PID/port lookup；必须保留 Drop cleanup、exact generation 与 endpoint release evidence。
 
 ## Milestone exit
 

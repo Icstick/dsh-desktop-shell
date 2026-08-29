@@ -1,0 +1,18 @@
+schema_version: 1
+id: SESSION-20260828-M1-NATIVE-ACCEPTANCE-CONT
+status: in_progress
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: codex/wi-m1-shell-native-acceptance
+started_at: "2026-08-28T15:18:33Z"
+summary: "承接 SESSION-20260828-M1-NATIVE-ACCEPTANCE 的 ADR-0012 验收：通过 gh HTTPS 凭据将 5 个提交推送至 origin/codex/wi-m1-shell-native-acceptance（SSH 无 key）；编写 scripts/smoke-native.mjs 并完成 Windows real-DSH WebView2 native smoke/compatibility matrix，26/26 通过（真实 DSH UI 加载于 clean exact-origin root、cross-origin/popup/download/permission deny、resize/hide/show/reload/unmount、stop 后 binding fail-closed、进程树清理、无 token 泄漏）；unsupported_platform 分支提取为共享 helper 并补单测，Rust 门禁（test/fmt/clippy）通过。"
+
+artifacts:
+  - "tracking/sessions/SESSION-20260828-M1-NATIVE-ACCEPTANCE-CONT.yaml"
+  - "tracking/work-items/WI-M1-SHELL.yaml"
+  - "apps/desktop/scripts/smoke-native.mjs"
+  - "docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md"
+  - "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json"
+  - "apps/desktop/src-tauri/src/dsh_surface.rs"
+next_action: "产出 HANDOFF-M1-NATIVE-ACCEPTANCE；剩余 macOS/Linux unsupported_platform target-host 实测与 M1 最终 acceptance review 交回 maintainer 评审。"

@@ -1,0 +1,17 @@
+schema_version: 1
+id: SESSION-20260827-M1-MANAGED-READINESS
+status: closed
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: feature/wi-m1-shell
+started_at: "2026-08-27T06:51:46Z"
+ended_at: "2026-08-28T01:04:54Z"
+summary: "已 contract-first 交付 P0 integrated Managed lifecycle、retained process-tree ownership、output-plus-TCP verified readiness 与 exact-generation Shell controls；未创建 remote WebView 或进入 M2 recovery/daemon。"
+artifacts:
+  - "specs/runtime/managed-runtime-report.schema.json"
+  - "apps/desktop/src-tauri/src/managed_runtime.rs"
+  - "apps/desktop/features/shell-ui/src/ShellApp.tsx"
+  - "tracking/reviews/REVIEW-M1-MANAGED-READINESS-SLICE.yaml"
+  - "tracking/handoffs/HANDOFF-M1-MANAGED-READINESS-SLICE.yaml"
+next_action: "Maintainer 已接受本 session handoff；为 remote DSH Surface native integration 创建新 session 并重新认领 WI-M1-SHELL。"

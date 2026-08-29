@@ -1,0 +1,33 @@
+schema_version: 1
+id: HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "Froze ADR-0011 and IF-DSH-SURFACE-LIFECYCLE with six Schemas, fixtures, platform/security gates and AC-WEB-005..007 before implementation."
+  - "Added Supervisor verified_surface_binding so only a current retained, owned, healthy and output-plus-TCP verified Managed generation can supply the native URL."
+  - "Implemented fixed-label Windows child WebView mount/status/layout/reload/unmount with about:blank bootstrap, pre-navigation WebView2 permission/autofill/password deny, exact-origin navigation and popup/download denial."
+  - "Changed Tauri capability matching to the exact shell WebView and validated sixteen AppManifest/invoke/permission commands; dsh-surface receives no privileged IPC or remote URL access."
+  - "Integrated Shell slot measurement, loading/ready/hidden/error/unsupported states, rail hide, generation-bound retry, binding-loss unmount and a 320 x 240 visible-bounds gate without DOM iframe/webview/script creation."
+  - "Recorded architecture, contract, runtime binding, native backend/ACL, TypeScript API, Shell integration and responsive hardening as independently traceable commits pushed to feature/wi-m1-shell."
+remaining:
+  - "Run a real user-owned DSH Windows WebView2 smoke/negative matrix for permission prompts, redirect/cross-origin, popup, download, load failure, resize, hide/show, reload and unmount before declaring Windows support."
+  - "Compile and execute the explicit unsupported_platform path on macOS and Linux; this Windows session did not produce target-host evidence."
+  - "Decide and test route-hint restoration without DOM/router injection if it remains required for M1 exit."
+  - "Complete M1 end-to-end acceptance and close WI-M1-SHELL only after the remaining native evidence is reviewed."
+  - "Keep M2 automatic recovery, M6 daemonization, Browser provider and external opener outside this handoff."
+verification:
+  - "REVIEW-M1-DSH-SURFACE-NATIVE-SLICE passed contract, verified binding, native deny ordering, navigation/content, ACL, lifecycle, responsive, Rust, frontend and repository-integrity checks with real platform smoke explicitly not run."
+  - "Rust: 30 tests passed; strict Clippy passed."
+  - "Frontend: TypeScript passed; 22 Vitest tests passed; 24-module Vite production build passed."
+  - "ACL: 16 commands, exact Shell WebView only, no remote access, no dsh-surface permission target and no caller endpoint/origin/URL/label."
+  - "Browser QA: 1280px error, 420px unsupported and 390px undersized states passed; 390px slot measured 291px, stayed unmounted and produced no horizontal overflow."
+  - "Repository gates: 75 JSON, 107 tracking YAML, 104 active records/104 unique IDs, 186 Markdown files/269 relative links and anchors, 426 project-owned UTF-8/LF text files and 29 module pickup triplets passed."
+risks:
+  - "Real WebView2 permission and redirect semantics remain unverified against DSH because no user-owned DSH installation was launched."
+  - "macOS/Linux are deliberately unsupported for native Surface until equivalent permission-deny hooks and target-host evidence exist."
+  - "Pinned Tauri/Wry/WebView2 APIs can change; ADR-0011 and RISK-WEBVIEW-PERMISSION-HOOK require re-review on dependency change."
+  - "Windows UNC execution can time out Vitest workers; final frontend evidence came from a frozen local QA mirror of the same files and installed dependencies."
+next_action: "Maintainer accepted this handoff on 2026-08-28; create an independent Windows real-DSH native smoke/compatibility acceptance session. Acceptance does not declare Windows support or close WI-M1-SHELL."
+created_at: "2026-08-28T07:12:44Z"

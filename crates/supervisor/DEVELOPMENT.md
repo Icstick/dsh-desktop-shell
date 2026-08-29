@@ -31,6 +31,7 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 - 所属 M2 acceptance catalog。
 - Security/reliability 边界的 negative tests。
 - Browser auto-open suppression、reserved arg collision、spoofed readiness URL 与 source checkout missing-build-artifact tests。
+- M1 integrated foothold 的 Windows Job Object child-tree cleanup、stale generation、malformed/overlong output、wrong port、foreign endpoint 与 endpoint release 测试必须在后续 crate extraction 中原样保留语义。
 
 ## Milestone exit
 

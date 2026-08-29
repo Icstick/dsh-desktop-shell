@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/runtime/attached-health-report.schema.json",
+  "title": "AttachedHealthReport",
+  "description": "Bounded TCP reachability evidence for a persisted Attached loopback endpoint. Reachability does not identify DSH and never proves process ownership.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "environmentId",
+    "ownership",
+    "state",
+    "reachability",
+    "identity",
+    "processOwnership",
+    "lifecycleMutation",
+    "endpoint",
+    "timeoutMs",
+    "latencyMs",
+    "observedAtUnixMs",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "environmentId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "ownership": {
+      "const": "attached"
+    },
+    "state": {
+      "enum": [
+        "attached",
+        "detached"
+      ]
+    },
+    "reachability": {
+      "enum": [
+        "reachable",
+        "refused",
+        "timeout",
+        "io_error"
+      ]
+    },
+    "identity": {
+      "const": "unverified"
+    },
+    "processOwnership": {
+      "const": "external"
+    },
+    "lifecycleMutation": {
+      "const": "denied"
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "const": "127.0.0.1"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535
+        }
+      }
+    },
+    "timeoutMs": {
+      "const": 750
+    },
+    "latencyMs": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "observedAtUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reachability": {
+            "const": "reachable"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "const": "attached"
+          },
+          "latencyMs": {
+            "type": "integer"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "state": {
+            "const": "detached"
+          },
+          "latencyMs": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

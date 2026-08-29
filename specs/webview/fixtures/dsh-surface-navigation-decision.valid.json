@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "attached-local",
+  "navigationKind": "main_frame",
+  "candidateOrigin": "http://127.0.0.1:4317",
+  "disposition": "allow_in_surface",
+  "reason": "SAME_ORIGIN",
+  "userGestureRequired": false,
+  "userConfirmationRequired": false,
+  "privilegedIpc": "denied",
+  "openAutomatically": false
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "scannedSources": [
+    "explicit"
+  ],
+  "deferredSources": [],
+  "candidates": [
+    {
+      "id": "candidate-0001",
+      "source": "explicit",
+      "mode": "executable",
+      "requestedPath": "C:/missing/dsh.exe",
+      "canonicalPath": "C:/missing/dsh.exe",
+      "status": "missing",
+      "launchable": true,
+      "version": null,
+      "evidence": [
+        {
+          "code": "PATH_MISSING",
+          "severity": "error",
+          "message": "The explicit path does not exist."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+schema_version: 1
+id: SESSION-20260828-M1-DSH-SURFACE-NATIVE
+status: closed
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: feature/wi-m1-shell
+started_at: "2026-08-28T02:30:26Z"
+ended_at: "2026-08-28T07:12:44Z"
+summary: "已 contract-first 交付 verified current-generation Managed binding 驱动的 Windows native DSH Surface foothold、strict WebView2 deny hooks、Shell lifecycle/retry/viewport orchestration 与非 Windows fail-closed；不实现 DOM injection、privileged IPC、M2 recovery 或 external auto-open。"
+artifacts:
+  - "docs/decisions/ADR-0011-native-dsh-surface-platform-gate.md"
+  - "specs/webview/dsh-surface-status.schema.json"
+  - "apps/desktop/src-tauri/src/dsh_surface.rs"
+  - "apps/desktop/features/harness-surface/src/HarnessSurface.tsx"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-NATIVE-SLICE.yaml"
+  - "tracking/handoffs/HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE.yaml"
+next_action: "Maintainer 已接受 HANDOFF-M1-DSH-SURFACE-NATIVE-SLICE；后续创建独立 session，执行 Windows real-DSH native smoke/compatibility acceptance，且不得据此提前声明 Windows support。"

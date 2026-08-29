@@ -1,0 +1,17 @@
+schema_version: 1
+id: IF-DSH-SURFACE-LIFECYCLE
+name: "DshSurfaceLifecycle"
+owner_module: MOD-HARNESS-SURFACE
+api_version: "webview.dsh-desktop.local/v1alpha1"
+status: review
+implementation_status: implemented
+test_status: passed
+security_review: in_progress
+spec: "specs/webview/dsh-surface-status.schema.json"
+operations:
+  - "mount_surface"
+  - "get_surface_status"
+  - "update_surface_layout"
+  - "reload_surface"
+  - "unmount_surface"
+updated_at: "2026-08-28T07:12:44Z"

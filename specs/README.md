@@ -5,6 +5,42 @@
 ## Config
 
 - [DshEnvironment](config/dsh-environment.schema.json)
+- [Environment Catalog](config/environment-catalog.schema.json)
+- [Harness Discovery Request](config/harness-discovery-request.schema.json)
+- [Harness Discovery Report](config/harness-discovery-report.schema.json)
+
+Config fixtures 位于 [`config/fixtures/`](config/fixtures/)；`.valid.json` 必须通过对应 Schema，`.invalid.json` 必须被拒绝。
+
+## Runtime Status
+
+- [Attached Health Request](runtime/attached-health-request.schema.json)
+- [Attached Health Report](runtime/attached-health-report.schema.json)
+- [Managed Start Request](runtime/managed-runtime-start-request.schema.json)
+- [Managed Status Request](runtime/managed-runtime-status-request.schema.json)
+- [Managed Stop Request](runtime/managed-runtime-stop-request.schema.json)
+- [Managed Runtime Report](runtime/managed-runtime-report.schema.json)
+
+Runtime fixtures 位于 [`runtime/fixtures/`](runtime/fixtures/)。M1 Attached probe 只返回 bounded loopback TCP reachability；Managed endpoint 只有在 retained child/generation、`dsh web:` exact loopback candidate 与 bounded TCP readiness 同时成立时发布。ADR-0012 允许 legacy root 或 backend-only authenticated token root，但所有 public serialization 继续只暴露 sanitized origin。
+
+## DSH Surface WebView Policy
+
+- [Policy Request](webview/dsh-surface-policy-request.schema.json)
+- [Derived Policy](webview/dsh-surface-policy.schema.json)
+- [Navigation Request](webview/dsh-surface-navigation-request.schema.json)
+- [Navigation Decision](webview/dsh-surface-navigation-decision.schema.json)
+
+WebView fixtures 位于 [`webview/fixtures/`](webview/fixtures/)。M1 policy slice 只冻结并实现 fail-closed evaluator；它不创建远程 WebView、不自动打开 external URL，也不授予 DSH Surface privileged IPC。
+
+## DSH Surface Lifecycle
+
+- [Mount Request](webview/dsh-surface-mount-request.schema.json)
+- [Status Request](webview/dsh-surface-status-request.schema.json)
+- [Layout Request](webview/dsh-surface-layout-request.schema.json)
+- [Reload Request](webview/dsh-surface-reload-request.schema.json)
+- [Unmount Request](webview/dsh-surface-unmount-request.schema.json)
+- [Surface Status](webview/dsh-surface-status.schema.json)
+
+Lifecycle request 只接受 Environment ID、expected generation 和必要的 logical bounds/visibility；endpoint、origin、URL、label、permission 与 capability 必须由 backend 固定或从 verified Managed binding 派生。M1 native implementation 由 ADR-0011 限定为 Windows；其他平台返回 `unsupported_platform` 并保持 unmounted。
 
 ## Protocol
 

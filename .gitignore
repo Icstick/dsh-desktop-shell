@@ -12,3 +12,10 @@ Desktop.ini
 *.rej
 .markdownlint-cache
 docs/.rendered/
+node_modules/
+.pnpm-store/
+dist/
+target/
+apps/desktop/src-tauri/gen/
+*.log
+*.tsbuildinfo

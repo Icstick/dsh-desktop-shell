@@ -1,0 +1,33 @@
+schema_version: 1
+id: REVIEW-M1-DSH-SURFACE-POLICY-SLICE-ACCEPTANCE
+scope: "Maintainer 对 HANDOFF-M1-DSH-SURFACE-POLICY-SLICE 的接受决定"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: explicit-maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-27 明确批准 HANDOFF-M1-DSH-SURFACE-POLICY-SLICE。"
+  - id: slice-evidence
+    status: passed
+    evidence: "REVIEW-M1-DSH-SURFACE-POLICY-SLICE 已记录 contract、Schema、ACL、Rust、frontend、visual QA 与 repository integrity 门禁全部通过。"
+  - id: scope-preservation
+    status: passed
+    evidence: "本次批准只接受 DSH Surface policy slice；WI-M1-SHELL 与 M1 保持 in_progress，Managed lifecycle、verified endpoint readiness 和实际 DSH Surface 尚未验收。"
+  - id: invariant-preservation
+    status: passed
+    evidence: "已接受基线继续要求 policy 只能由 backend 从 persisted fixed-loopback Environment 派生，DSH Surface 无 privileged IPC，external URL 不得自动打开。"
+  - id: next-slice-boundary
+    status: passed
+    evidence: "后续 Managed lifecycle/verified endpoint readiness 必须通过新 session 认领；本次批准不授权创建远程 DSH WebView。"
+findings: []
+evidence:
+  - "tracking/handoffs/HANDOFF-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+  - "commit 086f2c9"
+  - "commit 7c38238"
+  - "commit a0f9bd9"
+  - "commit 1b0f958"
+next_action: "在 feature/wi-m1-shell 创建新 session、重新认领 WI-M1-SHELL，并推进 Managed lifecycle/verified endpoint readiness 独立 slice。"
+created_at: "2026-08-27T06:47:54Z"
+updated_at: "2026-08-27T06:47:54Z"

@@ -2,9 +2,9 @@ schema_version: 1
 project: dsh-desktop-shell
 phase: shell-mvp
 current_milestone: M1
-status: ready
+status: in_progress
 implementation_authorized: true
 start_date: "2026-08-25"
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-25T13:12:46Z"
-next_action: "启动独立 M1 session 与 branch/worktree，认领 WI-M1-SHELL 后按接口优先顺序实施 Shell MVP。"
+updated_at: "2026-08-28T15:50:00Z"
+next_action: "Windows real-DSH WebView2 native smoke/compatibility matrix 26/26 通过（HANDOFF-M1-NATIVE-ACCEPTANCE）；剩余 macOS/Linux unsupported_platform target-host 实测证据与 M1 最终 acceptance review。"

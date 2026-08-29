@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-unmount-dsh-surface"
+description = "Enables the unmount_dsh_surface command without any pre-configured scope."
+commands.allow = ["unmount_dsh_surface"]
+
+[[permission]]
+identifier = "deny-unmount-dsh-surface"
+description = "Denies the unmount_dsh_surface command without any pre-configured scope."
+commands.deny = ["unmount_dsh_surface"]

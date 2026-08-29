@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "attached-local",
+  "ownership": "attached",
+  "state": "attached",
+  "reachability": "reachable",
+  "identity": "unverified",
+  "processOwnership": "external",
+  "lifecycleMutation": "denied",
+  "endpoint": {
+    "host": "127.0.0.1",
+    "port": 4317
+  },
+  "timeoutMs": 750,
+  "latencyMs": 12,
+  "observedAtUnixMs": 1787792400000,
+  "evidence": [
+    {
+      "code": "TCP_REACHABLE_IDENTITY_UNVERIFIED",
+      "severity": "warning",
+      "message": "The loopback endpoint accepted a TCP connection; DSH identity and process ownership remain unverified."
+    }
+  ]
+}

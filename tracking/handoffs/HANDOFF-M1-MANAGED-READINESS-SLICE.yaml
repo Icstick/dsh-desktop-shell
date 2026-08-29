@@ -1,0 +1,35 @@
+schema_version: 1
+id: HANDOFF-M1-MANAGED-READINESS-SLICE
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: accepted
+completed:
+  - "Froze start/status/exact-generation stop request/report Schemas, fixtures, state/ownership/readiness rules, AC-RUN-005 and security/compatibility gates before implementation."
+  - "Implemented the P0 integrated Managed Supervisor in the Tauri Rust backend with persisted-Environment-only structured launch, retained process-tree ownership and current-generation state."
+  - "Published a loopback endpoint only after exact owned child output and bounded TCP readiness agree; malformed, credentialed, wrong-host, wrong-port, stale-generation and foreign evidence fail closed."
+  - "Implemented Windows Job Object child-tree cleanup and Unix retained process-group cleanup; stop requires expectedGeneration and verifies endpoint release."
+  - "Added Shell status/start/two-step stop controls and evidence presentation without auto-start on restore/save or remote WebView creation."
+  - "Recorded session claim, contract, backend, frontend and module documentation as independently traceable commits and pushed each boundary to feature/wi-m1-shell."
+remaining:
+  - "Create the actual remote DSH WebView only in a new reviewed slice: consume the verified current-generation endpoint in native callbacks, grant zero privileged Tauri IPC and implement loading/error/reconnect without DOM injection."
+  - "Exercise the retained Unix process-group path on macOS and Linux; this session compiled and live-tested only the Windows Job Object path."
+  - "Define an upstream-supported graceful Windows shutdown contract before reporting graceful disposition; current Windows cleanup is forced through the retained Job Object."
+  - "Decide a separately reviewed Node override recipe if required; this slice rejects nodePath and accepts source checkout only when a user-prebuilt executable artifact exists."
+  - "Implement automatic recovery/restart policy in M2 and detach Supervisor into the P2 daemon in M6; neither belongs to this handoff."
+  - "Complete original DSH Surface acceptance; WI-M1-SHELL and M1 remain in_progress."
+verification:
+  - "REVIEW-M1-MANAGED-READINESS-SLICE passed contract, Schema, launch-boundary, readiness, ownership/cleanup, Rust, frontend, ACL, visual and repository-integrity checks."
+  - "Rust: cargo check passed; 27 tests passed; strict Clippy passed."
+  - "Frontend: TypeScript passed; 19 Vitest tests passed; 24-module Vite production build passed."
+  - "ACL: 11 commands, exact Shell label, no remote access and no dsh-surface capability target."
+  - "Browser QA proved healthy evidence, two-step generation 7 stop, stopped/ownership-none transition and endpoint removal using a local mock."
+  - "Repository gates cover 61 JSON, 101 tracking YAML, 100 records/100 unique IDs, 185 Markdown files, 257 relative links/anchors, 399 project-owned UTF-8/LF text files and 28 leaf-module pickup triplets."
+risks:
+  - "The upstream Developer Preview output marker can change; compatibility remains pinned to the verified baseline and must be revalidated before release."
+  - "macOS/Linux process-group cleanup is not live-tested in this Windows session."
+  - "Windows has no established graceful DSH shutdown contract in this slice, so retained Job Object cleanup reports forced."
+  - "Tests use deterministic fake managed children; no user-owned DSH installation was launched or modified."
+  - "A verified local endpoint can still serve untrusted renderer content; the next WebView slice must preserve exact-origin navigation and zero native capability."
+next_action: "Accepted by Maintainer on 2026-08-28; create a new session for the remote DSH Surface native integration slice."
+created_at: "2026-08-28T01:04:54Z"

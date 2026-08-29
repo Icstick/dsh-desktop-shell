@@ -1,0 +1,24 @@
+schema_version: 1
+id: REVIEW-M1-SHELL-SLICE-1-ACCEPTANCE
+scope: "Maintainer 对 HANDOFF-M1-SHELL-SLICE-1 的接受决定"
+status: passed
+reviewers:
+  - maintainer
+checks:
+  - id: explicit-maintainer-decision
+    status: passed
+    evidence: "Maintainer 于 2026-08-26 明确批准 HANDOFF-M1-SHELL-SLICE-1。"
+  - id: slice-evidence
+    status: passed
+    evidence: "REVIEW-M1-SHELL-SLICE-1 已记录 frontend、Rust、ACL、tracking 与 clean-room 门禁全部通过。"
+  - id: scope-preservation
+    status: passed
+    evidence: "本次批准只接受首个 slice handoff；WI-M1-SHELL 与 M1 保持 in_progress，后续工作和安全门禁不变。"
+findings: []
+evidence:
+  - "tracking/handoffs/HANDOFF-M1-SHELL-SLICE-1.yaml"
+  - "tracking/reviews/REVIEW-M1-SHELL-SLICE-1.yaml"
+  - "commit 1c5f5ab"
+next_action: "创建新的 M1 session，认领 WI-M1-SHELL 后实现 Environment persistence/discovery 与 Attached health。"
+created_at: "2026-08-26T04:17:36Z"
+updated_at: "2026-08-26T04:17:36Z"

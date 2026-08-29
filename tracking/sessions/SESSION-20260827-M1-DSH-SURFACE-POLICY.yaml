@@ -1,0 +1,18 @@
+schema_version: 1
+id: SESSION-20260827-M1-DSH-SURFACE-POLICY
+status: handoff
+agent_or_human: codex-primary
+work_items:
+  - WI-M1-SHELL
+branch_or_worktree: feature/wi-m1-shell
+started_at: "2026-08-27T03:08:16Z"
+ended_at: "2026-08-27T03:40:22Z"
+summary: "已 contract-first 交付 DSH Surface exact-origin policy、sanitized evaluator、八命令 Shell-only ACL 与只读 preview；没有创建远程 WebView。"
+artifacts:
+  - "specs/webview/dsh-surface-policy.schema.json"
+  - "specs/webview/dsh-surface-navigation-decision.schema.json"
+  - "apps/desktop/src-tauri/src/dsh_surface_policy.rs"
+  - "apps/desktop/features/harness-surface/src/HarnessSurface.tsx"
+  - "tracking/reviews/REVIEW-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+  - "tracking/handoffs/HANDOFF-M1-DSH-SURFACE-POLICY-SLICE.yaml"
+next_action: "Maintainer reviews HANDOFF-M1-DSH-SURFACE-POLICY-SLICE；claim 已释放，后续切片必须创建新 session。"

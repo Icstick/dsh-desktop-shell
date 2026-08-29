@@ -1,0 +1,399 @@
+{
+  "tool": "scripts/smoke-native.mjs",
+  "startedAt": "2026-08-28T15:24:36.455Z",
+  "cdpPort": 9333,
+  "environment": {
+    "id": "managed-real",
+    "nodePath": "C:\\Program Files\\nodejs\\node.exe",
+    "entry": "D:\\deepseek-harness\\apps\\cli\\lib\\bin.js",
+    "dshHome": "C:\\Users\\ZOOT\\.dsh"
+  },
+  "results": [
+    {
+      "name": "shell ipc seam available",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "initial shell snapshot unconfigured",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "value": {
+          "phase": "shell-mvp",
+          "runtimeState": "unconfigured",
+          "environmentId": null,
+          "generation": 0
+        }
+      }
+    },
+    {
+      "name": "repository recipe validates",
+      "ok": true,
+      "detail": {
+        "issues": []
+      }
+    },
+    {
+      "name": "launch argv is node <entry> web --host 127.0.0.1 --port ... --no-open",
+      "ok": true,
+      "detail": {
+        "executable": "C:\\Program Files\\nodejs\\node.exe",
+        "previewDisplays": [
+          "[prebuilt-entry]",
+          "web",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "0",
+          "--no-open"
+        ],
+        "expectedDisplays": [
+          "[prebuilt-entry]",
+          "web",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "0",
+          "--no-open"
+        ]
+      }
+    },
+    {
+      "name": "environment persisted",
+      "ok": true,
+      "detail": {
+        "revision": 1
+      }
+    },
+    {
+      "name": "managed start accepted",
+      "ok": true
+    },
+    {
+      "name": "runtime healthy with verified owned endpoint",
+      "ok": true,
+      "detail": {
+        "state": "healthy",
+        "generation": 1,
+        "endpoint": {
+          "scheme": "http",
+          "host": "127.0.0.1",
+          "port": 58765,
+          "source": "managed_process_output",
+          "verification": "owned_generation_output_and_tcp"
+        }
+      }
+    },
+    {
+      "name": "runtime report does not leak token/query/bootstrap url",
+      "ok": true,
+      "detail": {
+        "schemaVersion": 1,
+        "environmentId": "managed-real",
+        "ownership": "managed",
+        "state": "healthy",
+        "generation": 1,
+        "instanceId": "managed-1-1787930676497",
+        "processOwnership": "owned",
+        "lifecycleMutation": "allowed",
+        "readiness": "verified",
+        "endpoint": {
+          "scheme": "http",
+          "host": "127.0.0.1",
+          "port": 58765,
+          "source": "managed_process_output",
+          "verification": "owned_generation_output_and_tcp"
+        },
+        "stopDisposition": "not_requested",
+        "observedAtUnixMs": 1787930677844,
+        "evidence": [
+          {
+            "code": "MANAGED_ENDPOINT_VERIFIED",
+            "severity": "info",
+            "message": "The owned generation emitted an exact loopback endpoint and accepted a bounded TCP connection."
+          }
+        ]
+      }
+    },
+    {
+      "name": "surface mount accepted",
+      "ok": true
+    },
+    {
+      "name": "surface ready with exact verified origin",
+      "ok": true,
+      "detail": {
+        "schemaVersion": 1,
+        "environmentId": "managed-real",
+        "generation": 1,
+        "surfaceLabel": "dsh-surface",
+        "state": "ready",
+        "platform": "windows",
+        "verifiedOrigin": {
+          "scheme": "http",
+          "host": "127.0.0.1",
+          "port": 58765
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        },
+        "visible": true,
+        "policy": {
+          "sameOriginNavigation": "allow",
+          "crossOriginNavigation": "deny",
+          "newWindow": "deny",
+          "downloads": "deny",
+          "pagePermissions": "deny",
+          "privilegedIpc": "denied",
+          "domInjection": "denied",
+          "automaticExternalOpen": false
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "surface status does not leak token/query/bootstrap url",
+      "ok": true,
+      "detail": {
+        "schemaVersion": 1,
+        "environmentId": "managed-real",
+        "generation": 1,
+        "surfaceLabel": "dsh-surface",
+        "state": "ready",
+        "platform": "windows",
+        "verifiedOrigin": {
+          "scheme": "http",
+          "host": "127.0.0.1",
+          "port": 58765
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        },
+        "visible": true,
+        "policy": {
+          "sameOriginNavigation": "allow",
+          "crossOriginNavigation": "deny",
+          "newWindow": "deny",
+          "downloads": "deny",
+          "pagePermissions": "deny",
+          "privilegedIpc": "denied",
+          "domInjection": "denied",
+          "automaticExternalOpen": false
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "child webview at clean exact-origin root (no query)",
+      "ok": true,
+      "detail": "http://127.0.0.1:58765/"
+    },
+    {
+      "name": "DSH page loaded in child webview",
+      "ok": true,
+      "detail": {
+        "href": "http://127.0.0.1:58765/",
+        "title": "DSH 本地构建",
+        "text": "探索未至之境\n预览版\ndsh-desktop-shell\nPTC 模式\n描述你想要构建的内容… / 调用指令 @ 文件或对话\nWorkspace Write\nDeepSeek-V4-Flash\nMax\n详情\n点击消息流中的工具行查看详情"
+      }
+    },
+    {
+      "name": "layout hide transitions to hidden",
+      "ok": true,
+      "detail": {
+        "resize": {
+          "schemaVersion": 1,
+          "environmentId": "managed-real",
+          "generation": 1,
+          "surfaceLabel": "dsh-surface",
+          "state": "hidden",
+          "platform": "windows",
+          "verifiedOrigin": {
+            "scheme": "http",
+            "host": "127.0.0.1",
+            "port": 58765
+          },
+          "bounds": {
+            "x": 20,
+            "y": 20,
+            "width": 640,
+            "height": 480
+          },
+          "visible": false,
+          "policy": {
+            "sameOriginNavigation": "allow",
+            "crossOriginNavigation": "deny",
+            "newWindow": "deny",
+            "downloads": "deny",
+            "pagePermissions": "deny",
+            "privilegedIpc": "denied",
+            "domInjection": "denied",
+            "automaticExternalOpen": false
+          },
+          "error": null
+        },
+        "status": "hidden"
+      }
+    },
+    {
+      "name": "layout show resizes back to ready",
+      "ok": true,
+      "detail": {
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 800
+        },
+        "childBounds": {
+          "innerWidth": 1200,
+          "innerHeight": 800
+        }
+      }
+    },
+    {
+      "name": "reload returns to ready on same exact origin",
+      "ok": true,
+      "detail": {
+        "status": "ready",
+        "href": "http://127.0.0.1:58765/"
+      }
+    },
+    {
+      "name": "cross-origin navigation denied (page stays on exact origin)",
+      "ok": true,
+      "detail": {
+        "href": "http://127.0.0.1:58765/",
+        "readyState": "complete"
+      }
+    },
+    {
+      "name": "new window/popup denied and no extra target",
+      "ok": true,
+      "detail": {
+        "popup": "null",
+        "targetCount": 2
+      }
+    },
+    {
+      "name": "download attempt denied (no navigation, no extra target)",
+      "ok": true,
+      "detail": {
+        "before": {
+          "href": "http://127.0.0.1:58765/"
+        },
+        "after": {
+          "href": "http://127.0.0.1:58765/"
+        },
+        "targetCount": 2
+      }
+    },
+    {
+      "name": "page permissions denied without prompt",
+      "ok": true,
+      "detail": {
+        "permission": "notify:denied",
+        "geo": "geo:denied:1:User denied Geolocation"
+      }
+    },
+    {
+      "name": "child webview has no privileged native bridge (ACL rejects invoke)",
+      "ok": true,
+      "detail": {
+        "ipcChild": {
+          "internals": "object",
+          "tauri": "undefined"
+        },
+        "ipcAttempt": "rejected:get_shell_snapshot not allowed on window \"shell\", webview \"dsh-surface\", URL: http://127.0.0.1:58765/\n\nallowed on: [webv"
+      }
+    },
+    {
+      "name": "explicit unmount closes child webview",
+      "ok": true,
+      "detail": {
+        "status": {
+          "schemaVersion": 1,
+          "environmentId": "managed-real",
+          "generation": 1,
+          "surfaceLabel": "dsh-surface",
+          "state": "unmounted",
+          "platform": "windows",
+          "verifiedOrigin": {
+            "scheme": "http",
+            "host": "127.0.0.1",
+            "port": 58765
+          },
+          "bounds": null,
+          "visible": false,
+          "policy": {
+            "sameOriginNavigation": "allow",
+            "crossOriginNavigation": "deny",
+            "newWindow": "deny",
+            "downloads": "deny",
+            "pagePermissions": "deny",
+            "privilegedIpc": "denied",
+            "domInjection": "denied",
+            "automaticExternalOpen": false
+          },
+          "error": null
+        },
+        "targetCount": 1
+      }
+    },
+    {
+      "name": "managed stop accepted",
+      "ok": true
+    },
+    {
+      "name": "runtime stopped after stop request (endpoint released, process unowned)",
+      "ok": true,
+      "detail": {
+        "schemaVersion": 1,
+        "environmentId": "managed-real",
+        "ownership": "managed",
+        "state": "stopped",
+        "generation": 1,
+        "instanceId": null,
+        "processOwnership": "none",
+        "lifecycleMutation": "allowed",
+        "readiness": "not_started",
+        "endpoint": null,
+        "stopDisposition": "forced",
+        "observedAtUnixMs": 1787930686676,
+        "evidence": [
+          {
+            "code": "MANAGED_PROCESS_TREE_STOPPED",
+            "severity": "info",
+            "message": "The retained Managed process tree stopped and its endpoint was checked."
+          }
+        ]
+      }
+    },
+    {
+      "name": "surface binding lost after runtime stop (status fails closed)",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "error": "Managed endpoint is not a verified current-generation Surface binding."
+      }
+    },
+    {
+      "name": "surface mount rejected after stop (no stale binding reuse)",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "error": "Managed endpoint is not a verified current-generation Surface binding."
+      }
+    }
+  ],
+  "failures": [],
+  "finishedAt": "2026-08-28T15:24:46.680Z",
+  "passed": true
+}

@@ -3,11 +3,11 @@ id: MOD-ENVIRONMENT-SETTINGS
 name: "environment-settings"
 path: "apps/desktop/features/environment-settings"
 owner_role: ui-and-runtime-owner
-status: proposed
+status: in_progress
 milestone: M1
 interfaces:
   - IF-ENVIRONMENT
 depends_on: []
-security_review: required
-updated_at: "2026-08-25T12:52:20Z"
-next_action: "M1 实现前冻结 reserved launch args、最终 launch preview 与 prebuilt source checkout validation，并覆盖 AC-RUN-003/004。"
+security_review: passed
+updated_at: "2026-08-26T09:13:59Z"
+next_action: "将已接受的 Environment persistence/discovery 行为作为 verified baseline；后续变更继续禁止 candidate execution、安装、构建与 Profile mutation。"

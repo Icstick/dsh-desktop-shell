@@ -14,7 +14,7 @@ RuntimeStatus + redacted events
 
 ## State and errors
 
-实现必须暴露可观察状态，重复操作幂等或返回 `CONFLICT`。未授权/未协商返回标准错误；不得抛出包含秘密、原始命令或用户数据的跨边界错误。
+实现必须暴露可观察状态，重复操作幂等或返回 `CONFLICT`。M1 foothold 对 Attached 只展示 reachability evidence，必须保留 identity `unverified`、process ownership `external` 与 lifecycle mutation `denied`。Managed 只展示 backend-owned generation/process-tree/readiness evidence；endpoint 未 verified 时不得显示为可用，stop request 必须精确绑定 generation。未授权/未协商返回标准错误；不得抛出包含秘密、原始命令或用户数据的跨边界错误。
 
 ## Security
 
@@ -30,6 +30,7 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 - Invalid state、unavailable、unauthorized 和 cleanup。
 - 所属 M2 acceptance catalog。
 - Security/reliability 边界的 negative tests。
+- M1 foothold：Managed explicit start、两步 stop、generation 绑定、endpoint 消失与 stopped state；Attached lifecycle controls 持续缺席。
 
 ## Milestone exit
 

@@ -1,0 +1,31 @@
+schema_version: 1
+id: HANDOFF-M1-NATIVE-ACCEPTANCE
+work_item: WI-M1-SHELL
+from: codex-primary
+to: maintainer
+status: review
+completed:
+  - "Pushed the four pending ADR-0012 commits plus the continuation claim (5 commits total) to origin/codex/wi-m1-shell-native-acceptance via the gh HTTPS credential helper (no SSH key present on this machine)."
+  - "Ran the Windows real-DSH WebView2 native smoke/compatibility matrix with a repeatable driver (apps/desktop/scripts/smoke-native.mjs) over the Tauri IPC seam and Chrome DevTools Protocol: 26/26 checks passed."
+  - "Proved the ADR-0012 repository recipe end to end: node <entry> web --host 127.0.0.1 --port 0 --no-open; the real user-owned DSH checkout rendered its UI (DSH 本地构建) inside the dsh-surface child WebView at the clean exact-origin root after token exchange; no token/query/bootstrap URL appeared in runtime or surface serialization."
+  - "Proved AC-WEB-006 deny matrix live: cross-origin navigation, popup/new-window, download and page permissions (Notification/Geolocation) all denied; no extra WebView targets created; the child WebView invoke is ACL-rejected (no privileged native bridge)."
+  - "Proved the native lifecycle matrix live: mount, resize (640x480 hidden / 1200x800 shown), hide/show, reload, explicit unmount (child WebView closed), stop with endpoint release, process-tree cleanup (no node.exe with bin.js remained) and fail-closed binding after stop (status/mount rejected, no stale-generation reuse)."
+  - "Extracted the non-Windows unsupported_platform branch into a single tested helper (unsupported_platform_record) and strengthened its unit test; on macOS/Linux the WebView2 code is not compiled at all (compile-time gating), which is the structural half of AC-WEB-007."
+  - "Re-verified Rust gates after the refactor: cargo test 35 passed, cargo fmt --check passed, cargo clippy --all-targets -- -D warnings passed. Frontend was rebuilt (tsc -b + Vite, 24 modules) for the smoke binary."
+remaining:
+  - "Run a real macOS and a real Linux target-host to execute the unsupported_platform path (mount_surface non-Windows branch) and record target-host evidence for AC-WEB-007; the Windows-only session cannot produce it and must not claim it."
+  - "Optionally run the same smoke driver on a DSH release artifact once the advisory checkout revision is released; the driver accepts --entry/--node-path/--dsh-home overrides."
+  - "M1 end-to-end acceptance review by the maintainer before closing WI-M1-SHELL/M1."
+verification:
+  - "docs/testing/evidence/SMOKE-20260828-WEBVIEW2-NATIVE.json (26 checks, 0 failures) and docs/testing/SMOKE-20260828-WEBVIEW2-NATIVE.md."
+  - "cargo test 35 passed; cargo fmt --check passed; cargo clippy --all-targets -- -D warnings passed (after the unsupported_platform helper refactor)."
+  - "Frontend tsc -b and Vite production build passed; debug Tauri build produced target/debug/dsh-desktop-shell.exe."
+  - "Process-tree cleanup independently re-checked via Win32_Process (no node.exe with bin.js after stop); catalog persistence confirmed at %APPDATA%\dev.dsh.desktop-shell\environment-catalog-v1.json."
+  - "WebView2 Runtime 151.0.4129.107; Tauri 2.11.5; Rust 1.98.0; Node 24.15.0."
+risks:
+  - "stopDisposition was forced (DSH CLI did not exit on the graceful signal; Job-Object cleanup terminated the tree). Credential/endpoint were dropped either way; worth confirming graceful stop behavior with the DSH CLI team if desired."
+  - "Remote-debugging port (CDP) is required by the smoke driver; the driver is an acceptance tool, not a runtime feature."
+  - "macOS/Linux unsupported_platform still lacks target-host runtime evidence; compile-time gating plus the shared helper unit test are structural evidence only."
+  - "Pinned Tauri/Wry/WebView2 APIs can change; ADR-0011 and RISK-WEBVIEW-PERMISSION-HOOK require re-review on dependency change (unchanged from previous handoff)."
+next_action: "Maintainer reviews HANDOFF-M1-NATIVE-ACCEPTANCE and the smoke evidence; decide whether to schedule macOS/Linux target-host unsupported_platform evidence before M1 exit."
+created_at: "2026-08-28T15:50:00Z"

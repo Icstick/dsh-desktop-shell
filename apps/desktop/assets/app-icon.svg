@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">DSH Desktop Shell application icon</title>
+  <desc id="description">A cyan shell rail and connected workspace panes on a dark rounded square.</desc>
+  <defs>
+    <linearGradient id="background" x1="120" y1="96" x2="904" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142946"/>
+      <stop offset="1" stop-color="#07111f"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="238" y1="220" x2="810" y2="804" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6ee7ff"/>
+      <stop offset="1" stop-color="#4488ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="224" fill="url(#background)"/>
+  <rect x="168" y="184" width="688" height="656" rx="112" fill="none" stroke="#284568" stroke-width="32"/>
+  <path d="M304 200v624" stroke="url(#signal)" stroke-width="52" stroke-linecap="round"/>
+  <circle cx="304" cy="304" r="30" fill="#f5fbff"/>
+  <circle cx="304" cy="512" r="30" fill="#6ee7ff"/>
+  <circle cx="304" cy="720" r="30" fill="#4488ff"/>
+  <path d="M426 336h198c86 0 156 70 156 156s-70 156-156 156H426V336Z" fill="none" stroke="url(#signal)" stroke-width="48" stroke-linejoin="round"/>
+  <path d="M426 492h258" stroke="#f5fbff" stroke-width="32" stroke-linecap="round"/>
+</svg>

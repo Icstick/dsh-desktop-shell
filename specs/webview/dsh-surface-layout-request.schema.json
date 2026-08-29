@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/webview/dsh-surface-layout-request.schema.json",
+  "title": "DshSurfaceLayoutRequest",
+  "description": "Updates bounds and visibility for the fixed current-generation DSH Surface.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId", "expectedGeneration", "bounds", "visible"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+    "expectedGeneration": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "bounds": { "$ref": "#/$defs/bounds" },
+    "visible": { "type": "boolean" }
+  },
+  "$defs": {
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 32768 },
+        "y": { "type": "number", "minimum": 0, "maximum": 32768 },
+        "width": { "type": "number", "minimum": 320, "maximum": 16384 },
+        "height": { "type": "number", "minimum": 240, "maximum": 16384 }
+      }
+    }
+  }
+}

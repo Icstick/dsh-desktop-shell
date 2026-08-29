@@ -1,0 +1,62 @@
+schema_version: 1
+id: REVIEW-M1-ENV-DISCOVERY-SLICE
+scope: "M1 Environment catalog persistence, non-executing Harness discovery, Shell restore/save UX and exact Tauri ACL"
+status: passed
+reviewers:
+  - codex-primary
+checks:
+  - id: contract-first
+    status: passed
+    evidence: "EnvironmentCatalog and Harness discovery request/report schemas were committed before implementation; 4 schemas parsed, 3 valid fixtures passed and the negative fixture was rejected."
+  - id: frontend-acl
+    status: passed
+    evidence: "validate-acl.mjs: 5 build-time commands, exact Shell capability, no remote access, and discovery process-execution patterns rejected."
+  - id: frontend-typecheck
+    status: passed
+    evidence: "TypeScript 7.0.2 tsc -b --pretty false exited 0 in a frozen local QA copy."
+  - id: frontend-tests
+    status: passed
+    evidence: "Vitest 4.1.11: 2 files and 13 tests passed, including discovery selection, explicit save and active Environment startup restore."
+  - id: frontend-build
+    status: passed
+    evidence: "Vite 8.2.2 production build passed: 24 modules transformed; JS 208.47 kB and CSS 10.93 kB before gzip."
+  - id: rust-format-check
+    status: passed
+    evidence: "Rust 1.98.0 cargo fmt --all -- --check exited 0."
+  - id: rust-check
+    status: passed
+    evidence: "cargo check completed for the Tauri crate in the Visual Studio build environment."
+  - id: rust-tests
+    status: passed
+    evidence: "cargo test: 10 tests passed across Environment validation, catalog durability/integrity and non-executing discovery."
+  - id: rust-clippy
+    status: passed
+    evidence: "cargo clippy --all-targets -- -D warnings exited 0."
+  - id: persistence-boundary
+    status: passed
+    evidence: "Catalog writes only platform AppData/Application Support; tests prove revision/active selection, backup, corrupt-data refusal and no DSH_HOME mutation."
+  - id: discovery-boundary
+    status: passed
+    evidence: "Discovery inspects explicit/DSH_PATH/PATH filesystem candidates without candidate execution, shell parsing, install, build or version probing; global source remains explicitly deferred."
+  - id: visual-qa
+    status: passed
+    evidence: "In-app browser full-page QA covered discovery results and explicit save using a temporary local in-memory backend; no console warnings/errors and success stated that DSH remained stopped."
+  - id: tracking-schema
+    status: passed
+    evidence: "86 tracking records validated against repository schemas; 85 unique record IDs and all structured cross-references passed."
+  - id: repository-integrity
+    status: passed
+    evidence: "38 JSON files parsed; 230 relative Markdown links passed; 28 leaf modules contain 84 required handoff documents; 353 text files are UTF-8/LF and all 183 Markdown fences are closed; no TODO/TBD placeholders remain."
+findings: []
+evidence:
+  - "commit 4e2308c"
+  - "commit 36c6af6"
+  - "commit 0739734"
+  - "commit d3fb929"
+  - "apps/desktop/scripts/validate-acl.mjs"
+  - "specs/config/environment-catalog.schema.json"
+  - "specs/config/harness-discovery-report.schema.json"
+  - "tracking/handoffs/HANDOFF-M1-ENV-DISCOVERY-SLICE.yaml"
+next_action: "Maintainer reviews HANDOFF-M1-ENV-DISCOVERY-SLICE; next independent slice is Attached health/status without lifecycle mutation or port-ownership inference."
+created_at: "2026-08-26T08:44:58Z"
+updated_at: "2026-08-26T08:44:58Z"

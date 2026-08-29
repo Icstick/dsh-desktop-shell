@@ -3,6 +3,18 @@
 *.yaml text
 *.yml text
 *.json text
+*.toml text
+*.rs text diff=rust
+*.ts text
+*.tsx text
+*.mts text
+*.js text
+*.mjs text
+*.css text
+*.html text
+*.png binary
+*.ico binary
+*.icns binary
 LICENSE text
 NOTICE text
 # Immutable research snapshots are byte-preserved reference data.

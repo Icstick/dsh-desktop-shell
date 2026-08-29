@@ -3,12 +3,12 @@ id: IF-RUNTIME-STATUS
 name: "RuntimeStatus"
 owner_module: MOD-SUPERVISOR
 api_version: "runtime.dsh-desktop.local/v1alpha1"
-status: review
-implementation_status: not_authorized
-test_status: planned
-security_review: required
+status: in_progress
+implementation_status: in_progress
+test_status: in_progress
+security_review: in_progress
 spec: "specs/protocol/runtime-capability.schema.json"
 operations:
   - "status"
   - "health"
-updated_at: "2026-08-25T09:14:05Z"
+updated_at: "2026-08-28T01:04:54Z"

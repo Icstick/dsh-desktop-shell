@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "attached-local",
+  "ownership": "attached",
+  "state": "attached",
+  "reachability": "reachable",
+  "identity": "verified",
+  "processOwnership": "desktop",
+  "lifecycleMutation": "allowed",
+  "endpoint": {
+    "host": "0.0.0.0",
+    "port": 80
+  },
+  "timeoutMs": 10000,
+  "latencyMs": null,
+  "observedAtUnixMs": 1787792400000,
+  "evidence": []
+}

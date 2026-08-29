@@ -1,0 +1,21 @@
+schema_version: 1
+id: RISK-WEBVIEW-PERMISSION-HOOK
+title: "Pinned Tauri/Wry lacks a proven cross-platform page-permission deny hook"
+status: mitigating
+probability: high
+impact: critical
+owner_role: security-owner
+mitigation:
+  - "Windows-only M1 native Surface with an explicit WebView2 PermissionRequested deny handler before remote load"
+  - "Fail closed as unsupported_platform on macOS, Linux and other platforms"
+  - "Keep dsh-surface outside every Tauri capability, command permission and remote URL ACL"
+  - "Re-run permission and lifecycle matrix on every Tauri/Wry upgrade before expanding support"
+  - "Require real user-owned DSH WebView2 permission/redirect/popup/download/load-failure smoke before any Windows support declaration"
+triggers:
+  - "Pinned Tauri or Wry version changes"
+  - "A supported cross-platform permission handler becomes available"
+  - "Native platform permission behavior changes"
+related_modules:
+  - MOD-HARNESS-SURFACE
+  - MOD-SHELL-UI
+updated_at: "2026-08-28T07:12:44Z"

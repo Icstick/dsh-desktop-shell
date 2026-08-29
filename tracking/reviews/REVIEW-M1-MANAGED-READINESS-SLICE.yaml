@@ -1,0 +1,49 @@
+schema_version: 1
+id: REVIEW-M1-MANAGED-READINESS-SLICE
+scope: "M1 P0 integrated Managed Supervisor, retained process-tree ownership, verified endpoint readiness and generation-bound Shell controls"
+status: passed
+reviewers:
+  - codex-primary
+checks:
+  - id: contract-first
+    status: passed
+    evidence: "Four Managed Runtime Schemas, five fixtures, ADR/lifecycle/security/compatibility rules and AC-RUN-005 were committed before implementation."
+  - id: schema-fixtures
+    status: passed
+    evidence: "Four Managed Runtime Schemas passed Draft 2020-12 validation; four positive fixtures passed and the caller-supplied executable/argv fixture was rejected."
+  - id: launch-boundary
+    status: passed
+    evidence: "Start accepts only a persisted Environment ID. Backend derives executable/cwd/argv, forces 127.0.0.1, --port auto-or-fixed and --no-open, rejects Attached, Node override and missing source build artifacts, and never invokes a shell."
+  - id: readiness-publication
+    status: passed
+    evidence: "Endpoint publication requires an exact credential-free root http://127.0.0.1:<port> marker from bounded owned-child output, current generation/instance, configured-port agreement and bounded TCP connect."
+  - id: ownership-cleanup
+    status: passed
+    evidence: "Stop requires exact expectedGeneration and acts only on the retained process-tree handle. Windows Job Object tests prove child-tree cleanup and endpoint release; stale generation and foreign PID/port inference are rejected."
+  - id: rust-gates
+    status: passed
+    evidence: "Rust 1.98.0 cargo check passed; cargo test passed 27 tests; strict Clippy passed. Tests use a fake managed child and never execute the user's DSH installation."
+  - id: frontend-gates
+    status: passed
+    evidence: "TypeScript 7.0.2 passed; Vitest 4.1.11 passed 2 files/19 tests; Vite 8.2.2 production build transformed 24 modules (JS 217.73 kB, CSS 12.40 kB before gzip)."
+  - id: tauri-acl
+    status: passed
+    evidence: "validate-acl.mjs passed with 11 AppManifest/invoke commands, exact Shell capability, no remote access, no dsh-surface target and no shell/WebView builder in Managed source."
+  - id: visual-qa
+    status: passed
+    evidence: "In-app browser QA showed owned generation/readiness/endpoint evidence, two-step exact-generation stop, endpoint removal and explicit restart affordance; the preview used a local mock and no real DSH process."
+  - id: repository-integrity
+    status: passed
+    evidence: "61 JSON files and 101 tracking YAML files parse; 100 tracking records/100 unique IDs pass repository schemas and structured references; 185 Markdown files with 257 relative links/anchors pass; 28 leaf modules contain 84 pickup documents; 399 project-owned text files are UTF-8/LF, all 576 fences close, heading hierarchy passes and no project-owned unassigned TODO/TBD exists."
+findings: []
+evidence:
+  - "commit 39181b3"
+  - "commit c737af9"
+  - "commit 2aa332a"
+  - "commit ae2e2f6"
+  - "apps/desktop/src-tauri/src/managed_runtime.rs"
+  - "specs/runtime/managed-runtime-report.schema.json"
+  - "tracking/handoffs/HANDOFF-M1-MANAGED-READINESS-SLICE.yaml"
+next_action: "Maintainer reviews HANDOFF-M1-MANAGED-READINESS-SLICE; after acceptance, create a new session for native remote DSH Surface integration that consumes only the verified Managed endpoint and preserves zero privileged IPC."
+created_at: "2026-08-28T01:04:54Z"
+updated_at: "2026-08-28T01:04:54Z"
