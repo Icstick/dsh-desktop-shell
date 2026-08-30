@@ -1,0 +1,14 @@
+schema_version: 1
+id: M8
+title: "Stable Candidate (three-platform + release readiness)"
+status: planned
+relative_weeks: "29-33"
+depends_on:
+  - M7
+exit_criteria:
+  - "三平台 CI 矩阵全绿（构建/测试/clippy/vitest）"
+  - "terminal-provider Unix PTY、browser 非 Windows 降级策略落地"
+  - "签名决策关闭 + 安装包 + SBOM/provenance"
+  - "named mutex 决策 + 真实 DSH token 验证 + v0.1.0 发布"
+evidence: []
+updated_at: "2026-08-30T16:00:00Z"
