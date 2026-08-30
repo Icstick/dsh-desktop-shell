@@ -26,6 +26,14 @@ const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 /// Idle tick of connection workers (also the write-queue service interval).
 const WORKER_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
+/// Bounded read before replying to an over-limit connection: drains the
+/// client hello so the socket can close with FIN. Closing with unread
+/// inbound data sends RST on Windows, which races the busy reply and
+/// surfaces as `Io(ConnectionReset)` instead of `Busy` on the client.
+/// Short (not the full handshake deadline) so silent floods cannot stall
+/// the accept loop for long per connection (FH-2).
+const REJECT_READ_TIMEOUT: Duration = Duration::from_millis(200);
+
 /// Bound on per-connection queued frames in either direction.
 const QUEUED_FRAMES: usize = 16;
 
@@ -328,6 +336,10 @@ fn accept_loop(state: Arc<ServerState>, listener: TcpListener) {
 /// Written inline (bounded by the handshake deadline) so a flood of
 /// rejected connections cannot spawn one thread each (FH-2, AC-IPC-002).
 fn reject_busy(state: Arc<ServerState>, mut stream: TcpStream) {
+    // Drain the client hello first (bounded) so the socket closes with a
+    // clean FIN: see REJECT_READ_TIMEOUT. Best-effort on both sides.
+    let _ = stream.set_read_timeout(Some(REJECT_READ_TIMEOUT));
+    let _ = read_frame(&mut stream, state.limits.max_frame_bytes);
     let _ = stream.set_write_timeout(Some(state.limits.handshake_deadline));
     let _ = write_handshake_reply(&mut stream, false, Some("busy"));
 }
@@ -356,8 +368,11 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
     match perform_handshake(&state, &mut stream) {
         HandshakeResult::Authenticated => {}
         HandshakeResult::Rejected(auth_error) => {
-            let _ = write_handshake_reply(&mut stream, false, Some(reason_str(auth_error)));
+            // Count before replying: the client observes the ack and may
+            // assert stats immediately; the reply must never outrun the
+            // counter (observed as a flaky `rejected_auth` read in tests).
             state.stats.lock().unwrap().rejected_auth += 1;
+            let _ = write_handshake_reply(&mut stream, false, Some(reason_str(auth_error)));
             state.limiter.release();
             return;
         }
@@ -372,8 +387,8 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
             return;
         }
         HandshakeResult::Protocol => {
-            let _ = write_handshake_reply(&mut stream, false, Some("malformed"));
             state.stats.lock().unwrap().closed_protocol += 1;
+            let _ = write_handshake_reply(&mut stream, false, Some("malformed"));
             state.limiter.release();
             return;
         }
@@ -413,13 +428,15 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
     let end = worker_loop(&mut stream, &read_tx, &write_rx, limits);
 
     state.conns.lock().unwrap().remove(&id);
-    state.limiter.release();
+    // Count before releasing the slot: a test observing `active == 0` via
+    // polling may assert the end-reason counter immediately after.
     match end {
         EndReason::PeerClosed => state.stats.lock().unwrap().closed_peer += 1,
         EndReason::Protocol => state.stats.lock().unwrap().closed_protocol += 1,
         EndReason::Timeout => state.stats.lock().unwrap().closed_timeout += 1,
         EndReason::Io => state.stats.lock().unwrap().closed_io += 1,
     }
+    state.limiter.release();
 }
 
 /// Reads the client hello and checks it against the credential registry.

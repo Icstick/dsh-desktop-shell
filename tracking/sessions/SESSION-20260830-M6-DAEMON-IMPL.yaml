@@ -1,0 +1,22 @@
+schema_version: 1
+id: SESSION-20260830-M6-DAEMON-IMPL
+status: completed
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M6-DAEMON
+  - WI-M6-I18N
+branch_or_worktree: codex/wi-m6-daemon
+started_at: "2026-08-30T09:00:00Z"
+summary: "M6 Daemon 实现与收尾：ADR-0019 + PLAN-M6 五切片全落地（B daemon 骨架/C1 PTY/C2 runtime/C3 browser/C4 Shell 接线/D scheduler+split-brain），i18n 中英文切换，flaky 三处根治（两个 transport 真 bug + diagnostics 重写消除），live QA 22/22，独立评审。"
+artifacts:
+  - "docs/decisions/ADR-0019-daemon-migration.md"
+  - "crates/daemon/（main/credential/singleton/server/capabilities/terminal/browser/runtime/events/scheduler + 6 集成测试文件）"
+  - "crates/managed-runtime/（从 desktop 提取，25 tests）"
+  - "apps/desktop/src-tauri/src/daemon_client.rs（连接层/命令代理/事件桥，8 tests + in-process 集成）"
+  - "crates/browser-provider SessionRegistry::attach（+3 tests）"
+  - "crates/terminal-provider 死锁修复（PeekNamedPipe 轮询 reader，+1 回归测试）"
+  - "apps/desktop/src/i18n.tsx（123 keys × 2 locales，56 vitest）"
+  - "scripts/qa/live-daemon-qa.mjs（22 项检查，Phase A daemon 直连 / Phase B Shell 端到端）"
+  - "tracking/reviews/REVIEW-M6-DAEMON.yaml"
+  - "tracking/handoffs/HANDOFF-M6-DAEMON.yaml"
+next_action: "maintainer 验收 HANDOFF-M6-DAEMON → squash 合并 codex/wi-m6-daemon 到 main → M7 Stable Candidate 规划。"

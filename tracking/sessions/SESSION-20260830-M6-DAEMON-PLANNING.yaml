@@ -1,0 +1,13 @@
+schema_version: 1
+id: SESSION-20260830-M6-DAEMON-PLANNING
+status: active
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M6-DAEMON
+branch_or_worktree: codex/wi-m6-daemon
+started_at: "2026-08-30T08:00:00Z"
+summary: "M6 Daemon 规划：范围梳理（daemon 化/统一 API 服务端/scheduler wake/split-brain/flaky 根治）、PLAN-M6.md 五切片（A 架构/B 骨架+C 迁移/D wake+split-brain/E 收尾）、关键架构风险识别（browser 渲染归属、ownership handover、回归面）。"
+artifacts:
+  - "docs/roadmap/PLAN-M6.md"
+  - "tracking/work-items/WI-M6-DAEMON.yaml"
+next_action: "M6-A ADR-0019 架构决策——需 maintainer 确认 browser 渲染/状态归属（daemon 无 UI 的核心矛盾）。"

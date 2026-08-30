@@ -1,0 +1,29 @@
+[package]
+name = "dsh-managed-runtime"
+version = "0.1.0"
+description = "Managed DSH runtime: supervisor state machine and DSH process-tree ownership (MOD-PROCESS-MANAGER, ADR-0008/0019) — daemon-owned since M6-C2"
+authors = ["DSH Desktop Shell contributors"]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+# Deliberately NO tauri dependency (ADR-0019 decision 3: the DSH process
+# tree migrates into the daemon; the Shell only talks to this crate through
+# the daemon envelope). The Windows Job Object / unix process-group code is
+# the reason this crate must allow unsafe (the daemon itself forbids it).
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+url = "=2.5.8"
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.189"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }

@@ -182,6 +182,54 @@ impl SessionRegistry {
         })
     }
 
+    /// Adopt an already-existing session into this registry (M6-C4 attach
+    /// protocol, ADR-0019 decision 2: the daemon is the browser session
+    /// authority and the Shell mirrors daemon-created sessions so the
+    /// render-side navigate/snapshot paths can operate on them). The
+    /// session is registered as-is (id, state, url, timestamps, error)
+    /// with no event pushed - the daemon already emitted the lifecycle
+    /// event for it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BrowserError::Other`] when the registry state is
+    /// unavailable or the id is already registered (each daemon session
+    /// is attached exactly once by its render side).
+    pub fn attach(
+        &self,
+        session_id: &str,
+        state: SessionState,
+        current_url: Option<&str>,
+        created_at_unix_ms: u64,
+        last_activity_unix_ms: Option<u64>,
+        error: Option<&str>,
+    ) -> Result<BrowserSession, BrowserError> {
+        if !session_id.starts_with("brw-")
+            || session_id.len() > 64
+            || !session_id
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            return Err(BrowserError::Other);
+        }
+        let mut guard = self.sessions_guard()?;
+        if guard.contains_key(session_id) {
+            return Err(BrowserError::Other);
+        }
+        let session = Session {
+            id: session_id.to_string(),
+            state,
+            current_url: current_url.map(String::from),
+            created_at_unix_ms,
+            last_activity_unix_ms,
+            error: error.map(String::from),
+            snapshot: None,
+        };
+        let report = session.report();
+        guard.insert(session_id.to_string(), session);
+        Ok(report)
+    }
+
     /// Validate and accept a navigation: `-> loading` with the URL
     /// recorded and a `navigation_changed` event pushed.
     ///
@@ -486,6 +534,96 @@ mod tests {
         assert_ne!(a.session_id, b.session_id);
         let seq_of = |id: &str| id.rsplit('-').next().unwrap().parse::<u64>().unwrap();
         assert!(seq_of(&b.session_id) > seq_of(&a.session_id));
+    }
+
+    #[test]
+    fn attach_adopts_existing_session_without_events() {
+        let registry = SessionRegistry::new();
+        let attached = registry
+            .attach(
+                "brw-1787000000000-1",
+                SessionState::Created,
+                None,
+                1_787_000_000_000,
+                None,
+                None,
+            )
+            .expect("attach");
+        assert_eq!(attached.session_id, "brw-1787000000000-1");
+        assert_eq!(attached.state, SessionState::Created);
+        assert_eq!(attached.created_at_unix_ms, 1_787_000_000_000);
+        // Attach pushes no audit event (the daemon emitted the lifecycle
+        // event for the session already).
+        assert!(registry.events().is_empty());
+        // The attached session is fully navigable (render-side mirror).
+        let navigated = registry
+            .navigate("brw-1787000000000-1", "https://example.com")
+            .expect("navigate attached");
+        assert_eq!(navigated.state, SessionState::Loading);
+    }
+
+    #[test]
+    fn attach_rejects_duplicate_and_invalid_ids() {
+        let registry = SessionRegistry::new();
+        registry
+            .attach(
+                "brw-1787000000000-1",
+                SessionState::Created,
+                None,
+                1_787_000_000_000,
+                None,
+                None,
+            )
+            .expect("attach");
+        // Same id twice: rejected (each daemon session is attached once).
+        assert_eq!(
+            registry.attach(
+                "brw-1787000000000-1",
+                SessionState::Created,
+                None,
+                1_787_000_000_000,
+                None,
+                None,
+            ),
+            Err(BrowserError::Other)
+        );
+        // Non-brw- ids are rejected fail-closed.
+        assert_eq!(
+            registry.attach(
+                "not-a-browser",
+                SessionState::Created,
+                None,
+                1_787_000_000_000,
+                None,
+                None,
+            ),
+            Err(BrowserError::Other)
+        );
+    }
+
+    #[test]
+    fn attach_preserves_daemon_report_fields() {
+        let registry = SessionRegistry::new();
+        let attached = registry
+            .attach(
+                "brw-1787000000000-9",
+                SessionState::Ready,
+                Some("https://daemon.example/page"),
+                1_787_000_000_000,
+                Some(1_787_000_000_100),
+                None,
+            )
+            .expect("attach");
+        assert_eq!(attached.state, SessionState::Ready);
+        assert_eq!(
+            attached.current_url.as_deref(),
+            Some("https://daemon.example/page")
+        );
+        assert_eq!(attached.last_activity_unix_ms, Some(1_787_000_000_100));
+        assert_eq!(
+            registry.get("brw-1787000000000-9").unwrap().session_id,
+            "brw-1787000000000-9"
+        );
     }
 
     #[test]

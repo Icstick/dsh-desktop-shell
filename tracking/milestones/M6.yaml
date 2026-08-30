@@ -1,7 +1,7 @@
 schema_version: 1
 id: M6
 title: "Daemon"
-status: proposed
+status: in_review
 relative_weeks: "20-24"
 depends_on:
   - M4
@@ -10,5 +10,7 @@ exit_criteria:
   - "Shell restart 不影响 DSH/PTY"
   - "Daemon split-brain/upgrade tests"
   - "Scheduler wake policy 可审计"
-evidence: []
+evidence:
+  - "ADR-0019 + PLAN-M6 五切片全落地；daemon 105+2 回归、managed-runtime 25、desktop 122+1 重连"
+  - "live QA 25/25（含 Shell 重启真实重连）；REVIEW-M6-DAEMON 2 HIGH 已修复"
 updated_at: "2026-08-25T06:49:34Z"

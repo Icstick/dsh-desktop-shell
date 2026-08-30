@@ -17,7 +17,7 @@ use tauri::AppHandle;
 use crate::commands;
 use crate::dsh_surface::{self, DshSurfaceState, SurfaceDiagnostics};
 use crate::environment_store::{self, EnvironmentCatalog};
-use crate::managed_runtime::{self, ManagedRuntimeError, ManagedRuntimeState};
+use crate::managed_runtime::{self, ManagedRuntimeError};
 
 const SCHEMA_VERSION: u8 = 1;
 const ENDPOINT_HOST: &str = "127.0.0.1";
@@ -161,7 +161,7 @@ pub(crate) enum DiagnosticsError {
 
 pub(crate) fn collect(
     app: &AppHandle,
-    managed_state: &ManagedRuntimeState,
+    connector: &dyn crate::daemon_client::DaemonConnector,
     surface_state: &DshSurfaceState,
     environment_id: &str,
 ) -> Result<DiagnosticsReport, DiagnosticsError> {
@@ -172,12 +172,12 @@ pub(crate) fn collect(
         &commands::catalog_path(app).map_err(|_| DiagnosticsError::CatalogUnavailable)?,
     )
     .map_err(|_| DiagnosticsError::CatalogUnavailable)?;
-    collect_from_catalog(catalog, managed_state, surface_state, environment_id)
+    collect_from_catalog(catalog, connector, surface_state, environment_id)
 }
 
 fn collect_from_catalog(
     catalog: EnvironmentCatalog,
-    managed_state: &ManagedRuntimeState,
+    connector: &dyn crate::daemon_client::DaemonConnector,
     surface_state: &DshSurfaceState,
     environment_id: &str,
 ) -> Result<DiagnosticsReport, DiagnosticsError> {
@@ -188,7 +188,7 @@ fn collect_from_catalog(
         return Err(DiagnosticsError::NotManaged);
     }
 
-    let runtime_report = managed_runtime::get_managed_runtime_status(managed_state, environment)
+    let runtime_report = managed_runtime::get_managed_runtime_status(connector, environment)
         .map_err(|error| match error {
             ManagedRuntimeError::NotManaged => DiagnosticsError::NotManaged,
             _ => DiagnosticsError::StateUnavailable,
@@ -335,25 +335,12 @@ mod tests {
 
     use super::*;
     use crate::commands::DshEnvironment;
+    use crate::daemon_client::tests::MockConnector;
     use crate::dsh_surface::DshSurfaceState;
-    use crate::managed_runtime::ManagedRuntimeState;
 
     static CATALOG_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-    const SECRET_TOKEN: &str = "A234567890123456789012345678901234567890123";
     const SECRET_COOKIE: &str = "sessionCookie=super-secret-cookie-42";
-    const FAKE_CHILD_JS_TEMPLATE: &str = r#"const net = require('net');
-const server = net.createServer((socket) => {
-  // Answer the HTTP-level readiness probe (FM-1) like a minimal server.
-  socket.once('data', () => {
-    socket.end('HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
-  });
-});
-server.listen(0, '127.0.0.1', () => {
-  const port = server.address().port;
-  console.log('dsh web: http://127.0.0.1:' + port + '/?token={TOKEN}');
-});
-setInterval(() => {}, 1000);"#;
 
     fn managed_environment() -> DshEnvironment {
         serde_json::from_value(serde_json::json!({
@@ -383,78 +370,42 @@ setInterval(() => {}, 1000);"#;
         catalog
     }
 
-    fn node_executable() -> Option<std::path::PathBuf> {
-        let path_var = std::env::var_os("PATH")?;
-        for dir in std::env::split_paths(&path_var) {
-            let candidate = dir.join(if cfg!(windows) { "node.exe" } else { "node" });
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-        None
-    }
-
-    /// Stops the spawned fake child on drop so redaction tests never leak a
-    /// running node process, even when an assertion panics.
-    struct NodeGuard {
-        state: ManagedRuntimeState,
-        environment: DshEnvironment,
-        generation: u64,
-    }
-
-    impl Drop for NodeGuard {
-        fn drop(&mut self) {
-            let _ = managed_runtime::stop_managed_environment(
-                &self.state,
-                &self.environment,
-                self.generation,
-            );
-        }
-    }
-
-    /// AC-LOG-001 fixture: drives the real Supervisor to a healthy generation
-    /// whose internal state holds a known 43-character base64url token inside
-    /// the private bootstrap URL.
-    fn live_healthy_supervisor_with_secret_token()
-    -> (ManagedRuntimeState, DshEnvironment, NodeGuard) {
-        let node = node_executable()
-            .expect("node.exe must be resolvable on PATH for the AC-LOG-001 redaction test");
-        let dir = std::env::temp_dir().join(format!(
-            "dsh-diag-log001-{}-{}",
-            std::process::id(),
-            SECRET_TOKEN
-        ));
-        fs::create_dir_all(&dir).expect("temp dir");
-        let script = dir.join("fake-dsh.js");
-        fs::write(
-            &script,
-            FAKE_CHILD_JS_TEMPLATE.replace("{TOKEN}", SECRET_TOKEN),
-        )
-        .expect("fake child script");
-        let environment: DshEnvironment = serde_json::from_value(serde_json::json!({
+    /// M6-C4: the daemon is the supervisor authority, so the tests feed
+    /// the redaction path with canned daemon report wire shapes (the
+    /// whitelist view + endpoint redaction is exactly what is under test).
+    fn report_fixture(state: &str, generation: u64) -> serde_json::Value {
+        serde_json::json!({
             "schemaVersion": 1,
-            "id": "managed-local",
-            "label": "Managed DSH",
-            "harness": { "mode": "repository", "path": script, "cwd": dir },
-            "dshHome": "C:/Users/example/.dsh",
-            "profile": "default",
-            "nodePath": node,
-            "endpoint": { "host": "127.0.0.1", "port": "auto" },
-            "ownership": "managed"
-        }))
-        .expect("environment fixture");
+            "environmentId": "managed-local",
+            "ownership": "managed",
+            "state": state,
+            "generation": generation,
+            "instanceId": null,
+            "processOwnership": if state == "stopped" { "none" } else { "owned" },
+            "lifecycleMutation": "allowed",
+            "readiness": if state == "stopped" { "not_started" } else { "verified" },
+            "endpoint": if state == "stopped" {
+                serde_json::Value::Null
+            } else {
+                serde_json::json!({
+                    "scheme": "http",
+                    "host": "127.0.0.1",
+                    "port": 4317,
+                    "source": "managed_process_output",
+                    "verification": "owned_generation_output_and_tcp",
+                })
+            },
+            "stopDisposition": "not_requested",
+            "recovery": null,
+            "observedAtUnixMs": 1_787_000_000_000u64,
+            "evidence": [
+                { "code": "PROCESS_RETAINED", "severity": "info", "message": "Managed DSH process is retained" },
+            ],
+        })
+    }
 
-        let state = ManagedRuntimeState::default();
-        let report = managed_runtime::start_managed_environment(&state, &environment)
-            .expect("managed start");
-        assert_eq!(report.runtime_state(), "healthy");
-        assert!(report.generation() > 0);
-        let guard = NodeGuard {
-            state: state.clone(),
-            environment: environment.clone(),
-            generation: report.generation(),
-        };
-        (state, environment, guard)
+    fn healthy_connector() -> MockConnector {
+        MockConnector::ok(report_fixture("healthy", 7))
     }
 
     #[test]
@@ -486,7 +437,7 @@ setInterval(() => {}, 1000);"#;
         let catalog = catalog_with(managed_environment());
         let error = collect_from_catalog(
             catalog,
-            &ManagedRuntimeState::default(),
+            &healthy_connector(),
             &DshSurfaceState::default(),
             "no-such-environment",
         )
@@ -509,7 +460,7 @@ setInterval(() => {}, 1000);"#;
         .expect("attached fixture");
         let error = collect_from_catalog(
             catalog_with(attached),
-            &ManagedRuntimeState::default(),
+            &healthy_connector(),
             &DshSurfaceState::default(),
             "attached-local",
         )
@@ -518,11 +469,12 @@ setInterval(() => {}, 1000);"#;
     }
 
     #[test]
-    fn stopped_supervisor_condenses_to_a_credential_free_report() {
+    fn stopped_daemon_report_condenses_to_a_credential_free_report() {
         let catalog = catalog_with(managed_environment());
+        let connector = MockConnector::ok(report_fixture("stopped", 0));
         let report = collect_from_catalog(
             catalog,
-            &ManagedRuntimeState::default(),
+            &connector,
             &DshSurfaceState::default(),
             "managed-local",
         )
@@ -601,23 +553,10 @@ setInterval(() => {}, 1000);"#;
     }
 
     #[test]
-    fn ac_log_001_collect_redacts_token_cookie_query_and_bootstrap_url() {
-        let (state, environment, _guard) = live_healthy_supervisor_with_secret_token();
-
-        // Prove the secret really lives inside the Supervisor state: the
-        // verified binding's private bootstrap URL carries the token.
-        let status = managed_runtime::get_managed_runtime_status(&state, &environment)
-            .expect("runtime report");
-        let binding =
-            managed_runtime::verified_surface_binding(&state, &environment, status.generation())
-                .expect("verified binding");
-        let bootstrap_url = binding.url().as_str().to_string();
-        assert!(bootstrap_url.contains(SECRET_TOKEN));
-        assert!(bootstrap_url.contains("token="));
-        assert!(bootstrap_url.contains('?'));
-
-        // Catalog side-channel secrets (a cookie-like DSH_HOME and a secret
-        // harness argument) must also stay out of the report.
+    fn ac_log_001_collect_redacts_credentials_and_catalog_secrets() {
+        // The daemon report never carries the bootstrap token (the shell
+        // only sees endpoint host/port); the redaction contract still must
+        // keep catalog side-channel secrets out of the report.
         let catalog_environment: DshEnvironment = serde_json::from_value(serde_json::json!({
             "schemaVersion": 1,
             "id": "managed-local",
@@ -625,7 +564,7 @@ setInterval(() => {}, 1000);"#;
             "harness": {
                 "mode": "executable",
                 "path": "dsh",
-                "args": ["--extra=secret-arg"]
+                "args": ["--extra=secret-arg"],
             },
             "dshHome": format!("C:/Users/example/.dsh;{SECRET_COOKIE}"),
             "profile": "default",
@@ -637,29 +576,26 @@ setInterval(() => {}, 1000);"#;
 
         let diagnostics = collect_from_catalog(
             catalog,
-            &state,
+            &healthy_connector(),
             &DshSurfaceState::default(),
             "managed-local",
         )
         .expect("diagnostics");
 
         assert_eq!(diagnostics.runtime.state, "healthy");
-        assert_eq!(diagnostics.runtime.generation, status.generation());
+        assert_eq!(diagnostics.runtime.generation, 7);
         assert_eq!(diagnostics.runtime.readiness, "verified");
         assert!(diagnostics.process.retained);
         assert!(diagnostics.process.owned);
 
         let serialized = serde_json::to_string(&diagnostics).expect("serialize diagnostics");
         for secret in [
-            SECRET_TOKEN,
-            "token=",
-            "?",
             SECRET_COOKIE,
             "sessionCookie",
             "--extra=secret-arg",
-            bootstrap_url.as_str(),
-            "C:/Users/example/.dsh;",
+            "token=",
             "http://",
+            "C:/Users/example/.dsh;",
         ] {
             assert!(
                 !serialized.contains(secret),
@@ -679,26 +615,8 @@ setInterval(() => {}, 1000);"#;
         assert_eq!(keys, vec!["host", "port"]);
         assert_eq!(endpoint["host"], serde_json::json!("127.0.0.1"));
         assert!(endpoint["port"].as_u64().is_some());
-        assert_eq!(
-            endpoint["port"],
-            serde_json::json!(
-                diagnostics
-                    .runtime
-                    .endpoint
-                    .as_ref()
-                    .expect("endpoint")
-                    .port
-            )
-        );
 
-        // Evidence messages are bounded static strings and never carry the
-        // private token.
-        assert!(
-            !diagnostics
-                .evidence
-                .iter()
-                .any(|item| item.message.contains(SECRET_TOKEN))
-        );
+        // Evidence messages are bounded static strings.
         assert!(
             diagnostics
                 .evidence

@@ -40,6 +40,25 @@
             "recovery_retry",
             "user_requested"
           ]
+        },
+        "repeat": {
+          "description": "M6-D extension: periodic wake. Fires at deadline (or requestedAt when deadline is absent), then every intervalMs, up to count fires total (count omitted = unlimited).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "intervalMs"
+          ],
+          "properties": {
+            "intervalMs": {
+              "type": "integer",
+              "minimum": 50,
+              "maximum": 86400000
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       }
     }

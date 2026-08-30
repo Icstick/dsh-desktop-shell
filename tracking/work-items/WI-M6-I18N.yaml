@@ -1,0 +1,24 @@
+schema_version: 1
+id: WI-M6-I18N
+title: "Add zh/en language switch to Shell UI"
+status: done
+milestone: M6
+module: MOD-SHELL-UI
+owner_role: ui-owner
+claimed_by: dsh-agent-primary
+session: SESSION-20260830-M6-DAEMON-PLANNING
+branch_or_worktree: codex/wi-m6-daemon
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Shell UI 可切换中文/英文并持久化选择"
+security_impact: "None"
+compatibility_impact: "None"
+evidence:
+  - "apps/desktop/src/i18n.tsx（123 keys × 2 locales，I18nProvider/useI18n/localStorage dsh-lang）"
+  - "ActivityRail 语言 select + ShellApp/BrowserPanel/TerminalPanel 文案 t() 化（零可见变化）"
+  - "i18n.test.tsx 11 tests + ShellApp 2 切换测试；56/56 vitest、tsc、vite build 全过"
+blocked_by: []
+next_action: "已完成（2026-08-30）：切换机制/持久化/rail 控件就绪；真实中文文案后续直接填 zh 列。"
+handoff: null
+updated_at: "2026-08-30T09:00:00Z"

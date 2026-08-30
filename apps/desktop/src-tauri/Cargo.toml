@@ -16,6 +16,9 @@ tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
 dsh-browser-provider = { path = "../../../crates/browser-provider" }
+dsh-daemon = { path = "../../../crates/daemon" }
+dsh-local-transport = { path = "../../../crates/local-transport" }
+dsh-managed-runtime = { path = "../../../crates/managed-runtime" }
 dsh-supervisor = { path = "../../../crates/supervisor" }
 dsh-terminal-provider = { path = "../../../crates/terminal-provider" }
 serde = { version = "=1.0.229", features = ["derive"] }

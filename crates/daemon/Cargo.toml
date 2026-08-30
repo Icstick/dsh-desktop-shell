@@ -1,0 +1,28 @@
+[package]
+name = "dsh-daemon"
+version = "0.1.0"
+description = "dsh-desktop-shell daemon: single-instance local-transport envelope server (ADR-0019, M6-B/C)"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+# lib + bin: the library surface (server/capabilities/credential/singleton/
+# terminal/events) is what the integration tests drive; the binary is the
+# standalone daemon entry (dsh-desktop-daemon, ADR-0019 decision 1).
+[lib]
+name = "dsh_daemon"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dsh-desktop-daemon"
+path = "src/main.rs"
+
+[dependencies]
+dsh-browser-provider = { path = "../browser-provider" }
+dsh-local-transport = { path = "../local-transport" }
+dsh-managed-runtime = { path = "../managed-runtime" }
+dsh-supervisor = { path = "../supervisor" }
+dsh-terminal-provider = { path = "../terminal-provider" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"

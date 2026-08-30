@@ -5,6 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import type { TerminalOutputEvent, TerminalReport } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
+import { useI18n } from "../../../src/i18n";
 
 interface TerminalPanelProps {
   api: DesktopApi;
@@ -21,11 +22,14 @@ interface TerminalPanelProps {
  * input is written through the backend command.
  */
 export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const sessionRef = useRef<TerminalReport | null>(session);
   sessionRef.current = session;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -75,7 +79,7 @@ export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
         })
         .then((report) => onSession(report))
         .catch((error: unknown) => {
-          terminal.writeln("Terminal unavailable: " + String(error));
+          terminal.writeln(tRef.current("terminal.unavailable") + String(error));
         });
     }
 
@@ -104,9 +108,9 @@ export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
   }, []);
 
   return (
-    <section className="terminal-panel" aria-label="Persistent terminal">
+    <section className="terminal-panel" aria-label={t("terminal.aria")}>
       <div className="terminal-panel__chrome">
-        <strong>{session ? session.sessionId : "terminal"}</strong>
+        <strong>{session ? session.sessionId : t("terminal.fallbackSession")}</strong>
         <span className="terminal-panel__state" data-state={session?.state ?? "created"}>
           {session?.state ?? "created"}
         </span>
@@ -121,7 +125,7 @@ export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
           }}
           type="button"
         >
-          Close
+          {t("common.close")}
         </button>
       </div>
       <div className="terminal-panel__host" ref={containerRef} />

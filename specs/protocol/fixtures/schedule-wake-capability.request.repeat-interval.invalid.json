@@ -1,0 +1,11 @@
+{
+  "method": "wake",
+  "params": {
+    "wakeId": "w-fx-000005",
+    "requestedAt": "2026-08-31T09:30:00.000Z",
+    "reason": "scheduled_due",
+    "repeat": {
+      "intervalMs": 10
+    }
+  }
+}

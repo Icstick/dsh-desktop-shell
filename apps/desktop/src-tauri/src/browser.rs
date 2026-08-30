@@ -55,7 +55,16 @@ use webview2_com::{
 #[cfg(all(windows, not(test)))]
 use windows_core::Interface;
 
-use dsh_browser_provider::{BrowserError, BrowserSession, SessionRegistry, UrlError, UrlPolicy};
+use dsh_browser_provider::{
+    BrowserError, BrowserSession, SessionRegistry, SessionState, UrlError, UrlPolicy,
+};
+use dsh_daemon::capabilities::{
+    BROWSER_API_VERSION, BROWSER_CLOSE_METHOD, BROWSER_CREATE_METHOD, BROWSER_KIND,
+    BROWSER_LIST_METHOD,
+};
+use dsh_daemon::envelope::ProtocolCoordinate;
+
+use crate::daemon_client::{DaemonCommandError, DaemonConnector};
 
 const SCHEMA_VERSION: u8 = 1;
 const EVENT_NAME: &str = "browser://event";
@@ -97,7 +106,7 @@ const MAX_SCROLL_DELTA: i64 = 100_000;
 
 // ----------------------------- Requests -----------------------------
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BrowserCreateRequest {
     schema_version: u8,
@@ -158,7 +167,7 @@ impl BrowserSnapshotRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BrowserCloseRequest {
     schema_version: u8,
@@ -442,13 +451,13 @@ fn snapshot_mode_supported(mode: &str) -> bool {
 
 // ----------------------------- Reports -----------------------------
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserReport {
     schema_version: u8,
     session_id: String,
     state: String,
-    mode: &'static str,
+    mode: String,
     current_url: Option<String>,
     created_at_unix_ms: u64,
     last_activity_unix_ms: Option<u64>,
@@ -489,7 +498,7 @@ fn public_report(session: BrowserSession) -> BrowserReport {
         schema_version: SCHEMA_VERSION,
         session_id: session.session_id,
         state: session.state.as_str().to_string(),
-        mode: "human_surface",
+        mode: "human_surface".to_string(),
         current_url: session.current_url,
         created_at_unix_ms: session.created_at_unix_ms,
         last_activity_unix_ms: session.last_activity_unix_ms,
@@ -574,6 +583,7 @@ impl BrowserBridge {
 // ----------------------------- Bridge operations -----------------------------
 
 /// Registry-only part of create (no window yet); used by tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn create_session(
     state: &BrowserState,
     request: &BrowserCreateRequest,
@@ -588,12 +598,32 @@ pub(crate) fn create_session(
     bridge.registry().create().map_err(map_browser_error)
 }
 
+/// Browser capability coordinate (browser.dsh-desktop.local/v1alpha1 +
+/// Browser; the daemon is the session authority since M6-C3).
+fn browser_coordinate() -> ProtocolCoordinate {
+    ProtocolCoordinate {
+        api_version: BROWSER_API_VERSION.into(),
+        kind: BROWSER_KIND.into(),
+    }
+}
+
+/// M6-C4: the daemon registers the session (browser.create, M6-C3 state
+/// authority) and returns the opaque session id; the Shell adopts it
+/// locally so the render-side navigate/snapshot/interact paths (which stay
+/// Shell-side, ADR-0019 decision 2) can operate on it, then spawns the
+/// WebView window. TODO(M6-C4): report local navigation state back to the
+/// daemon once a browser.navigate envelope method exists daemon-side.
 pub(crate) async fn create_browser(
     app: &AppHandle,
+    connector: &dyn DaemonConnector,
     state: &BrowserState,
     request: &BrowserCreateRequest,
 ) -> Result<BrowserReport, BrowserCommandError> {
-    let session = create_session(state, request)?;
+    if !request.is_valid() {
+        return Err(BrowserCommandError::malformed());
+    }
+    let report = invoke_browser_create(connector, request)?;
+    let session = attach_daemon_session(state, &report)?;
 
     #[cfg(all(windows, not(test)))]
     return spawn_browser_window(app, state, session);
@@ -609,7 +639,59 @@ pub(crate) async fn create_browser(
     }
 }
 
+/// Daemon-side create (envelope browser.create; the daemon validates the
+/// human_surface mode and owns the session).
+pub(crate) fn invoke_browser_create(
+    connector: &dyn DaemonConnector,
+    request: &BrowserCreateRequest,
+) -> Result<BrowserReport, BrowserCommandError> {
+    if !request.is_valid() {
+        return Err(BrowserCommandError::malformed());
+    }
+    let payload =
+        serde_json::to_value(request).map_err(|_| BrowserCommandError::state_unavailable())?;
+    let value = connector
+        .invoke(browser_coordinate(), BROWSER_CREATE_METHOD, payload)
+        .map_err(BrowserCommandError::from_daemon)?;
+    serde_json::from_value(value)
+        .map_err(|_| BrowserCommandError::unavailable_response("browser.create"))
+}
+
+/// Adopt a daemon-created session into the local render registry (attach
+/// protocol; the session id is the single opaque id on both sides).
+fn attach_daemon_session(
+    state: &BrowserState,
+    report: &BrowserReport,
+) -> Result<BrowserSession, BrowserCommandError> {
+    let session_state = match report.state.as_str() {
+        "created" => SessionState::Created,
+        "loading" => SessionState::Loading,
+        "ready" => SessionState::Ready,
+        "closed" => SessionState::Closed,
+        "error" => SessionState::Error,
+        _ => return Err(BrowserCommandError::state_unavailable()),
+    };
+    let mut bridge = state
+        .inner
+        .lock()
+        .map_err(|_| BrowserCommandError::state_unavailable())?;
+    bridge
+        .registry()
+        .attach(
+            &report.session_id,
+            session_state,
+            report.current_url.as_deref(),
+            report.created_at_unix_ms,
+            report.last_activity_unix_ms,
+            report.error.as_deref(),
+        )
+        .map_err(|_| BrowserCommandError::state_unavailable())
+}
+
 /// Registry-only part of navigate (URL policy + state machine).
+/// TODO(M6-C4): once a browser.navigate envelope method exists daemon-side,
+/// report the accepted navigation (session id + url) back to the daemon so
+/// the daemon state authority stays current with render-side navigation.
 pub(crate) fn navigate_session(
     state: &BrowserState,
     request: &BrowserNavigateRequest,
@@ -778,10 +860,20 @@ pub(crate) fn close_session(
 
 pub(crate) async fn close_browser(
     app: &AppHandle,
+    connector: &dyn DaemonConnector,
     state: &BrowserState,
     request: &BrowserCloseRequest,
 ) -> Result<BrowserReport, BrowserCommandError> {
-    let closed = close_session(state, request)?;
+    if !validate_session_request(request.schema_version(), request.session_id()) {
+        return Err(BrowserCommandError::malformed());
+    }
+    // Daemon authority first: the session closes daemon-side and the daemon
+    // publishes the closed lifecycle event (bridged to the frontend). Then
+    // the local mirror closes (its closed event is idempotent for the
+    // frontend) and the window is destroyed.
+    let closed = invoke_browser_close(connector, request)?;
+    // Local mirror close (state machine + local closed event; idempotent).
+    close_session(state, request)?;
     #[cfg(all(windows, not(test)))]
     {
         let window = {
@@ -792,8 +884,8 @@ pub(crate) async fn close_browser(
             bridge.windows.remove(request.session_id())
         };
         // Destroying the window fires the Destroyed handler; registry close
-        // is idempotent on an already-closed session, so the closed event is
-        // emitted exactly once (by the registry).
+        // is idempotent on an already-closed session, so the local closed
+        // event is emitted exactly once (by the registry).
         if let Some(window) = window {
             let _ = window.close();
         }
@@ -807,15 +899,50 @@ pub(crate) async fn close_browser(
         let _ = bridge.windows.remove(request.session_id());
     }
     let _ = app;
-    Ok(public_report(closed))
+    // The daemon report is the authority view (the local close already
+    // moved the mirror to closed).
+    Ok(closed)
 }
 
-pub(crate) async fn list_browsers(state: &BrowserState) -> Vec<BrowserReport> {
-    let sessions = match state.inner.lock() {
-        Ok(mut bridge) => bridge.registry().list(),
-        Err(_) => return Vec::new(),
-    };
-    sessions.into_iter().map(public_report).collect()
+/// Daemon-side close (envelope browser.close).
+pub(crate) fn invoke_browser_close(
+    connector: &dyn DaemonConnector,
+    request: &BrowserCloseRequest,
+) -> Result<BrowserReport, BrowserCommandError> {
+    if !validate_session_request(request.schema_version(), request.session_id()) {
+        return Err(BrowserCommandError::malformed());
+    }
+    let payload =
+        serde_json::to_value(request).map_err(|_| BrowserCommandError::state_unavailable())?;
+    let value = connector
+        .invoke(browser_coordinate(), BROWSER_CLOSE_METHOD, payload)
+        .map_err(BrowserCommandError::from_daemon)?;
+    serde_json::from_value(value)
+        .map_err(|_| BrowserCommandError::unavailable_response("browser.close"))
+}
+
+/// `browser.list` wire payload (`{ browsers: [...] }`).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BrowserListPayload {
+    browsers: Vec<BrowserReport>,
+}
+
+/// M6-C4: the daemon is the browser session authority, so the list comes
+/// from the daemon (browser.list).
+pub(crate) async fn list_browsers(
+    connector: &dyn DaemonConnector,
+) -> Result<Vec<BrowserReport>, BrowserCommandError> {
+    let value = connector
+        .invoke(
+            browser_coordinate(),
+            BROWSER_LIST_METHOD,
+            serde_json::json!({}),
+        )
+        .map_err(BrowserCommandError::from_daemon)?;
+    let payload: BrowserListPayload = serde_json::from_value(value)
+        .map_err(|_| BrowserCommandError::unavailable_response("browser.list"))?;
+    Ok(payload.browsers)
 }
 
 // --------------------- Agent interact / human takeover (M5-E3, AC-BRW-002) ---------------------
@@ -1426,8 +1553,8 @@ fn decode_snapshot(encoded: &str) -> String {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserCommandError {
-    code: &'static str,
-    message: &'static str,
+    code: String,
+    message: String,
     retryable: bool,
     correlation_id: String,
 }
@@ -1435,8 +1562,8 @@ pub struct BrowserCommandError {
 impl BrowserCommandError {
     fn malformed() -> Self {
         Self {
-            code: "MALFORMED_MESSAGE",
-            message: "Browser request is malformed or the mode is not human_surface.",
+            code: "MALFORMED_MESSAGE".into(),
+            message: "Browser request is malformed or the mode is not human_surface.".into(),
             retryable: false,
             correlation_id: correlation_id(),
         }
@@ -1444,8 +1571,8 @@ impl BrowserCommandError {
 
     fn not_supported() -> Self {
         Self {
-            code: "NOT_SUPPORTED",
-            message: "This browser snapshot mode is not supported in M4.",
+            code: "NOT_SUPPORTED".into(),
+            message: "This browser snapshot mode is not supported in M4.".into(),
             retryable: false,
             correlation_id: correlation_id(),
         }
@@ -1453,8 +1580,8 @@ impl BrowserCommandError {
 
     fn session_unavailable() -> Self {
         Self {
-            code: "UNAVAILABLE",
-            message: "Browser session is unknown or already closed.",
+            code: "UNAVAILABLE".into(),
+            message: "Browser session is unknown or already closed.".into(),
             retryable: false,
             correlation_id: correlation_id(),
         }
@@ -1462,8 +1589,8 @@ impl BrowserCommandError {
 
     fn state_unavailable() -> Self {
         Self {
-            code: "UNAVAILABLE",
-            message: "Browser state is unavailable.",
+            code: "UNAVAILABLE".into(),
+            message: "Browser state is unavailable.".into(),
             retryable: true,
             correlation_id: correlation_id(),
         }
@@ -1472,8 +1599,8 @@ impl BrowserCommandError {
     /// Agent authorization failure (M5-E3, AC-BRW-002).
     fn unauthorized(message: &'static str, retryable: bool) -> Self {
         Self {
-            code: "UNAUTHORIZED",
-            message,
+            code: "UNAUTHORIZED".into(),
+            message: message.into(),
             retryable,
             correlation_id: correlation_id(),
         }
@@ -1481,8 +1608,8 @@ impl BrowserCommandError {
 
     fn authorization(code: &'static str, message: &'static str, retryable: bool) -> Self {
         Self {
-            code,
-            message,
+            code: code.into(),
+            message: message.into(),
             retryable,
             correlation_id: correlation_id(),
         }
@@ -1490,9 +1617,37 @@ impl BrowserCommandError {
 
     fn unavailable(message: &'static str, retryable: bool) -> Self {
         Self {
-            code: "UNAVAILABLE",
-            message,
+            code: "UNAVAILABLE".into(),
+            message: message.into(),
             retryable,
+            correlation_id: correlation_id(),
+        }
+    }
+
+    /// Command entry with no daemon connection installed (fail-closed).
+    pub(crate) fn daemon_unavailable() -> Self {
+        Self::from_daemon(DaemonCommandError::NotConnected)
+    }
+
+    /// Map a daemon invocation failure onto the browser command error
+    /// contract (M6-C4): the daemon's protocol code/message/retryable pass
+    /// through; connection-level failures are UNAVAILABLE + retryable.
+    fn from_daemon(error: DaemonCommandError) -> Self {
+        Self {
+            code: error.wire_code(),
+            message: error.message(),
+            retryable: error.retryable(),
+            correlation_id: correlation_id(),
+        }
+    }
+
+    /// The daemon answered with a payload that does not match the
+    /// expected wire shape (a shell/daemon contract mismatch).
+    fn unavailable_response(method: &'static str) -> Self {
+        Self {
+            code: "UNAVAILABLE".into(),
+            message: format!("The daemon returned an unexpected {method} response."),
+            retryable: false,
             correlation_id: correlation_id(),
         }
     }
@@ -1711,7 +1866,7 @@ mod tests {
             schema_version: 1,
             session_id: "brw-1787000000000-1".to_string(),
             state: "ready".to_string(),
-            mode: "human_surface",
+            mode: "human_surface".to_string(),
             current_url: Some("https://example.com/".to_string()),
             created_at_unix_ms: 1787000000000,
             last_activity_unix_ms: Some(1787000001000),
@@ -1749,7 +1904,7 @@ mod tests {
                 schema_version: 1,
                 session_id: "brw-1787000000000-1".to_string(),
                 state: "ready".to_string(),
-                mode: "human_surface",
+                mode: "human_surface".to_string(),
                 current_url: Some("https://example.com/".to_string()),
                 created_at_unix_ms: 1787000000000,
                 last_activity_unix_ms: Some(1787000001000),
@@ -1836,7 +1991,7 @@ mod tests {
             schema_version: 1,
             session_id: "brw-1787000000000-1".to_string(),
             state: "loading".to_string(),
-            mode: "human_surface",
+            mode: "human_surface".to_string(),
             current_url: Some("https://example.com/".to_string()),
             created_at_unix_ms: 1787000000000,
             last_activity_unix_ms: None,
@@ -2196,5 +2351,128 @@ mod tests {
             Err(_) => return Vec::new(),
         };
         sessions.into_iter().map(public_report).collect()
+    }
+
+    // ------------------------------------------------------------------
+    // M6-C4 daemon proxy (mock connector)
+    // ------------------------------------------------------------------
+
+    use crate::daemon_client::DaemonCommandError;
+    use crate::daemon_client::tests::MockConnector;
+    use dsh_daemon::envelope::ErrorCode;
+
+    fn daemon_report_json(session_id: &str) -> serde_json::Value {
+        serde_json::json!({
+            "schemaVersion": 1,
+            "sessionId": session_id,
+            "state": "created",
+            "mode": "human_surface",
+            "currentUrl": null,
+            "createdAtUnixMs": 1_787_000_000_000u64,
+            "lastActivityUnixMs": null,
+            "error": null,
+        })
+    }
+
+    #[test]
+    fn create_proxies_to_daemon_and_attaches_locally() {
+        let connector = MockConnector::ok(daemon_report_json("brw-1787000000000-1"));
+        let state = BrowserState::default();
+        let report = invoke_browser_create(&connector, &create_request("human_surface"))
+            .expect("daemon create");
+        assert_eq!(report.session_id(), "brw-1787000000000-1");
+        assert_eq!(report.state, "created");
+        let calls = connector.calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, "Browser");
+        assert_eq!(calls[0].1, "browser.create");
+        assert_eq!(calls[0].2["mode"], "human_surface");
+
+        // The daemon session is adopted into the local render registry so
+        // the local navigate/snapshot paths see it.
+        let attached = attach_daemon_session(&state, &report).expect("attach");
+        assert_eq!(attached.session_id, "brw-1787000000000-1");
+        assert_eq!(attached.state, SessionState::Created);
+        let navigated = navigate_session(
+            &state,
+            &BrowserNavigateRequest {
+                schema_version: 1,
+                session_id: "brw-1787000000000-1".into(),
+                url: "https://example.com".into(),
+            },
+        )
+        .expect("local navigate on the attached session");
+        assert_eq!(navigated.state, "loading");
+    }
+
+    #[test]
+    fn create_rejects_unsupported_mode_before_invocation() {
+        let connector = MockConnector::ok(daemon_report_json("brw-1"));
+        let error = invoke_browser_create(&connector, &create_request("agent_automation"))
+            .expect_err("automation rejected");
+        assert_eq!(error.code, "MALFORMED_MESSAGE");
+        assert!(connector.calls().is_empty());
+    }
+
+    #[test]
+    fn create_daemon_failure_maps_to_command_error() {
+        let connector = MockConnector::error(DaemonCommandError::Remote {
+            code: ErrorCode::Unavailable,
+            message: "browser host unavailable".into(),
+            retryable: true,
+        });
+        let error = invoke_browser_create(&connector, &create_request("human_surface"))
+            .expect_err("remote");
+        assert_eq!(error.code, "UNAVAILABLE");
+        assert!(error.retryable);
+
+        let connector = MockConnector::error(DaemonCommandError::NotConnected);
+        let error = invoke_browser_create(&connector, &create_request("human_surface"))
+            .expect_err("offline");
+        assert_eq!(error.code, "UNAVAILABLE");
+        assert!(error.retryable);
+    }
+
+    #[test]
+    fn close_proxies_to_daemon() {
+        let connector = MockConnector::ok(daemon_report_json("brw-1787000000000-1"));
+        let closed = invoke_browser_close(
+            &connector,
+            &BrowserCloseRequest {
+                schema_version: 1,
+                session_id: "brw-1787000000000-1".into(),
+            },
+        )
+        .expect("daemon close");
+        assert_eq!(closed.session_id(), "brw-1787000000000-1");
+        assert_eq!(closed.state, "created");
+        let calls = connector.calls();
+        assert_eq!(calls[0].1, "browser.close");
+        assert_eq!(calls[0].2["sessionId"], "brw-1787000000000-1");
+    }
+
+    #[test]
+    fn list_proxies_to_daemon() {
+        let connector = MockConnector::ok(serde_json::json!({
+            "browsers": [
+                daemon_report_json("brw-1"),
+                daemon_report_json("brw-2"),
+            ]
+        }));
+        let listed = futures_block_on(list_browsers(&connector)).expect("daemon list");
+        assert_eq!(listed.len(), 2);
+        assert_eq!(listed[1].session_id(), "brw-2");
+        assert_eq!(connector.calls()[0].1, "browser.list");
+    }
+
+    #[test]
+    fn list_fails_closed_when_daemon_unavailable() {
+        let connector = MockConnector::error(DaemonCommandError::NotConnected);
+        let error = futures_block_on(list_browsers(&connector)).expect_err("offline");
+        assert_eq!(error.code, "UNAVAILABLE");
+    }
+
+    fn futures_block_on<F: std::future::Future>(future: F) -> F::Output {
+        tauri::async_runtime::block_on(future)
     }
 }

@@ -1,0 +1,9 @@
+{
+  "method": "wake",
+  "params": {
+    "wakeId": "w-fx-000006",
+    "requestedAt": "2026-08-31T09:30:00.000Z",
+    "reason": "scheduled_due",
+    "sneaky": 1
+  }
+}

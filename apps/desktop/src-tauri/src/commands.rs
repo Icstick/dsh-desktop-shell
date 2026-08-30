@@ -21,8 +21,7 @@ use crate::dsh_surface_policy::{
 use crate::environment_store::{self, EnvironmentCatalog, StoreError};
 use crate::managed_runtime::{
     self, ManagedRuntimeError, ManagedRuntimeReport, ManagedRuntimeRestartRequest,
-    ManagedRuntimeStartRequest, ManagedRuntimeState, ManagedRuntimeStatusRequest,
-    ManagedRuntimeStopRequest,
+    ManagedRuntimeStartRequest, ManagedRuntimeStatusRequest, ManagedRuntimeStopRequest,
 };
 use crate::notification::{self, NotificationError};
 use crate::usage::{self, UsageError};
@@ -35,7 +34,7 @@ static ERROR_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 #[serde(rename_all = "camelCase")]
 pub struct ShellSnapshot {
     phase: &'static str,
-    runtime_state: &'static str,
+    runtime_state: String,
     environment_id: Option<String>,
     generation: u64,
 }
@@ -101,11 +100,9 @@ pub(crate) struct EnvironmentPolicy {
     allow_native_adapter: Option<bool>,
 }
 
-impl EnvironmentPolicy {
-    pub(crate) fn auto_restart_on_crash(&self) -> Option<bool> {
-        self.auto_restart_on_crash
-    }
-}
+// The policy flags are Shell-side persistence; the Managed runtime
+// consumes auto_restart_on_crash through the dsh-managed-runtime crate
+// (the wrapper converts DshEnvironment before launching).
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -162,45 +159,6 @@ impl DshEnvironment {
 
     pub(crate) fn is_managed(&self) -> bool {
         matches!(self.ownership, Ownership::Managed)
-    }
-
-    pub(crate) fn harness_mode(&self) -> HarnessMode {
-        self.harness.mode
-    }
-
-    pub(crate) fn harness_path(&self) -> &str {
-        &self.harness.path
-    }
-
-    pub(crate) fn harness_cwd(&self) -> Option<&str> {
-        self.harness.cwd.as_deref()
-    }
-
-    pub(crate) fn harness_args(&self) -> &[String] {
-        &self.harness.args
-    }
-
-    pub(crate) fn dsh_home(&self) -> &str {
-        &self.dsh_home
-    }
-
-    pub(crate) fn profile(&self) -> &str {
-        &self.profile
-    }
-
-    pub(crate) fn node_path(&self) -> Option<&str> {
-        self.node_path.as_deref()
-    }
-
-    pub(crate) fn managed_expected_port(&self) -> Option<u16> {
-        match &self.endpoint.port {
-            EndpointPort::Fixed(port) => Some(*port),
-            EndpointPort::Named(_) => None,
-        }
-    }
-
-    pub(crate) fn policy(&self) -> Option<&EnvironmentPolicy> {
-        self.policy.as_ref()
     }
 
     pub(crate) fn fixed_loopback_port(&self) -> Option<u16> {
@@ -530,24 +488,28 @@ pub(crate) fn catalog_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
 #[tauri::command]
 pub async fn get_shell_snapshot(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
 ) -> Result<ShellSnapshot, CommandError> {
     let catalog =
         environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
     let active = catalog.active_environment().cloned();
-    let state = managed_state.inner().clone();
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
 
-    // Snapshot consults the Supervisor, which may run a bounded auto-restart
-    // (see get_managed_runtime_status); keep it off the main thread.
+    // Snapshot consults the daemon supervisor, which may run a bounded
+    // auto-restart (see get_managed_runtime_status); keep it off the main
+    // thread.
     tauri::async_runtime::spawn_blocking(move || {
         let (runtime_state, generation) = match &active {
             Some(environment) if environment.is_managed() => {
-                let report = managed_runtime::get_managed_runtime_status(&state, environment)
-                    .map_err(CommandError::from_managed_runtime)?;
-                (report.runtime_state(), report.generation())
+                let report =
+                    managed_runtime::get_managed_runtime_status(connector.as_ref(), environment)
+                        .map_err(CommandError::from_managed_runtime)?;
+                (report.runtime_state().to_string(), report.generation())
             }
-            Some(environment) => (environment.runtime_state(), 0),
-            None => ("unconfigured", 0),
+            Some(environment) => (environment.runtime_state().to_string(), 0),
+            None => ("unconfigured".to_string(), 0),
         };
         Ok(ShellSnapshot {
             phase: "shell-mvp",
@@ -653,7 +615,7 @@ pub async fn probe_attached_environment(
 #[tauri::command]
 pub async fn start_managed_environment(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     request: ManagedRuntimeStartRequest,
 ) -> Result<ManagedRuntimeReport, CommandError> {
     if request.schema_version() != 1 || !is_valid_id(request.environment_id()) {
@@ -665,10 +627,12 @@ pub async fn start_managed_environment(
         .environment(request.environment_id())
         .cloned()
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
-    let state = managed_state.inner().clone();
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        managed_runtime::start_managed_environment(&state, &environment)
+        managed_runtime::start_managed_environment(connector.as_ref(), &environment)
     })
     .await
     .map_err(|_| CommandError::unavailable("Managed start task is unavailable.", true))?
@@ -678,7 +642,7 @@ pub async fn start_managed_environment(
 #[tauri::command]
 pub async fn restart_managed_environment(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: ManagedRuntimeRestartRequest,
 ) -> Result<ManagedRuntimeReport, CommandError> {
@@ -691,12 +655,14 @@ pub async fn restart_managed_environment(
         .environment(request.environment_id())
         .cloned()
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
-    let state = managed_state.inner().clone();
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
     let surface_state = surface_state.inner().clone();
     let environment_id = environment.id().to_string();
 
     let report = tauri::async_runtime::spawn_blocking(move || {
-        managed_runtime::restart_managed_environment(&state, &environment, request)
+        managed_runtime::restart_managed_environment(connector.as_ref(), &environment, request)
     })
     .await
     .map_err(|_| CommandError::unavailable("Managed restart task is unavailable.", true))?
@@ -716,7 +682,7 @@ pub async fn restart_managed_environment(
 #[tauri::command]
 pub async fn mount_dsh_surface(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: DshSurfaceMountRequest,
 ) -> Result<DshSurfaceStatus, CommandError> {
@@ -728,8 +694,11 @@ pub async fn mount_dsh_surface(
     let environment = catalog
         .environment(request.environment_id())
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
     let binding = managed_runtime::verified_surface_binding(
-        &managed_state,
+        connector.as_ref(),
         environment,
         request.expected_generation(),
     )
@@ -741,7 +710,7 @@ pub async fn mount_dsh_surface(
 #[tauri::command]
 pub async fn get_dsh_surface_status(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: DshSurfaceStatusRequest,
 ) -> Result<DshSurfaceStatus, CommandError> {
@@ -753,8 +722,11 @@ pub async fn get_dsh_surface_status(
     let environment = catalog
         .environment(request.environment_id())
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
     let binding = managed_runtime::verified_surface_binding(
-        &managed_state,
+        connector.as_ref(),
         environment,
         request.expected_generation(),
     )
@@ -766,7 +738,7 @@ pub async fn get_dsh_surface_status(
 #[tauri::command]
 pub async fn update_dsh_surface_layout(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: DshSurfaceLayoutRequest,
 ) -> Result<DshSurfaceStatus, CommandError> {
@@ -778,8 +750,11 @@ pub async fn update_dsh_surface_layout(
     let environment = catalog
         .environment(request.environment_id())
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
     let binding = managed_runtime::verified_surface_binding(
-        &managed_state,
+        connector.as_ref(),
         environment,
         request.expected_generation(),
     )
@@ -791,7 +766,7 @@ pub async fn update_dsh_surface_layout(
 #[tauri::command]
 pub async fn reload_dsh_surface(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: DshSurfaceReloadRequest,
 ) -> Result<DshSurfaceStatus, CommandError> {
@@ -803,8 +778,11 @@ pub async fn reload_dsh_surface(
     let environment = catalog
         .environment(request.environment_id())
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
     let binding = managed_runtime::verified_surface_binding(
-        &managed_state,
+        connector.as_ref(),
         environment,
         request.expected_generation(),
     )
@@ -839,7 +817,7 @@ pub async fn unmount_dsh_surface(
 #[tauri::command]
 pub async fn get_managed_runtime_status(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     notification_state: State<'_, crate::notification::NotificationService>,
     usage_state: State<'_, crate::usage::UsageService>,
     request: ManagedRuntimeStatusRequest,
@@ -853,13 +831,15 @@ pub async fn get_managed_runtime_status(
         .environment(request.environment_id())
         .cloned()
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
-    let state = managed_state.inner().clone();
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
 
-    // The status path may run a bounded auto-restart (backoff sleep plus a
-    // readiness poll up to START_TIMEOUT); run it off the main thread so a
-    // crash-looping backend never freezes the Shell UI.
+    // The status path may run a bounded auto-restart daemon-side (backoff
+    // sleep plus a readiness poll up to START_TIMEOUT); run it off the main
+    // thread so a crash-looping backend never freezes the Shell UI.
     let report = tauri::async_runtime::spawn_blocking(move || {
-        managed_runtime::get_managed_runtime_status(&state, &environment)
+        managed_runtime::get_managed_runtime_status(connector.as_ref(), &environment)
     })
     .await
     .map_err(|_| CommandError::unavailable("Managed status task is unavailable.", true))?
@@ -897,21 +877,23 @@ pub async fn get_managed_runtime_status(
 #[tauri::command]
 pub async fn get_diagnostics(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: DiagnosticsRequest,
 ) -> Result<DiagnosticsReport, CommandError> {
     if !request.is_valid() {
         return Err(CommandError::malformed_diagnostics_request());
     }
-    let managed = managed_state.inner().clone();
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
     let surface = surface_state.inner().clone();
     let environment_id = request.environment_id().to_string();
 
-    // Diagnostics reads the Supervisor (which may auto-restart) and the
-    // Surface record; keep the read off the main thread.
+    // Diagnostics reads the daemon supervisor (which may auto-restart) and
+    // the Surface record; keep the read off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
-        diagnostics::collect(&app, &managed, &surface, &environment_id)
+        diagnostics::collect(&app, connector.as_ref(), &surface, &environment_id)
     })
     .await
     .map_err(|_| CommandError::unavailable("Diagnostics task is unavailable.", true))?
@@ -921,7 +903,7 @@ pub async fn get_diagnostics(
 #[tauri::command]
 pub async fn stop_managed_environment(
     app: AppHandle,
-    managed_state: State<'_, ManagedRuntimeState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     surface_state: State<'_, DshSurfaceState>,
     request: ManagedRuntimeStopRequest,
 ) -> Result<ManagedRuntimeReport, CommandError> {
@@ -945,10 +927,16 @@ pub async fn stop_managed_environment(
         expected_generation,
     )
     .map_err(CommandError::from_dsh_surface)?;
-    let state = managed_state.inner().clone();
+    let connector = daemon
+        .connector()
+        .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        managed_runtime::stop_managed_environment(&state, &environment, expected_generation)
+        managed_runtime::stop_managed_environment(
+            connector.as_ref(),
+            &environment,
+            expected_generation,
+        )
     })
     .await
     .map_err(|_| CommandError::unavailable("Managed stop task is unavailable.", true))?
@@ -1147,15 +1135,18 @@ fn argument(category: &'static str, display: impl Into<String>) -> LaunchArgumen
     }
 }
 
-// ------------------------- Terminal commands (M3-B, ADR-0015) -------------------------
+// ------------------------- Terminal commands (M3-B, ADR-0015; M6-C4 daemon proxy) -------------------------
 
 #[tauri::command]
 pub fn create_terminal(
-    terminal_state: State<'_, crate::terminal::TerminalState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     usage_state: State<'_, crate::usage::UsageService>,
     request: crate::terminal::TerminalCreateRequest,
 ) -> Result<crate::terminal::TerminalReport, crate::terminal::TerminalCommandError> {
-    let report = crate::terminal::create_terminal(&terminal_state, &request)?;
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::terminal::TerminalCommandError::from_daemon_unavailable)?;
+    let report = crate::terminal::create_terminal(connector.as_ref(), &request)?;
     // M3-C usage wiring (IF-USAGE, AC-USG-001/002): remember the session
     // start in memory; the ledger entry is written on close. Usage never
     // receives terminal output (AC-USG-001).
@@ -1165,28 +1156,37 @@ pub fn create_terminal(
 
 #[tauri::command]
 pub fn write_terminal(
-    terminal_state: State<'_, crate::terminal::TerminalState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     request: crate::terminal::TerminalWriteRequest,
 ) -> Result<(), crate::terminal::TerminalCommandError> {
-    crate::terminal::write_terminal(&terminal_state, &request)
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::terminal::TerminalCommandError::from_daemon_unavailable)?;
+    crate::terminal::write_terminal(connector.as_ref(), &request)
 }
 
 #[tauri::command]
 pub fn resize_terminal(
-    terminal_state: State<'_, crate::terminal::TerminalState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     request: crate::terminal::TerminalResizeRequest,
 ) -> Result<crate::terminal::TerminalReport, crate::terminal::TerminalCommandError> {
-    crate::terminal::resize_terminal(&terminal_state, &request)
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::terminal::TerminalCommandError::from_daemon_unavailable)?;
+    crate::terminal::resize_terminal(connector.as_ref(), &request)
 }
 
 #[tauri::command]
 pub fn close_terminal(
     app: AppHandle,
-    terminal_state: State<'_, crate::terminal::TerminalState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     usage_state: State<'_, crate::usage::UsageService>,
     request: crate::terminal::TerminalSessionRequest,
 ) -> Result<(), crate::terminal::TerminalCommandError> {
-    crate::terminal::close_terminal(&terminal_state, &request)?;
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::terminal::TerminalCommandError::from_daemon_unavailable)?;
+    crate::terminal::close_terminal(connector.as_ref(), &request)?;
     // M3-C usage wiring (IF-USAGE, AC-USG-001/002): record the session
     // duration as an estimate after the PTY is closed. A failing usage
     // write never fails the close.
@@ -1198,28 +1198,40 @@ pub fn close_terminal(
 
 #[tauri::command]
 pub fn status_terminal(
-    terminal_state: State<'_, crate::terminal::TerminalState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     request: crate::terminal::TerminalSessionRequest,
 ) -> Result<crate::terminal::TerminalReport, crate::terminal::TerminalCommandError> {
-    crate::terminal::status_terminal(&terminal_state, &request)
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::terminal::TerminalCommandError::from_daemon_unavailable)?;
+    crate::terminal::status_terminal(connector.as_ref(), &request)
 }
 
 #[tauri::command]
 pub fn list_terminals(
-    terminal_state: State<'_, crate::terminal::TerminalState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
 ) -> Vec<crate::terminal::TerminalReport> {
-    crate::terminal::list_terminals(&terminal_state)
+    match daemon.connector() {
+        Some(connector) => crate::terminal::list_terminals(connector.as_ref()),
+        // Fail closed (empty list): the command contract cannot carry an
+        // error and the daemon is the PTY authority since M6-C1.
+        None => Vec::new(),
+    }
 }
 
-// ------------------------- Browser commands (M4-C, ADR-0017) -------------------------
+// ------------------------- Browser commands (M4-C, ADR-0017; M6-C4 daemon proxy for create/list/close) -------------------------
 
 #[tauri::command]
 pub async fn create_browser(
     app: AppHandle,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     browser_state: State<'_, crate::browser::BrowserState>,
     request: crate::browser::BrowserCreateRequest,
 ) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
-    crate::browser::create_browser(&app, &browser_state, &request).await
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::browser::BrowserCommandError::daemon_unavailable)?;
+    crate::browser::create_browser(&app, connector.as_ref(), &browser_state, &request).await
 }
 
 #[tauri::command]
@@ -1243,17 +1255,24 @@ pub async fn snapshot_browser(
 #[tauri::command]
 pub async fn close_browser(
     app: AppHandle,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
     browser_state: State<'_, crate::browser::BrowserState>,
     request: crate::browser::BrowserCloseRequest,
 ) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
-    crate::browser::close_browser(&app, &browser_state, &request).await
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::browser::BrowserCommandError::daemon_unavailable)?;
+    crate::browser::close_browser(&app, connector.as_ref(), &browser_state, &request).await
 }
 
 #[tauri::command]
 pub async fn list_browsers(
-    browser_state: State<'_, crate::browser::BrowserState>,
+    daemon: State<'_, crate::daemon_client::DaemonClientState>,
 ) -> Result<Vec<crate::browser::BrowserReport>, crate::browser::BrowserCommandError> {
-    Ok(crate::browser::list_browsers(&browser_state).await)
+    let connector = daemon
+        .connector()
+        .ok_or_else(crate::browser::BrowserCommandError::daemon_unavailable)?;
+    crate::browser::list_browsers(connector.as_ref()).await
 }
 
 #[tauri::command]

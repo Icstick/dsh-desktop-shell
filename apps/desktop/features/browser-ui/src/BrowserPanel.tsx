@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { BrowserEvent, BrowserReport } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
+import { useI18n } from "../../../src/i18n";
 
 interface BrowserPanelProps {
   api: DesktopApi;
@@ -18,6 +19,7 @@ interface BrowserPanelProps {
  * stays silent instead of rejecting — same degradation as TerminalPanel.
  */
 export function BrowserPanel({ api }: BrowserPanelProps) {
+  const { t } = useI18n();
   const [session, setSession] = useState<BrowserReport | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,6 +28,8 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
   const sessionRef = useRef<BrowserReport | null>(session);
   sessionRef.current = session;
   const urlInputRef = useRef<HTMLInputElement | null>(null);
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // Recover a live backend session when the panel remounts (surface switch).
   useEffect(() => {
@@ -77,7 +81,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
               setUrlInput(payload.url);
             }
           } else if (payload.kind === "load_failed") {
-            const message = `Page failed to load${payload.url ? `: ${payload.url}` : ""}.`;
+            const message = `${tRef.current("browser.pageLoadFailed")}${payload.url ? `: ${payload.url}` : ""}.`;
             setSession((current) =>
               current
                 ? {
@@ -134,7 +138,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
       setSession(report);
       if (report.currentUrl) setUrlInput(report.currentUrl);
     } catch (cause) {
-      setError(errorMessage(cause, "Browser navigation is unavailable."));
+      setError(errorMessage(cause, t("browser.error.navigation")));
     } finally {
       setBusy(false);
     }
@@ -154,7 +158,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
       sessionRef.current = report;
       setSession(report);
     } catch (cause) {
-      setError(errorMessage(cause, "Browser reload is unavailable."));
+      setError(errorMessage(cause, t("browser.error.reload")));
     } finally {
       setBusy(false);
     }
@@ -170,7 +174,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
       sessionRef.current = null;
       setSession(null);
     } catch (cause) {
-      setError(errorMessage(cause, "Browser close is unavailable."));
+      setError(errorMessage(cause, t("browser.error.close")));
     } finally {
       setBusy(false);
     }
@@ -179,10 +183,10 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
   const state = session?.state ?? "created";
 
   return (
-    <section className="browser-panel" aria-label="Browser">
+    <section className="browser-panel" aria-label={t("browser.aria")}>
       <div className="browser-panel__chrome">
         <strong className="browser-panel__session">
-          {session ? session.sessionId : "no browser session"}
+          {session ? session.sessionId : t("browser.noSession")}
         </strong>
         <span className="browser-panel__state" data-state={state}>
           {state}
@@ -197,7 +201,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
         }}
       >
         <label className="sr-only" htmlFor="browser-url-input">
-          Browser URL
+          {t("browser.urlLabel")}
         </label>
         <input
           autoCapitalize="none"
@@ -218,7 +222,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
           disabled={busy || urlInput.trim() === ""}
           type="submit"
         >
-          Open
+          {t("browser.open")}
         </button>
       </form>
 
@@ -229,7 +233,7 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
           onClick={() => void reload()}
           type="button"
         >
-          Reload
+          {t("browser.reload")}
         </button>
         <button
           className="secondary-button"
@@ -237,26 +241,26 @@ export function BrowserPanel({ api }: BrowserPanelProps) {
           onClick={() => void close()}
           type="button"
         >
-          Close
+          {t("common.close")}
         </button>
       </div>
 
       <dl className="definition-grid definition-grid--health">
         <div>
-          <dt>Session</dt>
-          <dd>{session?.sessionId ?? "none"}</dd>
+          <dt>{t("browser.session")}</dt>
+          <dd>{session?.sessionId ?? t("common.none")}</dd>
         </div>
         <div>
-          <dt>Current URL</dt>
-          <dd className="browser-panel__url-value">{session?.currentUrl ?? "none"}</dd>
+          <dt>{t("browser.currentUrl")}</dt>
+          <dd className="browser-panel__url-value">{session?.currentUrl ?? t("common.none")}</dd>
         </div>
         <div>
-          <dt>State</dt>
+          <dt>{t("browser.state")}</dt>
           <dd>{state}</dd>
         </div>
         <div>
-          <dt>Error</dt>
-          <dd>{session?.error ?? "none"}</dd>
+          <dt>{t("browser.error")}</dt>
+          <dd>{session?.error ?? t("common.none")}</dd>
         </div>
       </dl>
 

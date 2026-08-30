@@ -17,6 +17,7 @@ import type {
   UsageSnapshot,
 } from "../../../src/contracts";
 import { desktopApi, type DesktopApi } from "../../../src/desktop-api";
+import { useI18n } from "../../../src/i18n";
 import { EnvironmentSetup } from "../../environment-settings/src/EnvironmentSetup";
 import { BrowserPanel } from "../../browser-ui/src/BrowserPanel";
 import { HarnessSurface } from "../../harness-surface/src/HarnessSurface";
@@ -28,6 +29,7 @@ interface ShellAppProps {
 }
 
 export function ShellApp({ api = desktopApi }: ShellAppProps) {
+  const { t } = useI18n();
   const [activeSurface, setActiveSurface] = useState<SurfaceId>("dsh");
   const [snapshot, setSnapshot] = useState<ShellSnapshot | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
@@ -54,6 +56,8 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   const lastSurfaceBoundsRef = useRef<DshSurfaceBounds | null>(null);
   const surfaceIntentRef = useRef<string | null>(null);
   const surfaceFailureRef = useRef<string | null>(null);
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const handleSurfaceBoundsChange = useCallback((next: DshSurfaceBounds | null) => {
     if (next) lastSurfaceBoundsRef.current = next;
@@ -82,7 +86,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           setValidation(nextValidation);
         }
       } catch {
-        if (current) setSnapshotError("Desktop backend is unavailable.");
+        if (current) setSnapshotError(tRef.current("error.desktopUnavailable"));
       }
     };
     void load();
@@ -118,7 +122,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         if (!current) return;
         setAttachedHealth(null);
         setAttachedHealthError(
-          commandErrorMessage(error, "Attached endpoint health is unavailable."),
+          commandErrorMessage(error, tRef.current("error.attachedUnavailable")),
         );
         setSnapshot((snapshot) =>
           snapshot ? { ...snapshot, runtimeState: "unavailable" } : snapshot,
@@ -163,7 +167,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         if (!current) return;
         setManagedRuntime(null);
         setManagedRuntimeError(
-          commandErrorMessage(error, "Managed runtime status is unavailable."),
+          commandErrorMessage(error, tRef.current("error.managedUnavailable")),
         );
       });
 
@@ -194,7 +198,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         if (!current) return;
         setDiagnostics(null);
         setDiagnosticsError(
-          commandErrorMessage(error, "Diagnostics are unavailable."),
+          commandErrorMessage(error, tRef.current("error.diagnosticsUnavailable")),
         );
       });
     return () => {
@@ -290,7 +294,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         if (!current) return;
         surfaceFailureRef.current = bindingKey;
         setNativeSurfaceError(
-          commandErrorMessage(error, "Native DSH Surface is unavailable."),
+          commandErrorMessage(error, tRef.current("error.nativeSurfaceUnavailable")),
         );
       }
     };
@@ -356,7 +360,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           surfaceFailureRef.current = `${mounted.environmentId}:${mounted.generation}`;
           setNativeSurface(null);
           setNativeSurfaceError(
-            commandErrorMessage(error, "Native DSH Surface status is unavailable."),
+            commandErrorMessage(error, tRef.current("error.surfaceStatusUnavailable")),
           );
         });
     }, interval);
@@ -401,7 +405,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       .catch((error: unknown) => {
         if (!current) return;
         setSurfacePolicyError(
-          commandErrorMessage(error, "DSH Surface policy is unavailable."),
+          commandErrorMessage(error, tRef.current("error.surfacePolicyUnavailable")),
         );
       });
 
@@ -432,7 +436,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       setSnapshot(await api.getShellSnapshot());
       setSnapshotError(null);
     } catch {
-      setSnapshotError("Saved, but the runtime snapshot could not be refreshed.");
+      setSnapshotError(tRef.current("error.savedRefresh"));
     }
   };
 
@@ -458,7 +462,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         }),
       );
     } catch (error: unknown) {
-      setManagedRuntimeError(commandErrorMessage(error, "Managed start is unavailable."));
+      setManagedRuntimeError(commandErrorMessage(error, tRef.current("error.managedStart")));
     } finally {
       setTransitioningManaged(false);
     }
@@ -490,7 +494,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       setNativeSurfaceError(null);
       setConfirmingManagedStop(false);
     } catch (error: unknown) {
-      setManagedRuntimeError(commandErrorMessage(error, "Managed stop is unavailable."));
+      setManagedRuntimeError(commandErrorMessage(error, tRef.current("error.managedStop")));
     } finally {
       setTransitioningManaged(false);
     }
@@ -522,7 +526,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       setNativeSurface(null);
       setNativeSurfaceError(null);
     } catch (error: unknown) {
-      setManagedRuntimeError(commandErrorMessage(error, "Managed restart is unavailable."));
+      setManagedRuntimeError(commandErrorMessage(error, tRef.current("error.managedRestart")));
     } finally {
       setTransitioningManaged(false);
     }
@@ -584,7 +588,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       setNativeSurface(report);
       surfaceFailureRef.current = null;
     } catch (error: unknown) {
-      setNativeSurfaceError(commandErrorMessage(error, "Native DSH Surface retry failed."));
+      setNativeSurfaceError(commandErrorMessage(error, tRef.current("error.surfaceRetry")));
     } finally {
       setRetryingSurface(false);
     }
@@ -596,8 +600,8 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       <section className="shell-workspace">
         <header className="shell-header">
           <div>
-            <p className="eyebrow">DSH Desktop Shell</p>
-            <h1>{surfaceTitle(activeSurface)}</h1>
+            <p className="eyebrow">{t("shell.eyebrow")}</p>
+            <h1>{surfaceTitle(activeSurface, t)}</h1>
           </div>
           <RuntimeBadge snapshot={snapshot} error={snapshotError} />
         </header>
@@ -664,14 +668,14 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   );
 }
 
-function surfaceTitle(surface: SurfaceId) {
-  if (surface === "browser") return "Browser";
-  if (surface === "terminal") return "Persistent Terminal";
-  if (surface === "runtime") return "Runtime";
-  if (surface === "settings") return "Environment Settings";
-  if (surface === "notifications") return "Notifications";
-  if (surface === "usage") return "Usage";
-  return "DSH Surface";
+function surfaceTitle(surface: SurfaceId, t: (key: string) => string) {
+  if (surface === "browser") return t("surface.browser");
+  if (surface === "terminal") return t("surface.terminal");
+  if (surface === "runtime") return t("surface.runtime");
+  if (surface === "settings") return t("surface.settings");
+  if (surface === "notifications") return t("surface.notifications");
+  if (surface === "usage") return t("surface.usage");
+  return t("surface.dsh");
 }
 
 function RuntimeBadge({ snapshot, error }: { snapshot: ShellSnapshot | null; error: string | null }) {
@@ -723,30 +727,31 @@ function RuntimePanel({
   snapshot: ShellSnapshot | null;
   transitioningManaged: boolean;
 }) {
+  const { t } = useI18n();
   const isAttached = environment?.ownership === "attached";
   const isManaged = environment?.ownership === "managed";
   return (
     <section className="panel" aria-labelledby="runtime-heading">
       <div className="panel__heading">
-        <p className="eyebrow">Canonical backend state</p>
-        <h2 id="runtime-heading">Runtime snapshot</h2>
+        <p className="eyebrow">{t("runtime.eyebrow")}</p>
+        <h2 id="runtime-heading">{t("runtime.title")}</h2>
       </div>
       {error ? (
         <div className="callout callout--danger">{error}</div>
       ) : (
         <dl className="definition-grid">
-          <div><dt>Phase</dt><dd>{snapshot?.phase ?? "loading"}</dd></div>
-          <div><dt>State</dt><dd>{snapshot?.runtimeState ?? "loading"}</dd></div>
-          <div><dt>Environment</dt><dd>{snapshot?.environmentId ?? "not selected"}</dd></div>
-          <div><dt>Generation</dt><dd>{snapshot?.generation ?? 0}</dd></div>
+          <div><dt>{t("runtime.phase")}</dt><dd>{snapshot?.phase ?? t("common.loading")}</dd></div>
+          <div><dt>{t("runtime.state")}</dt><dd>{snapshot?.runtimeState ?? t("common.loading")}</dd></div>
+          <div><dt>{t("runtime.environment")}</dt><dd>{snapshot?.environmentId ?? t("common.notSelected")}</dd></div>
+          <div><dt>{t("runtime.generation")}</dt><dd>{snapshot?.generation ?? 0}</dd></div>
         </dl>
       )}
       {isAttached && (
         <section className="attached-health" aria-labelledby="attached-health-heading">
           <div className="attached-health__heading">
             <div>
-              <p className="eyebrow">Read-only endpoint evidence</p>
-              <h3 id="attached-health-heading">Attached health</h3>
+              <p className="eyebrow">{t("runtime.attached.eyebrow")}</p>
+              <h3 id="attached-health-heading">{t("runtime.attached.title")}</h3>
             </div>
             <button
               className="secondary-button"
@@ -754,7 +759,7 @@ function RuntimePanel({
               onClick={onProbe}
               type="button"
             >
-              {probingAttached ? "Probing…" : "Probe again"}
+              {probingAttached ? t("runtime.probing") : t("runtime.probeAgain")}
             </button>
           </div>
           {attachedHealthError && (
@@ -763,17 +768,17 @@ function RuntimePanel({
           {attachedHealth && (
             <>
               <dl className="definition-grid definition-grid--health">
-                <div><dt>Reachability</dt><dd>{attachedHealth.reachability}</dd></div>
-                <div><dt>Identity</dt><dd>{attachedHealth.identity}</dd></div>
-                <div><dt>Process ownership</dt><dd>{attachedHealth.processOwnership}</dd></div>
-                <div><dt>Mutation</dt><dd>{attachedHealth.lifecycleMutation}</dd></div>
+                <div><dt>{t("runtime.reachability")}</dt><dd>{attachedHealth.reachability}</dd></div>
+                <div><dt>{t("runtime.identity")}</dt><dd>{attachedHealth.identity}</dd></div>
+                <div><dt>{t("runtime.processOwnership")}</dt><dd>{attachedHealth.processOwnership}</dd></div>
+                <div><dt>{t("runtime.mutation")}</dt><dd>{attachedHealth.lifecycleMutation}</dd></div>
                 <div>
-                  <dt>Endpoint</dt>
+                  <dt>{t("runtime.endpoint")}</dt>
                   <dd>{attachedHealth.endpoint.host}:{attachedHealth.endpoint.port}</dd>
                 </div>
                 <div>
-                  <dt>Latency</dt>
-                  <dd>{attachedHealth.latencyMs === null ? "not available" : `${attachedHealth.latencyMs} ms`}</dd>
+                  <dt>{t("runtime.latency")}</dt>
+                  <dd>{attachedHealth.latencyMs === null ? t("runtime.notAvailable") : `${attachedHealth.latencyMs} ms`}</dd>
                 </div>
               </dl>
               <div className="callout callout--warning">
@@ -798,9 +803,7 @@ function RuntimePanel({
       )}
       {isManaged && <DiagnosticsSection error={diagnosticsError} report={diagnostics} />}
       <p className="panel__note">
-        {isAttached
-          ? "Lifecycle controls remain unavailable. Attached reachability never implies DSH identity or Desktop process ownership."
-          : "Managed controls act only on the retained process-tree handle. A verified generation may mount the platform-gated native DSH Surface."}
+        {isAttached ? t("runtime.note.attached") : t("runtime.note.managed")}
       </p>
     </section>
   );
@@ -834,6 +837,7 @@ function ManagedRuntimeSection({
   report: ManagedRuntimeReport | null;
   transitioning: boolean;
 }) {
+  const { t } = useI18n();
   const state = report?.state ?? "loading";
   const canStart =
     report?.state === "stopped" || report?.state === "crashed" || report?.state === "safe_stop";
@@ -846,8 +850,8 @@ function ManagedRuntimeSection({
     <section className="managed-runtime" aria-labelledby="managed-runtime-heading">
       <div className="managed-runtime__heading">
         <div>
-          <p className="eyebrow">Owned process-tree evidence</p>
-          <h3 id="managed-runtime-heading">Managed runtime</h3>
+          <p className="eyebrow">{t("runtime.managed.eyebrow")}</p>
+          <h3 id="managed-runtime-heading">{t("runtime.managed.title")}</h3>
         </div>
         {canStart && (
           <button
@@ -856,7 +860,7 @@ function ManagedRuntimeSection({
             onClick={onStart}
             type="button"
           >
-            {transitioning ? "Starting…" : "Start Managed DSH"}
+            {transitioning ? t("runtime.starting") : t("runtime.start")}
           </button>
         )}
         {canRestart && (
@@ -866,7 +870,7 @@ function ManagedRuntimeSection({
             onClick={onRestart}
             type="button"
           >
-            {transitioning ? "Restarting…" : "Restart managed DSH"}
+            {transitioning ? t("runtime.restarting") : t("runtime.restart")}
           </button>
         )}
         {canStop && !confirmingStop && (
@@ -876,28 +880,31 @@ function ManagedRuntimeSection({
             onClick={onReviewStop}
             type="button"
           >
-            Review managed stop
+            {t("runtime.reviewStop")}
           </button>
         )}
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       <dl className="definition-grid definition-grid--health">
-        <div><dt>State</dt><dd>{state}</dd></div>
-        <div><dt>Generation</dt><dd>{report?.generation ?? 0}</dd></div>
-        <div><dt>Process ownership</dt><dd>{report?.processOwnership ?? "none"}</dd></div>
-        <div><dt>Readiness</dt><dd>{report?.readiness ?? "loading"}</dd></div>
-        <div><dt>Instance</dt><dd>{report?.instanceId ?? "none"}</dd></div>
-        <div><dt>Stop disposition</dt><dd>{report?.stopDisposition ?? "not_requested"}</dd></div>
+        <div><dt>{t("runtime.state")}</dt><dd>{state}</dd></div>
+        <div><dt>{t("runtime.generation")}</dt><dd>{report?.generation ?? 0}</dd></div>
+        <div><dt>{t("runtime.processOwnership")}</dt><dd>{report?.processOwnership ?? "none"}</dd></div>
+        <div><dt>{t("runtime.readiness")}</dt><dd>{report?.readiness ?? t("common.loading")}</dd></div>
+        <div><dt>{t("runtime.instance")}</dt><dd>{report?.instanceId ?? "none"}</dd></div>
+        <div><dt>{t("runtime.stopDisposition")}</dt><dd>{report?.stopDisposition ?? "not_requested"}</dd></div>
         {report?.recovery && (
           <>
-            <div><dt>Recovery crashes</dt><dd>{report.recovery.crashCount} / {report.recovery.budget}</dd></div>
-            <div><dt>Recovery state</dt><dd>{report.recovery.safeStop ? "safe stop" : "bounded recovery"}</dd></div>
+            <div><dt>{t("runtime.recoveryCrashes")}</dt><dd>{report.recovery.crashCount} / {report.recovery.budget}</dd></div>
+            <div><dt>{t("runtime.recoveryState")}</dt><dd>{report.recovery.safeStop ? t("runtime.recoverySafeStop") : t("runtime.recoveryBounded")}</dd></div>
           </>
         )}
       </dl>
       {report?.endpoint && (
         <div className="callout callout--success">
-          Verified endpoint: {report.endpoint.scheme}://{report.endpoint.host}:{report.endpoint.port}
+          {t("runtime.verifiedEndpoint", {
+            endpoint:
+              report.endpoint.scheme + "://" + report.endpoint.host + ":" + report.endpoint.port,
+          })}
         </div>
       )}
       {report?.evidence[0] && (
@@ -906,17 +913,20 @@ function ManagedRuntimeSection({
         </div>
       )}
       {confirmingStop && canStop && (
-        <div className="stop-confirmation" role="alertdialog" aria-label="Confirm managed stop">
-          <p>
-            Stop only the retained process tree for generation {report.generation}. No PID or port
-            ownership will be inferred.
-          </p>
+        <div
+          className="stop-confirmation"
+          role="alertdialog"
+          aria-label={t("runtime.confirmStop.aria")}
+        >
+          <p>{t("runtime.confirmStop.body", { generation: String(report.generation) })}</p>
           <div className="button-row">
             <button className="secondary-button" disabled={transitioning} onClick={onCancelStop} type="button">
-              Cancel
+              {t("common.cancel")}
             </button>
             <button className="primary-button" disabled={transitioning} onClick={onConfirmStop} type="button">
-              {transitioning ? "Stopping…" : `Confirm stop generation ${report.generation}`}
+              {transitioning
+                ? t("runtime.stopping")
+                : t("runtime.confirmStop.action", { generation: String(report.generation) })}
             </button>
           </div>
         </div>
@@ -932,41 +942,42 @@ function DiagnosticsSection({
   error: string | null;
   report: DiagnosticsReport | null;
 }) {
+  const { t } = useI18n();
   return (
     <section className="diagnostics" aria-labelledby="diagnostics-heading">
       <div className="diagnostics__heading">
         <div>
-          <p className="eyebrow">Credential-free snapshot (AC-LOG-001)</p>
-          <h3 id="diagnostics-heading">Diagnostics</h3>
+          <p className="eyebrow">{t("diagnostics.eyebrow")}</p>
+          <h3 id="diagnostics-heading">{t("diagnostics.title")}</h3>
         </div>
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       {report ? (
         <>
           <dl className="definition-grid definition-grid--health">
-            <div><dt>Observed</dt><dd>{new Date(report.observedAtUnixMs).toISOString()}</dd></div>
-            <div><dt>Runtime state</dt><dd>{report.runtime.state}</dd></div>
-            <div><dt>Readiness</dt><dd>{report.runtime.readiness}</dd></div>
+            <div><dt>{t("diagnostics.observed")}</dt><dd>{new Date(report.observedAtUnixMs).toISOString()}</dd></div>
+            <div><dt>{t("diagnostics.runtimeState")}</dt><dd>{report.runtime.state}</dd></div>
+            <div><dt>{t("runtime.readiness")}</dt><dd>{report.runtime.readiness}</dd></div>
             <div>
-              <dt>Endpoint</dt>
+              <dt>{t("runtime.endpoint")}</dt>
               <dd>
                 {report.runtime.endpoint
-                  ? `${report.runtime.endpoint.host}:${report.runtime.endpoint.port}`
-                  : "none"}
+                  ? report.runtime.endpoint.host + ":" + report.runtime.endpoint.port
+                  : t("common.none")}
               </dd>
             </div>
             <div>
-              <dt>Surface</dt>
-              <dd>{report.surface.state}{report.surface.visible ? " · visible" : ""}</dd>
+              <dt>{t("diagnostics.surface")}</dt>
+              <dd>{report.surface.state}{report.surface.visible ? t("diagnostics.visible") : ""}</dd>
             </div>
             <div>
-              <dt>Process</dt>
+              <dt>{t("diagnostics.process")}</dt>
               <dd>
-                {report.process.retained ? "retained" : "not retained"}
-                {report.process.owned ? " · owned" : ""}
+                {report.process.retained ? t("diagnostics.retained") : t("diagnostics.notRetained")}
+                {report.process.owned ? t("diagnostics.owned") : ""}
               </dd>
             </div>
-            <div><dt>Catalog revision</dt><dd>{report.catalog.revision}</dd></div>
+            <div><dt>{t("diagnostics.catalogRevision")}</dt><dd>{report.catalog.revision}</dd></div>
           </dl>
           <ul className="diagnostics__evidence">
             {report.evidence.map((item, index) => (
@@ -977,21 +988,24 @@ function DiagnosticsSection({
           </ul>
         </>
       ) : (
-        <p className="panel__note">Diagnostics are not available yet.</p>
+        <p className="panel__note">{t("diagnostics.notAvailable")}</p>
       )}
     </section>
   );
 }
 function NotificationsPanel({ api }: { api: DesktopApi }) {
+  const { t } = useI18n();
   const [notifications, setNotifications] = useState<NotificationReport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const refresh = useCallback(async () => {
     try {
       setNotifications(await api.listNotifications());
       setError(null);
     } catch (cause: unknown) {
-      setError(commandErrorMessage(cause, "Notifications are unavailable."));
+      setError(commandErrorMessage(cause, tRef.current("error.notificationsUnavailable")));
     }
   }, [api]);
 
@@ -1028,7 +1042,7 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
       );
       setError(null);
     } catch (cause: unknown) {
-      setError(commandErrorMessage(cause, "Notification dismiss failed."));
+      setError(commandErrorMessage(cause, t("error.notificationDismiss")));
     }
   };
 
@@ -1036,18 +1050,18 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
     <section className="panel" aria-labelledby="notifications-heading">
       <div className="panel__heading panel__heading--split">
         <div>
-          <p className="eyebrow">Local-first audit trail (ADR-0016)</p>
-          <h2 id="notifications-heading">Notifications</h2>
+          <p className="eyebrow">{t("notifications.eyebrow")}</p>
+          <h2 id="notifications-heading">{t("surface.notifications")}</h2>
         </div>
         <button className="secondary-button" onClick={() => void refresh()} type="button">
-          Refresh
+          {t("common.refresh")}
         </button>
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       {notifications === null ? (
-        <p className="panel__note">Loading notifications…</p>
+        <p className="panel__note">{t("notifications.loading")}</p>
       ) : notifications.length === 0 ? (
-        <p className="panel__note">No notifications yet.</p>
+        <p className="panel__note">{t("notifications.empty")}</p>
       ) : (
         <ul className="notifications-list">
           {notifications.map((notification) => (
@@ -1059,7 +1073,7 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
                     {notification.contentPolicy}
                   </span>
                   {notification.deduplicated && (
-                    <span className="deduplicated-badge">deduplicated</span>
+                    <span className="deduplicated-badge">{t("notifications.deduplicated")}</span>
                   )}
                 </div>
                 {notification.deliveredBody && (
@@ -1074,31 +1088,31 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
                 onClick={() => void dismiss(notification.id)}
                 type="button"
               >
-                Dismiss
+                {t("notifications.dismiss")}
               </button>
             </li>
           ))}
         </ul>
       )}
-      <p className="panel__note">
-        Content follows the notification policy (ADR-0016): only explicit_body notifications
-        carry a body, and every notification is recorded in the local AppData audit trail.
-      </p>
+      <p className="panel__note">{t("notifications.note")}</p>
     </section>
   );
 }
 
 
 function UsagePanel({ api }: { api: DesktopApi }) {
+  const { t } = useI18n();
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const refresh = useCallback(async () => {
     try {
       setSnapshot(await api.getUsageSnapshot({ schemaVersion: 1 }));
       setError(null);
     } catch (cause: unknown) {
-      setError(commandErrorMessage(cause, "Usage snapshot is unavailable."));
+      setError(commandErrorMessage(cause, tRef.current("error.usageUnavailable")));
     }
   }, [api]);
 
@@ -1110,41 +1124,44 @@ function UsagePanel({ api }: { api: DesktopApi }) {
     <section className="panel" aria-labelledby="usage-heading">
       <div className="panel__heading panel__heading--split">
         <div>
-          <p className="eyebrow">Local-first usage ledger (ADR-0016)</p>
-          <h2 id="usage-heading">Usage</h2>
+          <p className="eyebrow">{t("usage.eyebrow")}</p>
+          <h2 id="usage-heading">{t("surface.usage")}</h2>
         </div>
         <button className="secondary-button" onClick={() => void refresh()} type="button">
-          Refresh
+          {t("common.refresh")}
         </button>
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       {snapshot === null ? (
-        <p className="panel__note">Loading usage…</p>
+        <p className="panel__note">{t("usage.loading")}</p>
       ) : (
         <>
           <dl className="definition-grid definition-grid--health">
-            <div><dt>Input tokens</dt><dd>{snapshot.totals.inputTokens}</dd></div>
-            <div><dt>Output tokens</dt><dd>{snapshot.totals.outputTokens}</dd></div>
-            <div><dt>Estimates</dt><dd>{snapshot.totals.estimateCount}</dd></div>
+            <div><dt>{t("usage.inputTokens")}</dt><dd>{snapshot.totals.inputTokens}</dd></div>
+            <div><dt>{t("usage.outputTokens")}</dt><dd>{snapshot.totals.outputTokens}</dd></div>
+            <div><dt>{t("usage.estimates")}</dt><dd>{snapshot.totals.estimateCount}</dd></div>
             {snapshot.totals.cost !== undefined && snapshot.totals.cost !== null && (
-              <div><dt>Cost</dt><dd>{snapshot.totals.cost} {snapshot.totals.currency ?? ""}</dd></div>
+              <div><dt>{t("usage.cost")}</dt><dd>{snapshot.totals.cost} {snapshot.totals.currency ?? ""}</dd></div>
             )}
           </dl>
           {snapshot.records.length === 0 ? (
-            <p className="panel__note">No usage records yet.</p>
+            <p className="panel__note">{t("usage.empty")}</p>
           ) : (
             <ul className="usage-list">
               {snapshot.records.map((record, index) => (
                 <li className="usage-item" key={`${record.recordedAtUnixMs}-${index}`}>
                   <div className="usage-item__row">
                     <strong>{record.source}</strong>
-                    {record.isEstimate && <span className="estimate-badge">estimate</span>}
+                    {record.isEstimate && <span className="estimate-badge">{t("usage.estimate")}</span>}
                   </div>
                   <p className="usage-item__meta">
                     {new Date(record.period.start).toLocaleString()} → {new Date(record.period.end).toLocaleString()}
                   </p>
                   <p className="usage-item__meta">
-                    {record.inputTokens} in · {record.outputTokens} out
+                    {t("usage.inOut", {
+                      input: String(record.inputTokens),
+                      output: String(record.outputTokens),
+                    })}
                     {record.cost !== undefined && record.cost !== null
                       ? ` · ${record.cost} ${record.currency ?? ""}`
                       : ""}
@@ -1153,10 +1170,7 @@ function UsagePanel({ api }: { api: DesktopApi }) {
               ))}
             </ul>
           )}
-          <p className="panel__note">
-            Usage records carry only source, period and token estimates — never terminal output or
-            notification content (AC-USG-001) — and stay on this device (AC-USG-002).
-          </p>
+          <p className="panel__note">{t("usage.note")}</p>
         </>
       )}
     </section>

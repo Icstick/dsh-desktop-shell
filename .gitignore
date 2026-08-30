@@ -19,3 +19,4 @@ target/
 apps/desktop/src-tauri/gen/
 *.log
 *.tsbuildinfo
+scripts/qa/evidence/qa-data/

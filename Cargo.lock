@@ -753,10 +753,26 @@ name = "dsh-browser-provider"
 version = "0.1.0"
 
 [[package]]
+name = "dsh-daemon"
+version = "0.1.0"
+dependencies = [
+ "dsh-browser-provider",
+ "dsh-local-transport",
+ "dsh-managed-runtime",
+ "dsh-supervisor",
+ "dsh-terminal-provider",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "dsh-desktop-shell"
 version = "0.1.0"
 dependencies = [
  "dsh-browser-provider",
+ "dsh-daemon",
+ "dsh-local-transport",
+ "dsh-managed-runtime",
  "dsh-supervisor",
  "dsh-terminal-provider",
  "libc",
@@ -785,6 +801,17 @@ dependencies = [
  "getrandom 0.3.3",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "dsh-managed-runtime"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "url",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

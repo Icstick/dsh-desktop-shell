@@ -4,6 +4,7 @@ mod agent_broker;
 mod attached_health;
 mod browser;
 mod commands;
+mod daemon_client;
 mod diagnostics;
 mod discovery;
 mod dsh_surface;
@@ -21,21 +22,28 @@ pub fn run() {
     // with a registered provider) lands with M5-E2 in the same branch.
     let broker_state = agent_broker::BrokerState::default();
     let broker_inner = broker_state.inner();
-    let browser_state = browser::BrowserState::new(broker_inner.clone());
+    let browser_state = browser::BrowserState::new(broker_inner);
     tauri::Builder::default()
         .manage(broker_state)
-        .manage(managed_runtime::ManagedRuntimeState::default())
+        .manage(daemon_client::DaemonClientState::new())
         .manage(dsh_surface::DshSurfaceState::default())
-        .manage(terminal::TerminalState::new(broker_inner))
         .manage(browser_state)
         .manage(notification::NotificationService::default())
         .manage(usage::UsageService::default())
         .setup(|app| {
+            // M6-C4: the PTY/DSH resources live in the daemon; the Shell
+            // connects in the background (probe -> spawn -> credential ->
+            // envelope) and bridges daemon events onto the frontend events.
+            // The Shell never disconnects the daemon on close (ADR-0008).
             let handle = app.handle().clone();
-            let state = app.state::<terminal::TerminalState>();
-            terminal::start_event_drain(handle.clone(), state.inner().clone());
             let browser_state = app.state::<browser::BrowserState>();
-            browser::start_event_drain(handle, browser_state.inner().clone());
+            browser::start_event_drain(handle.clone(), browser_state.inner().clone());
+            let daemon_state = app.state::<daemon_client::DaemonClientState>();
+            daemon_client::start_background(
+                handle,
+                daemon_state.inner().clone(),
+                daemon_client::StartupOptions::default(),
+            );
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,11 +1,11 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M5 Interop —— 进行中（八切片实现完成，独立评审通过，待 maintainer 验收）
-- Status：M1-M4 已合并 main（main @ 1787edd）；M5 实现完成 + 评审通过，待验收合并
+- Milestone：M6 Daemon —— 实现完成 + 独立评审 2 HIGH 已修复，live QA 25/25，待 maintainer 验收合并
+- Status：M1-M5 已合并 main；M6 分支 codex/wi-m6-daemon（实现 + 两个 transport 真 bug 修复 + QA 脚本）
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
-- Last updated：2026-08-30T06:30:00Z
+- Last updated：2026-08-30T12:00:00Z
 
 ## 当前状态
 
@@ -20,7 +20,7 @@
 ## remaining
 
 - **M4-D**：live desktop QA（GUI 实际操作：开 browser 窗口/导航/关闭、profile 隔离运行时证据、AC-BRW-001 三层闭合复核）→ 独立评审 → maintainer 验收 → 合并 main。
-- 已知 flaky（M2 模块，隔离运行通过）：diagnostics ac_log_001（并行负载下偶发）、local-transport limits（concurrency_limit）、local-transport malformed_handshake_rejected（transport.rs 时序断言）。
+- flaky 根治（M6-E，2026-08-30）：① local-transport concurrency_limit —— Windows RST 竞态（reject_busy 未读 hello 即关闭 → RST 清空 reply），修复为 reject 前先短超时读帧；② local-transport malformed_handshake_rejected —— 计数顺序竞态（rejected_auth 在 reply 后才 +1），修复为所有 stats 计数先于可观察信号（reply/槽位释放）；③ diagnostics ac_log_001 —— C4 重写为 mock fixture 后消除。三个均 20-40 次压力验证 0 失败。
 - M3 remaining：TerminalPanel 前端自动化用例恢复；macOS/Linux target-host 证据；diagnostics 专项 UI。
 - 待跟进（用户 2026-08-29 提及）：DSH 自身偶发崩溃 exit 3221226505（=0xC0000139 STATUS_ENTRYPOINT_NOT_FOUND，与 GUI 测试崩溃同码，疑原生模块依赖系统 DLL 入口点问题）。
 
@@ -30,4 +30,4 @@
 
 ## 下一动作
 
-M4-D 收尾（live desktop QA + 评审 + 验收 + 合并 main）→ M5 Interop 规划。
+M6 验收：maintainer 确认 HANDOFF-M6-DAEMON → squash 合并 codex/wi-m6-daemon 到 main → M7 Stable Candidate 规划（三平台加固、签名/SBOM、MEDIUM 遗留项）。

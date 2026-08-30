@@ -1,0 +1,52 @@
+schema_version: 1
+id: REVIEW-M6-DAEMON
+scope: "M6 Daemon 全量独立评审（评审基线 main..codex/wi-m6-daemon，17 commits @ 1d1653bb）：ADR-0019 六决策对齐、安全（local-transport 两处修复/凭证生命周期/envelope 校验/Shell fail-closed/ACL 35）、正确性（daemon_client worker 模型/启动编排/错误映射/verified_surface_binding 重新物化/SessionRegistry::attach）、并发（PeekNamedPipe 死锁修复/EventRouter 事件路由）、测试质量（新增测试契约覆盖/live QA 22 项/TODO 降级点）、tracking 一致性。"
+status: failed
+reviewers:
+  - codex-reviewer-independent-6
+checks:
+  - id: adr-alignment
+    status: failed
+    evidence: "claim 端口 37771（singleton.rs CLAIM_PORT 持有+探活）✅；凭证文件一次性（credential.rs 原子写+local-transport AC-IPC-001 消耗）✅ 但无重新签发 → 决策 3 handover「Shell 重建 UI/资源接管」不可达（HIGH-1）；envelope 协商（Hello→Agreement→broker grant，server.rs handle_hello）✅；browser Plan A（渲染在 Shell/状态权威在 daemon）⚠️ 部分（create/close/list 在 daemon，navigate/URL 状态不上报，browser.rs TODO(M6-C4)）；Shell 关闭不断开 daemon ✅（lib.rs 无退出钩子杀 daemon，QA B3 实证）；事件桥命名与 payload 保持 ✅（daemon_event_target 原样转发 terminal://output / browser://event）。偏差：ADR 决策 4 的 Windows named mutex 未实现（实现=claim 端口+lockfile，代码注释称 M6-D 补 mutex，但 M6-D 已交付仍无 mutex，ADR 未修订）；ADR 决策 5「固定 loopback 端口」为动态端口（server.rs TODO(M6-C)）；决策 3 broker lease 断开撤销缺失（server.rs:270 TODO(M6-C)）。"
+  - id: security-semantics
+    status: warn
+    evidence: "reject_busy 修复（ff5bc27：reject 前 200ms 有界读帧防 RST）与计数顺序修复（47fa911：reply/槽位释放前先计数）经 transport 28 测试+双 40/40 压力验证，未引入新问题（理论边角：stats mutex 中毒时 panic 会跳过 limiter.release 槽位泄漏，仅先有 panic 才可能）。凭证生命周期：一次性+原子写 ✅；%APPDATA% 默认 ACL 同用户可读（威胁模型内）。envelope 校验 deny_unknown_fields+id 防重放+Result oneOf ✅。Shell fail-closed（无 daemon → UNAVAILABLE）✅。ACL 35 复跑通过。⚠️ broker-relaxed 授权旁路（server.rs handle_invocation generation==0 跳过 enforce_dispatch；handle_hello Conflict 时 Agreement 仍授予）：首个持 grant 参与者之外的同 credential 参与者可绕过 broker 门禁直接调用 terminal/browser/runtime 能力——含 agent_automation 参与方（terminal_integration 有测试固化此语义，M6-C1 明确决策，但弱化 ADR-0014「所有 agent action 先经 broker」）。"
+  - id: correctness
+    status: warn
+    evidence: "daemon_client worker 模型：Result 按 replyTo/correlationId 关联（pending map）✅、事件有界队列 512 溢出丢弃 ✅、60s INVOKE_TIMEOUT ✅、send 失败合成 closed_result ✅；命令队列无界（LOW）。启动编排（探测→spawn→凭证≤10s→连接→2s 重试）在首次连接成功路径 ✅；但重试循环用已消耗 token 永远重试（HIGH-1，实证：首连 accepted:true、二次同 token accepted:false reason:replay）。错误映射 DaemonCommandError→前端命令错误三模块（terminal/browser/managed_runtime from_daemon）✅。verified_surface_binding 重新物化（daemon runtime.status → Shell 重建）✅ 但 bootstrap token 不再可得（report 无 URL 字段），Shell 侧 binding URL=裸 origin（MEDIUM-3，真实 DSH 行为未验证）。SessionRegistry::attach 语义（幂等拒绝重复/非法 id 拒绝/无事件）✅ + 3 测试。"
+  - id: concurrency
+    status: pass
+    evidence: "PeekNamedPipe 死锁修复（3b71401）：stop 标志→关写端→TerminateProcess→ClosePseudoConsole→join reader→关读端，顺序正确；回归测试 close_with_no_pending_output_does_not_deadlock 在旧顺序会挂（channel 超时兜底）✅。LOW：5ms 轮询每会话 ~200 wakeups/s（可接受）。EventRouter：会话单订阅者、有界队列 256 丢弃、unsubscribe owner-scoped、连接断开后会话存活且事件停止（订阅随连接销毁）✅；但新连接无重新订阅路径（terminal/browser 会话 owner 绑定死连接 → 重启后 write/close 恒 NOT_PROCESS_OWNER，属 HIGH-1 同根）。"
+  - id: test-quality
+    status: fail
+    evidence: "新增测试覆盖协议行为扎实：daemon 105（lib 69 + 集成 36：daemon_integration 5/browser 10/runtime 4/scheduler_wake 7/split_brain 5/terminal 5）+ transport 28 全绿（复跑 exit 0）；split_brain 真进程双实例（退出码 3/4、陈旧锁接管、外部进程占端口）；live QA 22/22（复跑 PASS，A1-A18 直连全流程 + B1-B4）。⚠️ 关键缺失：无任何「Shell 重启→重连存活 daemon」契约测试（全部测试 spawn 新 daemon），重启重连路径是 M6 核心退出标准却零覆盖；QA B4「Shell restart」只断言 Shell 进程存活（重启后 Shell 实际卡在握手重试，进程照样活着）——假阳性检查；真实 DSH 的 dsh-surface token-less binding 路径无自动化覆盖。已知降级点均留 TODO：server.rs ×2（lease 撤销/固定端口）、browser.rs ×2（navigate 状态上报）、daemon_client.rs 模块文档（凭证重签）。"
+  - id: tracking-consistency
+    status: fail
+    evidence: "HANDOFF-M6-DAEMON.yaml 诚实列出剩余项（含凭证重签缺口）✅；WI-M6-DAEMON evidence 充实但 status 仍 in_progress（实现+QA 已完成进入评审，按 AGENTS.md 应为 review；任务标准：非 done/verified 计 fail）；M6.yaml milestone status 仍 proposed（滞后）；CURRENT.md「下一动作」仍为 M4-D→M5（滞后）；WI-M6-I18N status done ✅ 但含重复 YAML 键（handoff/updated_at 双块，后键覆盖先键致 updated_at 回退）；IF-SCHEDULE-WAKE verified ✅、IF-TERMINAL/IF-BROWSER 分支上未改（updated_at 时间戳早于分支末提交，疑时区混用，LOW）；PLAN-M6.md 无切片状态标注（规划文档，未更新完成标记）。"
+findings:
+  - "HIGH 凭证一次性 + 无重新签发 → Shell 重启永远无法重连存活 daemon（crates/daemon/src/main.rs:112 仅启动时 issue_credential 一次并写文件；crates/local-transport/src/server.rs authenticate() 首次握手消耗；apps/desktop/src-tauri/src/daemon_client.rs start_background 用同一已消耗 token 每 2s 重试）——M6 核心退出标准「Shell restart 不影响 DSH/PTY 资源存活」不成立：资源存活但不可达不可控（terminal/browser 会话 owner 绑定死连接，write/close 恒 NOT_PROCESS_OWNER；事件订阅随连接销毁无重订路径）。实证：daemon 起→首连 accepted:true→二次同 token accepted:false(reason:replay)。daemon_client.rs 模块文档声称「Shell restart re-reads the file the daemon re-issued」与实现不符。QA B4 只验 Shell 进程存活，未验重连。修复：daemon 在每次连接断开（或凭证被消耗）后重新 issue 一次性 credential 并原子重写 daemon-credential.json；Shell 侧对 Replay 错误重读文件重试；补「Shell 重启重连存活 daemon」集成测试与 QA B4 真实断言语义。"
+  - "HIGH broker-relaxed 授权旁路（crates/daemon/src/server.rs handle_hello Conflict 分支 + handle_invocation generation==0 跳过 enforce_dispatch）：首个持 grant 参与方之外，任何持 credential 的参与方（含 agent_automation 代理）协商冲突后 Agreement 仍授予能力且 broker 门禁被跳过——弱化 ADR-0014「所有 Agent native action 先经过 broker」与 M5 授权链（grant/lease/scope）对非首个参与方的约束；terminal_integration.rs 测试固化此语义为「M6-C1 决策」。修复建议（三选一）：① credential-only 路径仅对 Shell 参与方身份（component=dsh-desktop-shell/facet=shell）开放，其他参与方必须 broker-backed；② Conflict 时将该能力列入 unavailable(PolicyDenied) 而非授予；③ 为 broker-relaxed activation 增加显式 human-surface 标记并拒绝 agent_automation 模式请求。"
+  - "MEDIUM ADR-0019 决策 4 实现偏离：决策文本要求 Windows named mutex（dev.dsh.desktop-shell.daemon）+ 端口双重检测；实现为 claim 端口 37771 + daemon.lock 文件（singleton.rs），代码注释称「named-mutex variant 是 M6-D」但 M6-D 已交付仍未实现，ADR 未修订。功能等效（lockfile 陈旧恢复+端口权威）且测试充分（split_brain 5 tests），但按 AGENTS.md「原因真源在 ADR」需修订 ADR 或补 mutex。"
+  - "MEDIUM browser Plan A 部分实现（ADR-0019 决策 2：URL/binding 状态权威在 daemon）：daemon 仅持有 create/close/list（browser.rs），navigate/snapshot 仍 Shell 本地且不上报（browser.rs:614/692 TODO(M6-C4)）；Shell 重启后 daemon 的 currentUrl 恒 null、与渲染真实状态漂移。修复：M6 内补 browser.navigate 上报方法或明示降级范围。"
+  - "MEDIUM dsh-surface binding 丢失 bootstrap token（apps/desktop/src-tauri/src/managed_runtime.rs verified_surface_binding + daemon runtime report 无 URL 字段）：Shell 重建的 binding URL=裸 origin（http://127.0.0.1:port），M1-M5 私密 bootstrap URL 不再可得；dsh_surface navigate 该 URL 后真实 DSH 的鉴权行为未验证（无真实 DSH 自动化覆盖）。建议 M7 前用真实 DSH 验证或经 daemon 增加已验证 URL 透传（token 不出 supervisor 的前提下）。"
+  - "LOW SessionState.seen_ids 无界增长（crates/daemon/src/server.rs SessionState）：每连接每消息 id 永久留存，对抗性同用户客户端可无限流帧增长内存（id 8..128 字符）。建议上限（如 10k 后滚动淘汰）。"
+  - "LOW daemon_client 命令队列无界（apps/desktop/src-tauri/src/daemon_client.rs worker_loop commands 通道）：daemon 卡顿时 UI 可无限入队；调用侧有 60s recv_timeout 兜底。建议有界+溢出即错。"
+  - "LOW terminal-provider 5ms PeekNamedPipe 轮询（crates/terminal-provider/src/lib.rs spawn_output_reader）：每会话 ~200 wakeups/s 空闲轮询；可接受但多会话时放大。可选 WaitForSingleObject(pipe, 50ms) 或加长 tick。"
+  - "LOW tracking 滞后：M6.yaml status proposed、WI-M6-DAEMON in_progress（应 review）、CURRENT.md 下一动作陈旧、WI-M6-I18N 重复 YAML 键、IF-TERMINAL/IF-BROWSER updated_at 时区疑混用。"
+  - "LOW 计数修复理论边角（crates/local-transport/src/server.rs connection_worker）：stats mutex 中毒时 panic 跳过 limiter.release → 槽位泄漏（需先有 panic 才触发；可 release 前不 panic 化）。"
+evidence:
+  - "git main..codex/wi-m6-daemon @ 1d1653bb（17 commits，66 files，+15655/-3505）"
+  - "ADR-0019（6 决策）+ PLAN-M6（A-F 六切片）+ tracking/HANDOFF-M6-DAEMON.yaml（诚实 remaining/risks）"
+  - "crates/daemon（lib 69 tests + 集成 36 = 105）+ crates/local-transport（28 tests）：本评审复跑 cargo test -p dsh-daemon -p dsh-local-transport 全绿（exit 0）"
+  - "live QA 复跑 scripts/qa/live-daemon-qa.mjs：22/22 PASS（evidence: scripts/qa/evidence/live-daemon-qa/results.json）"
+  - "ACL 复跑：apps/desktop node scripts/validate-acl.mjs → 35 commands passed，trusted Shell webview only"
+  - "重启重连实证探针：首连 accepted:true；断开后同 token 二次握手 accepted:false reason:replay（模拟 Shell 重启对存活 daemon）"
+  - "HANDOFF-M6-DAEMON remaining/risks 与实现交叉核对（凭证重签、无自动重连、browser 状态上报、lease 撤销、动态端口均一致）"
+next_action: "修复 HIGH-1（daemon 凭证重新签发+Shell Replay 重读文件+重启重连契约测试+QA B4 断言真实重连）与 HIGH-2（broker-relaxed 路径收窄至 Shell 身份或 Conflict 即拒绝）→ 处理 MEDIUM（ADR 决策 4/2 修订或补实现、DSH surface token 验证）→ tracking 收尾（M6.yaml/WI 状态/CURRENT）→ maintainer 重新验收 → squash 合并 main。"
+created_at: "2026-08-30T12:30:00Z"
+updated_at: "2026-08-30T12:30:00Z"
+fixes_applied:
+  - "HIGH-1（commit 79eddbd）：daemon serve_connection 断开后重新签发一次性凭证并原子重写 daemon-credential.json（reissue_credential_file，credential_dir = catalog parent）；Shell 的 connect_shell 每次重试都重读文件（既有行为），断开重连闭环。回归：disconnect_reissues_bootstrap_credential（新文件 + fresh token 握手成功 + 旧 token replay/invalid 拒绝）、daemon_client reconnect_reads_reissued_credential_after_disconnect、live QA B4/B5/B6/B7（重签 → 新凭证直连 invoke → Shell 重启真实重连，stderr connected 证据），QA 25/25。"
+  - "HIGH-2（commit 79eddbd）：handle_hello Conflict 分支收窄——仅 Shell 身份（dsh-desktop-shell/shell）保留 broker-relaxed 协议级授予，其他参与方 fail-closed（granted 清空 + PolicyDenied）；handle_invocation 增加 generation==0 非 Shell 防御拒绝。回归：non_shell_conflict_stays_fail_closed（非 Shell 全部方法 Unauthorized + Shell 身份仍 relaxed）；browser/terminal 集成测试更新为单 owner + Shell-only 模型（browser 测试 3 改为重连 NOT_PROCESS_OWNER 真实语义）。"
+  - "MEDIUM-1 ADR 决策 4 named mutex 未实现：功能等效（claim 端口 + lockfile），ADR 修订项留 M7（见 HANDOFF remaining）。"
+  - "tracking 收尾：M6.yaml/WI-M6-DAEMON/CURRENT.md 已同步（见 tracking 提交）。"

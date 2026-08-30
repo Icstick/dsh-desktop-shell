@@ -251,6 +251,9 @@ struct Session {
     read_handle: Option<RawHandle>,
     write_handle: Option<RawHandle>,
     reader: Option<JoinHandle<()>>,
+    /// Set by terminate() so the polling reader loop exits promptly; the
+    /// reader never blocks indefinitely on ReadFile (see spawn_output_reader).
+    reader_stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Drop for Session {
@@ -261,14 +264,15 @@ impl Drop for Session {
 
 impl Session {
     fn terminate(&mut self) {
-        // Order matters for teardown liveness: close the reader's pipe end
-        // FIRST so a blocked ReadFile unblocks with an error, then tear the
-        // console/child down, then join the reader (which must now exit).
-        if let Some(handle) = self.read_handle.take() {
-            unsafe {
-                let _ = CloseHandle(handle.0);
-            }
-        }
+        // Teardown order (M6-C1 deadlock finding): the reader polls with
+        // PeekNamedPipe and never blocks indefinitely on ReadFile, so
+        // stopping it is just a flag. Sequence: signal stop -> close the
+        // child's stdin write end -> kill the child (bounded backstop) ->
+        // join the reader (exits within one poll tick) -> close the read
+        // handle (no pending I/O, CloseHandle cannot block) -> close the
+        // pseudo console.
+        self.reader_stop
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         if let Some(handle) = self.write_handle.take() {
             unsafe {
                 let _ = CloseHandle(handle.0);
@@ -277,18 +281,21 @@ impl Session {
         if !self.closed {
             self.closed = true;
             unsafe {
-                // ClosePseudoConsole makes ConPTY send CTRL_CLOSE to the
-                // attached child; TerminateProcess is the bounded backstop.
-                ClosePseudoConsole(self.pseudo_console.0 as isize);
                 if !self.process.is_null() {
                     let _ =
                         windows_sys::Win32::System::Threading::TerminateProcess(self.process.0, 1);
                     let _ = CloseHandle(self.process.0);
                 }
+                ClosePseudoConsole(self.pseudo_console.0 as isize);
             }
         }
         if let Some(reader) = self.reader.take() {
             let _ = reader.join();
+        }
+        if let Some(handle) = self.read_handle.take() {
+            unsafe {
+                let _ = CloseHandle(handle.0);
+            }
         }
     }
 
@@ -407,6 +414,7 @@ fn spawn_output_reader(
     handle: usize,
     event_tx: std::sync::mpsc::SyncSender<OutputEvent>,
     started_at_unix_ms: u64,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> JoinHandle<()> {
     // HANDLE is a raw pointer; carrying it as usize keeps the closure
     // Send (the handle stays valid for the session lifetime).
@@ -414,6 +422,33 @@ fn spawn_output_reader(
         let mut buffer = [0u8; 4096];
         let mut seq = 0u64;
         loop {
+            if stop.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
+            }
+            // Poll instead of blocking on ReadFile: a synchronous ReadFile
+            // with no data in flight cannot be cancelled, and CloseHandle on
+            // a handle with pending I/O blocks indefinitely (M6-C1
+            // deadlock). PeekNamedPipe tells us whether a ReadFile would
+            // return immediately.
+            let mut available = 0u32;
+            let peek_ok = unsafe {
+                windows_sys::Win32::System::Pipes::PeekNamedPipe(
+                    handle as *mut core::ffi::c_void,
+                    std::ptr::null_mut(),
+                    0,
+                    std::ptr::null_mut(),
+                    &mut available,
+                    std::ptr::null_mut(),
+                )
+            };
+            if peek_ok == 0 {
+                // Pipe error / broken: the session is being torn down.
+                break;
+            }
+            if available == 0 {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+                continue;
+            }
             let mut read = 0u32;
             let result = unsafe {
                 ReadFile(
@@ -559,7 +594,14 @@ fn spawn_conpty(
             return Err(PtyError::SpawnUnavailable);
         }
 
-        let reader = spawn_output_reader(id.to_string(), output_read as usize, event_tx, unix_ms());
+        let reader_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let reader = spawn_output_reader(
+            id.to_string(),
+            output_read as usize,
+            event_tx,
+            unix_ms(),
+            reader_stop.clone(),
+        );
 
         Ok(Session {
             id: id.to_string(),
@@ -574,12 +616,34 @@ fn spawn_conpty(
             read_handle: Some(RawHandle(output_read)),
             write_handle: Some(RawHandle(input_write)),
             reader: Some(reader),
+            reader_stop,
         })
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression (M6-C1): closing a session with no output in flight used
+    /// to deadlock — CloseHandle on the read pipe blocked on the reader's
+    /// pending ReadFile. Terminate now closes the child stdin first, joins
+    /// the reader, then closes the read handle. This test fails (hangs)
+    /// on the old order; the channel timeout bounds it.
+    #[test]
+    fn close_with_no_pending_output_does_not_deadlock() {
+        let registry = PtyRegistry::new();
+        let report = registry.create(None, 80, 24, None).expect("create pty");
+        let id = report.session_id.clone();
+        let (tx, rx) = std::sync::mpsc::channel::<Result<(), PtyError>>();
+        std::thread::spawn(move || {
+            let _ = tx.send(registry.close(&id));
+        });
+        match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => panic!("close returned error: {e}"),
+            Err(_) => panic!("close deadlocked (did not return within 5s)"),
+        }
+    }
 
     #[test]
     fn geometry_bounds_are_enforced() {

@@ -1,0 +1,127 @@
+[
+  {
+    "name": "A1 claim port 37771 reachable",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A2 credential file written",
+    "ok": true,
+    "detail": "pid=34900 port=4750"
+  },
+  {
+    "name": "A3 credential schema v1 + pid match",
+    "ok": true,
+    "detail": "schema=1 pid=34900/34900"
+  },
+  {
+    "name": "A4 envelope handshake (one-time credential)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A5 negotiation grants six capabilities",
+    "ok": true,
+    "detail": "Browser,Daemon,Runtime,Scheduler,System,Terminal"
+  },
+  {
+    "name": "A6 credential one-time (replay rejected)",
+    "ok": true,
+    "detail": "handshake rejected: {\"accepted\":false,\"reason\":\"replay\"}"
+  },
+  {
+    "name": "A7 system.ping",
+    "ok": true,
+    "detail": "{\"echo\":{},\"pong\":true}"
+  },
+  {
+    "name": "A8 daemon.status",
+    "ok": true,
+    "detail": "{\"activations\":1,\"claimPort\":37771,\"connections\":1,\"credentialsIssued\":1,\"daemon"
+  },
+  {
+    "name": "A9 terminal.status empty view",
+    "ok": true,
+    "detail": "{\"count\":0,\"sessions\":[]}"
+  },
+  {
+    "name": "A10 terminal.create real PTY",
+    "ok": true,
+    "detail": "session=pty-1788087974928-1"
+  },
+  {
+    "name": "A11 terminal.status contains session",
+    "ok": true,
+    "detail": "count=1"
+  },
+  {
+    "name": "A12 terminal.output event bridge",
+    "ok": true,
+    "detail": "{\"data\":\"echo LIVE_QA_OK\\r\\n\",\"schemaVersion\":1,\"seq\":4,\"sessionId\":\"pty-1788087974928-1\",\"timestamp"
+  },
+  {
+    "name": "A13 terminal.close",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A14 browser.create",
+    "ok": true,
+    "detail": "session=brw-1788087975164-1"
+  },
+  {
+    "name": "A15 browser.list contains session",
+    "ok": true,
+    "detail": "{\"browsers\":[{\"createdAtUnixMs\":1788087975164,\"currentUrl\":null,\"error\":null,\"lastActivityUnixMs\":null,\"mode\":\"human_sur"
+  },
+  {
+    "name": "A16 browser.session-closed event",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A17 runtime.status unknown env UNAVAILABLE",
+    "ok": true,
+    "detail": "{\"code\":\"UNAVAILABLE\",\"message\":\"environment \\\"no-such-env\\\" is not in the catalog; save it from the Shell first\",\"retry"
+  },
+  {
+    "name": "A18 scheduler.wake",
+    "ok": true,
+    "detail": "{\"pending\":1,\"repeat\":null,\"scheduledFor\":\"2026-08-30T11:06:15.911Z\",\"wakeId\":\"qa-wake-1\"}"
+  },
+  {
+    "name": "B1 daemon alive after Shell start",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B2 Shell process alive",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B3 daemon survives Shell close (M6 core semantics)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B4 daemon re-issues credential after disconnect",
+    "ok": true,
+    "detail": "new token: lt_3077f9ab2"
+  },
+  {
+    "name": "B5 re-attach with reissued credential (handshake+invoke)",
+    "ok": true,
+    "detail": "granted=6"
+  },
+  {
+    "name": "B6 Shell restart reconnects to surviving daemon",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B7 Shell process alive after restart",
+    "ok": true,
+    "detail": ""
+  }
+]

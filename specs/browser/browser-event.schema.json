@@ -22,7 +22,8 @@
       "enum": [
         "navigation_changed",
         "load_failed",
-        "closed"
+        "closed",
+        "created"
       ]
     },
     "occurredAtUnixMs": {

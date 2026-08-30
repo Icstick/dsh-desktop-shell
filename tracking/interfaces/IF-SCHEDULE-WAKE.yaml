@@ -4,10 +4,11 @@ name: "ScheduleWake"
 owner_module: MOD-SUPERVISOR
 api_version: "scheduler.dsh-desktop.local/v1alpha1"
 status: verified
-implementation_status: not_authorized
-test_status: planned
+implementation_status: implemented
+test_status: passed
 security_review: required
 spec: "specs/protocol/schedule-wake-capability.schema.json"
 operations:
   - "wake"
-updated_at: "2026-08-25T09:14:05Z"
+  - "cancel"
+updated_at: "2026-08-31T09:30:00Z"

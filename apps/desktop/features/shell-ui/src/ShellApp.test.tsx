@@ -1,14 +1,19 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DshEnvironment } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
+import { I18nProvider } from "../../../src/i18n";
 import { ShellApp } from "./ShellApp";
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => undefined),
 }));
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
 
 function createApi(): DesktopApi {
   return {
@@ -1078,6 +1083,42 @@ describe("ShellApp", () => {
     expect(await screen.findByRole("heading", { name: "Browser" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Browser URL" })).toBeInTheDocument();
     expect(api.listBrowsers).toHaveBeenCalled();
+  });
+});
+
+describe("language switching", () => {
+  it("switches the rail copy to English and persists the choice", async () => {
+    const api = createApi();
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <ShellApp api={api} />
+      </I18nProvider>,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Language" });
+    expect(select).toHaveValue("zh");
+    expect(screen.getByTitle("Timer（M3）")).toBeInTheDocument();
+
+    await user.selectOptions(select, "en");
+
+    expect(select).toHaveValue("en");
+    expect(screen.getByTitle("Timer (M3)")).toBeInTheDocument();
+    expect(screen.queryByTitle("Timer（M3）")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("dsh-lang")).toBe("en");
+  });
+
+  it("restores a persisted language on mount", async () => {
+    window.localStorage.setItem("dsh-lang", "en");
+    const api = createApi();
+    render(
+      <I18nProvider>
+        <ShellApp api={api} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Language" })).toHaveValue("en");
+    expect(await screen.findByTitle("Timer (M3)")).toBeInTheDocument();
   });
 });
 

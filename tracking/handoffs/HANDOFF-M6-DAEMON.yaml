@@ -1,0 +1,44 @@
+schema_version: 1
+id: HANDOFF-M6-DAEMON
+work_item: WI-M6-DAEMON
+from: dsh-agent-primary
+to: maintainer
+status: proposed
+completed:
+  - "M6-A 架构冻结：ADR-0019（6 决策：独立 daemon bin、claim 端口 37771 + lockfile 单实例、资源迁移、split-brain 语义、凭证文件、browser Plan A——渲染在 Shell WebView2、状态权威在 daemon）+ PLAN-M6 五切片 + Plan A 记录。"
+  - "M6-B daemon 骨架：crates/daemon（main/credential/singleton/server/capabilities），claim 端口 + lockfile + exit codes 3/4，envelope 服务端（broker 驱动授权），system.ping/daemon.status。"
+  - "M6-C1 terminal 迁移：daemon 持有真实 PTY（TerminalHost + EventRouter 事件订阅/路由），terminal.create/write/resize/close/status；terminal-provider 死锁修复（PeekNamedPipe 轮询 reader，停止标志 → 关写端 → TerminateProcess → join reader → 关读端 → ClosePseudoConsole）+ 回归测试。"
+  - "M6-C2 runtime 迁移：managed-runtime crate 从 desktop 提取（tauri 解耦，25 tests），daemon 持有 DSH 进程树（catalog 环境），runtime.start/status/stop/restart。"
+  - "M6-C3 browser 状态迁移：daemon BrowserHost（SessionRegistry 状态权威），browser.create/list/status/close + session-created/closed 生命周期事件；navigate/snapshot/interact/take_over 保持 Shell 本地（M6-C3 决策）。"
+  - "M6-C4 Shell 接线：daemon_client.rs（DaemonConnector trait + 真实 DaemonClient envelope 客户端 + 启动编排探测 37771→spawn→凭证文件≤10s→RFC3339→connect→事件桥），terminal/runtime 全量 proxy + browser create/list/close proxy，前端零改动；SessionRegistry::attach + VerifiedSurfaceBinding::new 跨 crate 使能。"
+  - "M6-D scheduler wake + split-brain：TimerHost（14 tests）+ wake/cancel 能力 + 双 daemon 争用测试。"
+  - "M6-F i18n：中英文切换（123 keys × 2 locales，localStorage 持久化，56 vitest）。"
+  - "M6-E flaky 根治：① local-transport concurrency_limit —— Windows RST 竞态（reject_busy 未读 hello 即 close → RST 清空 reply），修复 reject 前短超时读帧（30/30 压力）；② malformed_handshake_rejected —— stats 计数顺序竞态（reply/槽位释放前先计数，40/40）；③ diagnostics ac_log_001 —— C4 mock 重写消除（20 轮 0 失败）。"
+  - "live QA scripts/qa/live-daemon-qa.mjs 22/22：A 直连 18 项（claim/凭证/握手/协商/一次性凭证/PTY 全流程/事件桥/browser 生命周期/runtime UNAVAILABLE/scheduler wake）+ B Shell 端到端 4 项（spawn 存活/Shell 关闭 daemon 存活——M6 核心语义/重启存活）。"
+  - "独立评审 REVIEW-M6-DAEMON：2 个 HIGH 已修复并验证（79eddbd）——HIGH-1 凭证重签闭环（daemon 断开重签 + Shell 重读文件 + 真实重连测试 + QA B4-B7）；HIGH-2 broker-relaxed 收窄为 Shell-only（非 Shell Conflict 即 fail-closed，含防御 gate）。评审记录已追加 fixes_applied。"
+remaining:
+  - "MEDIUM-1：ADR-0019 决策 4 named mutex 未实现（claim 端口 + lockfile 功能等效），ADR 修订或补 mutex 留 M7。"
+  - "MEDIUM-2：browser navigate/URL 状态上报 daemon（browser.rs TODO(M6-C4)）；重启后 currentUrl 恒 null。"
+  - "MEDIUM-3：dsh-surface binding 丢失 bootstrap token（裸 origin），真实 DSH 鉴权验证留 M7。"
+  - "browser navigate/snapshot/interact/take_over 仍本地执行，状态上报 daemon 留 TODO(M6-C4)。"
+  - "连接单次建立：daemon 中途死亡不自动重连，命令 fail-closed UNAVAILABLE（M6 范围决策）。"
+  - "browser navigate/snapshot/interact/take_over 仍本地执行，状态上报 daemon 留 TODO(M6-C4)（daemon 无 navigate 方法）。"
+  - "runtime 错误反向映射有损（daemon 侧 envelope code → Shell ManagedRuntimeError 部分区分度丢失）。"
+  - "browser.close 双 closed 事件（daemon 事件桥 + 本地 registry drain），前端幂等处理。"
+  - "连接断开时 broker lease 撤销（LeaseRevocationReason::Disconnect）—— TODO(M6-C)。"
+  - "envelope 固定端口绑定（动态端口走凭证文件）—— TODO(M6-C)。"
+  - "真实中文文案填充 i18n zh 列（机制就绪，当前 zh=英文文本）。"
+  - "interact GUI 运行时路径（真实 WebView2 ExecuteScript）自动化覆盖：live QA 补充。"
+verification:
+  - "cargo test --workspace -- --test-threads=1 全绿（daemon 105 + managed-runtime 25 + desktop 122 + local-transport/terminal-provider/supervisor 全绿）"
+  - "fmt --all --check + clippy --workspace --all-targets -D warnings 干净"
+  - "vitest 56/56（i18n 11 + BrowserPanel 13 + ShellApp 24 + 其余）；validate-specs 61 schemas / 124 fixtures ALL PASS；validate-acl 35"
+  - "live QA 25/25（evidence: scripts/qa/evidence/live-daemon-qa/results.json）：A1-A18 + B1-B7（B4 重签/B5 新凭证直连/B6 Shell 重启真实重连/B7 重启存活）"
+  - "flaky 压力验证：reject_busy 30/30、malformed 40/40、diagnostics 20 轮 0 失败"
+risks:
+  - "凭证重签的边角：多客户端并发断开时每次重签覆盖文件（引导语义，最后一次生效）；Shell 崩溃立即重启且 daemon 尚未感知断开时首次重试可能读到旧 token（重试循环吸收）。"
+  - "daemon 成为 desktop 依赖（wire 类型/常量/credential 解析 + 集成测试），desktop 二进制带 daemon 库代码；无循环依赖。"
+  - "Windows 平台专有：PeekNamedPipe/CreateProcess/claim 端口行为未在非 Windows 验证（M7 三平台加固范围）。"
+  - "dsh-std rc 漂移（M5 遗留）：M6 未再评估稳定性，M7 处理。"
+next_action: "maintainer 验收（HIGH 已修复、门禁全绿、QA 25/25）→ squash 合并 codex/wi-m6-daemon 到 main → M7 Stable Candidate 规划（三平台加固、签名/SBOM、MEDIUM-1/2/3、browser 状态上报、handover 接管）。"
+created_at: "2026-08-30T12:00:00Z"
