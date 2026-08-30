@@ -30,7 +30,10 @@
       ]
     },
     "mode": {
-      "const": "human_surface"
+      "enum": [
+        "human_surface",
+        "agent_automation"
+      ]
     },
     "cols": {
       "type": "integer",

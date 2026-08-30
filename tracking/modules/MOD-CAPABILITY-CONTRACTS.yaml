@@ -11,5 +11,5 @@ interfaces:
   - IF-LEASE
 depends_on: []
 security_review: required
-updated_at: "2026-08-28T16:45:00Z"
+updated_at: "2026-08-30T04:00:00Z"
 next_action: "P0 enforcement 已由 crates/supervisor broker（ADR-0014）落地；wire shape 校验（contract 层）留待 adapter/M5。"

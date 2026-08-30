@@ -1,0 +1,23 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-e2r4r6o8r0d9e7f5g3",
+  "kind": "Result",
+  "participant": {
+    "component": "terminal-dsh-desktop-local",
+    "facet": "pty-4f2k9d8a"
+  },
+  "timestamp": "2026-08-31T09:30:02.200Z",
+  "generation": 1,
+  "replyTo": "msg-i4n3v2o1c9a8t7i6o5",
+  "capability": {
+    "apiVersion": "terminal.dsh-desktop.local/v1alpha1",
+    "kind": "Terminal"
+  },
+  "method": "write",
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "participant holds no lease for terminal session pty-4f2k9d8a",
+    "retryable": false,
+    "correlationId": "msg-i4n3v2o1c9a8t7i6o5"
+  }
+}

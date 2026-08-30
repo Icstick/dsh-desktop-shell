@@ -27,7 +27,7 @@
       "minLength": 1
     },
     "capability": {
-      "$ref": "protocol-coordinate.schema.json"
+      "$ref": "./protocol-coordinate.schema.json"
     },
     "owner": {
       "type": "string",

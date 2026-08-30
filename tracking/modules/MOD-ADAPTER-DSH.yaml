@@ -1,9 +1,10 @@
 schema_version: 1
 id: MOD-ADAPTER-DSH
 name: "adapter-dsh"
-path: "packages/adapter-dsh"
+path: "crates/adapter-dsh"
+path_note: "2026-08-30 M5-C: 实现路径迁至 crates/adapter-dsh（Rust crate，workspace member）；packages/adapter-dsh 保留为文档壳。模块登记以追踪为准，实际路径以实现为准（task 指令记录变更）。"
 owner_role: interop-owner
-status: proposed
+status: in_progress
 milestone: M2
 interfaces:
   - IF-NEGOTIATION
@@ -11,5 +12,5 @@ interfaces:
 depends_on:
   - MOD-CAPABILITY-CONTRACTS
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-30T12:00:00Z"
 next_action: "在所属 milestone 开始前完成 module contract review。"

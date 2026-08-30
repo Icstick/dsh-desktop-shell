@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M5-INTEROP
 title: "Deliver optional dsh-std adapter"
-status: proposed
+status: done
 milestone: M5
 module: MOD-ADAPTER-DSH-STD
 owner_role: milestone-owner
@@ -13,10 +13,22 @@ dependencies:
   - WI-M2-RUNTIME
 acceptance_criteria:
   - "Absent/known/unknown conformance matrix passes"
+  - "Legacy 与 dsh-std adapter 共存并可降级（additive）"
+  - "agent_automation 授权链（terminal AC-TERM-001 / browser interact+take_over AC-BRW-002）"
 security_impact: "Protocol boundary"
 compatibility_impact: "High spec churn"
-evidence: []
+evidence:
+  - "docs/decisions/ADR-0018-adapter-architecture.md（7 决策）"
+  - "specs/protocol/fixtures/（22 envelope fixtures，59/91 ALL PASS）"
+  - "packages/capability-contracts（118 vitest：envelope 校验/协商状态机/跨消息语义/lease 映射，fixtures 交叉验证防漂移）"
+  - "docs/research/EXTERNAL_BASELINE.md（dsh-std 3df0543 + core rc.1 双锁）"
+  - "crates/adapter-dsh（62 tests：$events 消费/notification 映射/usage 聚合，fake-DSH 套件，tungstenite 0.30）"
+  - "crates/adapter-dsh-std（61 tests：conformance 三态矩阵/negotiation/degrade，KNOWN 坐标 core rc.1 + 3df0543 + SRI）"
+  - "crates/external-api-example（26 tests：统一外源 API 参考闭环，授权三规则）"
+  - "crates/supervisor broker/agent.rs（授权桥：negotiation→grant/lease→dispatch，10 tests）"
+  - "apps/desktop terminal.rs（agent_automation 14 tests）+ browser.rs（interact/take_over 12 tests）+ specs/browser 2 schemas + 22 fixtures"
+  - "M5-E2（terminal agent_automation，AC-TERM-001 反转）：agent_broker::BrokerState 共享 broker；create 授权门禁 + mutation dispatch 门禁 + takeover 拒绝（terminal.rs agent_tests 9 tests，human 路径不回归）；specs 61 schema/113 fixtures ALL PASS；ACCEPTANCE AC-TERM-001 授权链语义"
 blocked_by: []
-next_action: "Refresh dsh-std baseline before implementation."
-handoff: null
-updated_at: "2026-08-25T06:49:34Z"
+next_action: "已完成（2026-08-30 maintainer 验收，HANDOFF-M5-INTEROP）：八切片 + 独立评审 + HIGH 修复落地，合并 main。remaining：M6 统一 API 服务端接线、flaky 根治。"
+handoff: HANDOFF-M5-INTEROP
+updated_at: "2026-08-30T07:30:00Z"

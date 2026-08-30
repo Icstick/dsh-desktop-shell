@@ -1,0 +1,20 @@
+[package]
+name = "dsh-adapter-dsh"
+version = "0.1.0"
+description = "Legacy DSH adapter: $events consumption, notification mapping, usage aggregation (MOD-ADAPTER-DSH, M5-C)"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+[lib]
+name = "dsh_adapter_dsh"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+# Sync WS client (no async runtime in the crate layer). Default features =
+# [handshake]; no TLS feature, so wss:// URLs are rejected at runtime - DSH
+# is loopback-only HTTP/WS, which is exactly the supported surface.
+tungstenite = "=0.30.0"

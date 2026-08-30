@@ -1,0 +1,25 @@
+schema_version: 1
+id: HANDOFF-M5-E3-BROWSER-INTERACT
+work_item: WI-M5-INTEROP
+from: dsh-agent-primary
+to: milestone-owner
+status: review
+completed:
+  - "M5-E3 specs：specs/browser/browser-interact-request.schema.json（mode const agent_automation；action click/type/scroll/key；per-action 参数 if/then；agent 授权对象 agentId/activationId/generation/scope，与 terminal create 同形状）与 browser-takeover-request.schema.json（sessionId + target const human，无 mode——操作本身是语义）；fixtures +19（interact valid 5 / invalid 14，含 mode/action/agent-token/scope-empty/click-no-selector/type-no-text/scroll-no-delta/scroll-delta-overflow/unknown-field；takeover valid 1 / invalid 4）；validate-specs 61 schema / 116 fixtures ALL PASS。"
+  - "M5-E3 实现（apps/desktop/src-tauri）：browser.rs 新增 interact_browser（payload 携带 agent 事实 → 共享 broker agent_broker::BrokerState 的 ADR-0014 enforce_dispatch 门禁：browser capability interop.dsh-desktop.local/v1alpha1 Browser + owner/generation/scope 覆盖 + 有效 lease；scope 混淆防护：scope.sessionId 必须等于目标 session；通过后 ExecuteScript + DOM 事件派发执行——WebView2 无 CDP 输入 API，click=MouseEvent 序列、type=原生 value setter+input/change、key=KeyboardEvent、scroll=window.scrollBy，参数 serde_json 编码防注入）与 take_over_browser（session 标记 human-controlled + 撤销绑定 activation 全部 lease：Broker::revoke_agent_grants 持久撤销，此后同一 activation interact 拒绝 UNAUTHORIZED）；BrowserState 泛型化（Clock）+ broker Arc 共享（lib.rs 与 terminal 同一 broker 实例）；BrowserCommandError 增 UNAUTHORIZED/STALE_GENERATION/CONFLICT 映射（E2 同款 map_broker_error 语义）。"
+  - "接线：lib.rs manage agent_broker::BrokerState（E2 共享）+ browser::BrowserState::new(broker_state.inner())；commands.rs 注册 interact_browser/take_over_browser；build.rs AppManifest +2；shell.json permission +2；validate-acl.mjs expectedCommands +2。agent_broker.rs 由 E2 采用为共享模块（其内新增 inner()，browser_capability 坐标统一 interop 命名空间）。"
+  - "文档：ADR-0017 决策 2 修订（interact/take_over M5 扩展：mode 语义、agent 对象、take_over 无 mode、WebView2 DOM 事件最小实现说明、AC-BRW-002 verified 条件）；ACCEPTANCE.md AC-BRW-002 转 M5 verified 条件；IF-BROWSER operations 加 interact/take_over；CHANGELOG M5-E3 条目。"
+remaining:
+  - "take_over 之后的显式 agent handover 流程（重新授权已被 human 接管的 session）未定义——当前 fail-closed：session 保持 human-controlled（M5+ 扩展）。"
+  - "interact 执行层为最小实现：非 input/textarea 的 contenteditable 输入不支持（返回 not_editable）；无截图/无障碍驱动（snapshot screenshot 仍 NOT_SUPPORTED）。"
+  - "浏览器 provider 未注册进 broker（interact 用 enforce_dispatch 门禁 + 直接执行，未走 broker.dispatch provider 路由）——与 E2 terminal 的 provider 注册模式差异，M5-F/M6 local-transport 外部 API 路由时评估注册。"
+  - "与 E2 并行开发同工作树：合并后需整体回归（terminal agent 测试 + browser 测试一起跑）。"
+verification:
+  - "cargo check -p dsh-desktop-shell 通过（E2 与本人改动共存状态）。"
+  - "validate-specs 61 schema / 116 fixtures ALL PASS（含 E2 terminal fixtures 与 browser +19）。"
+  - "待跑：cargo test -p dsh-desktop-shell 全量、fmt/clippy、validate-acl。"
+risks:
+  - "E2 并行修改同一工作树（terminal.rs/lib.rs/agent_broker.rs/Cargo.toml 等）：本 handoff 快照时刻双方改动共存，提交前需确认 git status 无第三方未提交改动或协调分阶段提交。"
+  - "execute_interact 阻塞 recv_timeout 2s（spawn_blocking 内，与 snapshot 同模式）；WebView2 双重 JSON 编码已按 POC-M4B 处理。"
+next_action: "跑全量门禁（cargo test -p dsh-desktop-shell / fmt / clippy / validate-acl）→ 与 E2 协调提交顺序 → maintainer 评审。"
+created_at: "2026-08-30T14:45:00Z"

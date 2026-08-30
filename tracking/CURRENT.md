@@ -1,11 +1,11 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M4 Shared Browser —— done（2026-08-30 maintainer 验收，待合并 main）
-- Status：M1/M2/M3 已合并 main；M4 验收完成；下一里程碑 M5 Interop（ready）
+- Milestone：M5 Interop —— 进行中（八切片实现完成，独立评审通过，待 maintainer 验收）
+- Status：M1-M4 已合并 main（main @ 1787edd）；M5 实现完成 + 评审通过，待验收合并
 - Implementation authorized：`true`
-- External baseline verified：2026-08-25
-- Last updated：2026-08-30T03:00:00Z
+- External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
+- Last updated：2026-08-30T06:30:00Z
 
 ## 当前状态
 

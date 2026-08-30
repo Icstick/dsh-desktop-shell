@@ -23,6 +23,13 @@ M4 之前没有任何 browser 能力：`specs/protocol/browser-capability.schema
 - `interact`、`take_over` 操作**不在 M4 接口范围内**（IF-BROWSER operations = create/navigate/snapshot/close）；M5 agent 授权链落地时再扩展接口与 schema（M4 fail-closed 由 `agent_automation` mode 拒绝与 `screenshot` NOT_SUPPORTED 承担）。
 - AC-BRW-002（human takeover 撤销 Agent mutation lease）依赖 M5 agent 授权链；M4 验收项调整为"agent_automation 模式请求 fail-closed"，AC 的 lease 撤销语义移至 M5 验收。
 
+### 决策 2 修订（2026-08-30，M5-E3）：interact/take_over 扩展接口
+- M5 授权链落地（ADR-0018 决策 7）后开放两个操作，schema 与 bridge 双层表达：
+  - `interact`（browser-interact-request.schema.json）：**仅 agent_automation 模式**（`mode` const；human 自己操作浏览器，不提供 human interact）。payload 携带 agent 授权对象（agentId/activationId/generation/scope，与 terminal create 同形状），经共享 capability broker（agent_broker::BrokerState）的 ADR-0014 dispatch 门禁（browser capability + grant + owner + generation + scope 覆盖 + 有效 lease）后才执行。
+  - `take_over`（browser-takeover-request.schema.json）：human 操作（sessionId + `target: "human"`，无 mode——操作本身是语义）。撤销绑定到该 session 的全部 agent activation lease（`Broker::revoke_agent_grants`，持久撤销），并将 session 标记 human-controlled；此后同一 activation 的 interact 拒绝。
+- WebView2 无 CDP 输入 API：interact 的执行为最小实现——`evaluate_script`（ExecuteScript）在页面内派发 DOM 事件（click=MouseEvent 序列、type=原生 value setter + input/change、key=KeyboardEvent、scroll=window.scrollBy）；所有 caller 参数经 serde_json 编码为 JSON 字符串字面量，杜绝脚本注入；页面无 privileged Desktop IPC（AC-BRW-001）不受影响。
+- IF-BROWSER operations 扩展为 create/navigate/snapshot/interact/take_over/close；AC-BRW-002 转 M5 verified 条件（takeover 撤销 lease + 后续 interact 拒绝，见 docs/testing/ACCEPTANCE.md）。
+
 ### 决策 3：导航与 profile 隔离策略
 - 导航：仅 HTTP(S) scheme；URL 带 userinfo（credential）拒绝；长度上限 2048；file:/custom scheme/download/popup/permission 默认拒绝（沿用 M1 WebView2 deny 模式）。Browser URL 是用户意图（与 DSH Surface backend-derived URL 不同），但方案面仍由 backend 强制。
 - profile：独立 user-data-dir（Desktop 拥有、AppData 下 `browser-profiles`，与 environment-catalog 同级），不共享 DSH 或默认 WebView2 数据；report/日志不得出现 profile 路径。

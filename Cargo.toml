@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/desktop/src-tauri", "crates/browser-provider", "crates/local-transport", "crates/supervisor", "crates/terminal-provider"]
+members = ["apps/desktop/src-tauri", "crates/adapter-dsh", "crates/adapter-dsh-std", "crates/browser-provider", "crates/external-api-example", "crates/local-transport", "crates/supervisor", "crates/terminal-provider"]
 resolver = "3"
 
 [profile.release]

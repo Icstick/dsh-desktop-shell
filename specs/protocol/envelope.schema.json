@@ -14,7 +14,7 @@
       ],
       "properties": {
         "coordinate": {
-          "$ref": "protocol-coordinate.schema.json"
+          "$ref": "./protocol-coordinate.schema.json"
         },
         "required": {
           "type": "boolean"
@@ -38,7 +38,7 @@
         "supports": {
           "type": "array",
           "items": {
-            "$ref": "protocol-coordinate.schema.json"
+            "$ref": "./protocol-coordinate.schema.json"
           },
           "uniqueItems": true
         },
@@ -60,7 +60,7 @@
       ],
       "properties": {
         "coordinate": {
-          "$ref": "protocol-coordinate.schema.json"
+          "$ref": "./protocol-coordinate.schema.json"
         },
         "reason": {
           "enum": [
@@ -89,7 +89,7 @@
         "granted": {
           "type": "array",
           "items": {
-            "$ref": "protocol-coordinate.schema.json"
+            "$ref": "./protocol-coordinate.schema.json"
           },
           "uniqueItems": true
         },
@@ -164,7 +164,9 @@
           "minLength": 1
         },
         "activationId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         }
       }
     },
@@ -177,7 +179,7 @@
       "minimum": 0
     },
     "capability": {
-      "$ref": "protocol-coordinate.schema.json"
+      "$ref": "./protocol-coordinate.schema.json"
     },
     "method": {
       "type": "string",

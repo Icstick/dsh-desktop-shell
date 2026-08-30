@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "pty-abc123",
+  "state": "running",
+  "mode": "agent_automation",
+  "cols": 120,
+  "rows": 32,
+  "createdAtUnixMs": 1787792400000,
+  "lastActivityUnixMs": 1787792400100,
+  "error": null
+}

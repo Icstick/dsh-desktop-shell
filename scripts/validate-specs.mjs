@@ -21,7 +21,7 @@ const SUPPORTED = new Set([
   "type", "enum", "const", "properties", "required", "additionalProperties",
   "pattern", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum",
   "exclusiveMaximum", "minItems", "maxItems", "items", "oneOf", "allOf", "anyOf",
-  "if", "then", "else", "title", "description", "$id", "$schema", "$defs", "$ref", "uniqueItems", "format",
+  "if", "then", "else", "not", "title", "description", "$id", "$schema", "$defs", "$ref", "uniqueItems", "format",
 ]);
 
 function walk(dir, out = []) {
@@ -167,6 +167,11 @@ function validate(instance, schema, path, errors, defs, registry, schemaDir) {
       if (local.length === 0) passed += 1;
     }
     if (passed !== 1) errors.push(`${path}: oneOf matched ${passed} branches (expected exactly 1)`);
+  }
+  if (schema.not !== undefined) {
+    const local = [];
+    validate(instance, schema.not, `${path} (not)`, local, defs, registry, schemaDir);
+    if (local.length === 0) errors.push(`${path}: instance matches forbidden subschema (not)`);
   }
   if (schema.if !== undefined) {
     const branchErrors = [];

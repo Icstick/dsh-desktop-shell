@@ -14,13 +14,21 @@
 //!   (http(s) only, no userinfo, len <= 2048) and WebView2 deny hooks
 //!   installed before any remote document loads (ADR-0011 deny-order
 //!   invariant): PermissionRequested deny, password autosave/autofill off.
-//! - Popups, downloads and devtools are denied; `agent_automation` mode and
-//!   `screenshot` snapshots fail closed (ADR-0017 decision 2; M5).
+//! - Popups, downloads and devtools are denied; `screenshot` snapshots
+//!   fail closed. M5 (ADR-0017 decision 2 rev): agent_automation
+//!   `interact` carries the agent authorization facts (agentId/
+//!   activationId/generation/scope, same shape as the terminal create
+//!   agent object) and passes the ADR-0014 broker dispatch gate against
+//!   the shared capability broker (crate::broker, ADR-0018 decision 7);
+//!   the mutation then executes as DOM-event dispatch via ExecuteScript —
+//!   WebView2 exposes no CDP input API. Human `take_over` marks the
+//!   session human-controlled and revokes the bound agent leases
+//!   (Broker::revoke_agent_grants, AC-BRW-002).
 //!
 //! Events are relayed to the Shell WebView on `browser://event`
 //! (navigation_changed / load_failed / closed), mirroring terminal://output.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 #[cfg(all(windows, not(test)))]
 use std::path::PathBuf;
 #[cfg(all(windows, not(test)))]
@@ -69,6 +77,23 @@ const NATIVE_HOOK_TIMEOUT: Duration = Duration::from_secs(2);
 /// Bounded wait for an ExecuteScript snapshot result.
 #[cfg(all(windows, not(test)))]
 const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(2);
+/// Bounded wait for an ExecuteScript interact result (M5-E3).
+#[cfg(all(windows, not(test)))]
+const INTERACT_TIMEOUT: Duration = Duration::from_secs(2);
+/// Browser capability coordinate: the coordinate the IF-NEGOTIATION
+/// Agreement grants (cf. specs/protocol/fixtures/envelope.agreement.valid.json
+/// granted coordinate browser.dsh-desktop.local/v1alpha1 + Browser, and
+/// terminal.rs terminal_capability()); the broker gate enforces against
+/// exactly this id.
+fn browser_capability() -> dsh_supervisor::CapabilityId {
+    dsh_supervisor::CapabilityId::new("browser.dsh-desktop.local/v1alpha1", "Browser")
+}
+
+/// M5-E3 bounds mirrored from specs/browser interact schema.
+const MAX_SELECTOR_LEN: usize = 512;
+const MAX_INTERACT_TEXT_LEN: usize = 4096;
+const MAX_KEY_LEN: usize = 64;
+const MAX_SCROLL_DELTA: i64 = 100_000;
 
 // ----------------------------- Requests -----------------------------
 
@@ -147,6 +172,255 @@ impl BrowserCloseRequest {
 
     pub(crate) fn session_id(&self) -> &str {
         &self.session_id
+    }
+}
+
+// --------------------- Agent interact / human takeover (M5-E3) ---------------------
+
+/// Agent-only browser mutation (ADR-0017 decision 2 rev): the interact
+/// request is valid only in `agent_automation` mode — humans drive the
+/// browser themselves. The `agent` facts (agentId/activationId/generation/
+/// scope) mirror the broker grant facts the agent received in negotiation
+/// (ADR-0018 decision 7); the broker gate validates them against the live
+/// grant + lease. Payload view of
+/// specs/browser/browser-interact-request.schema.json.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserInteractRequest {
+    schema_version: u8,
+    session_id: String,
+    mode: String,
+    action: String,
+    selector: Option<String>,
+    text: Option<String>,
+    key: Option<String>,
+    delta_x: Option<i64>,
+    delta_y: Option<i64>,
+    agent: BrowserAgentIdentity,
+}
+
+impl BrowserInteractRequest {
+    pub(crate) fn session_id(&self) -> &str {
+        &self.session_id
+    }
+
+    pub(crate) fn action(&self) -> &str {
+        &self.action
+    }
+
+    pub(crate) fn selector(&self) -> Option<&str> {
+        self.selector.as_deref()
+    }
+
+    pub(crate) fn text(&self) -> Option<&str> {
+        self.text.as_deref()
+    }
+
+    pub(crate) fn key(&self) -> Option<&str> {
+        self.key.as_deref()
+    }
+
+    pub(crate) fn delta_x(&self) -> Option<i64> {
+        self.delta_x
+    }
+
+    pub(crate) fn delta_y(&self) -> Option<i64> {
+        self.delta_y
+    }
+
+    pub(crate) fn agent(&self) -> &BrowserAgentIdentity {
+        &self.agent
+    }
+
+    /// Schema + per-action parameter validation (canonical enforcement;
+    /// specs/browser/browser-interact-request.schema.json).
+    pub(crate) fn is_valid(&self) -> bool {
+        if self.schema_version != SCHEMA_VERSION
+            || self.mode != "agent_automation"
+            || !validate_session_request(self.schema_version, &self.session_id)
+            || !self.agent.is_valid()
+        {
+            return false;
+        }
+        match self.action.as_str() {
+            "click" => {
+                in_bound(self.selector.as_deref(), MAX_SELECTOR_LEN)
+                    && self.text.is_none()
+                    && self.key.is_none()
+                    && self.delta_x.is_none()
+                    && self.delta_y.is_none()
+            }
+            "type" => {
+                in_bound(self.selector.as_deref(), MAX_SELECTOR_LEN)
+                    && in_bound(self.text.as_deref(), MAX_INTERACT_TEXT_LEN)
+                    && self.key.is_none()
+                    && self.delta_x.is_none()
+                    && self.delta_y.is_none()
+            }
+            "scroll" => {
+                self.selector.is_none()
+                    && self.text.is_none()
+                    && self.key.is_none()
+                    && (self.delta_x.is_some() || self.delta_y.is_some())
+                    && in_delta_bounds(self.delta_x)
+                    && in_delta_bounds(self.delta_y)
+            }
+            "key" => {
+                in_bound(self.key.as_deref(), MAX_KEY_LEN)
+                    && self.selector.is_none()
+                    && self.text.is_none()
+                    && self.delta_x.is_none()
+                    && self.delta_y.is_none()
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Bound helper: present, non-empty, at most `max` characters.
+fn in_bound(value: Option<&str>, max: usize) -> bool {
+    value.is_some_and(|value| !value.is_empty() && value.chars().count() <= max)
+}
+
+fn in_delta_bounds(delta: Option<i64>) -> bool {
+    delta.is_none_or(|delta| (-MAX_SCROLL_DELTA..=MAX_SCROLL_DELTA).contains(&delta))
+}
+
+/// Agent authorization facts carried by an agent_automation interact
+/// (specs/browser/browser-interact-request.schema.json agent object;
+/// same shape as the terminal create agent, ADR-0018 decision 7).
+///
+/// The broker gate validates these against the live grant + lease at
+/// dispatch; the session binding records them so a human takeover can
+/// revoke the activation.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserAgentIdentity {
+    agent_id: String,
+    activation_id: String,
+    generation: u64,
+    scope: BrowserAgentScope,
+}
+
+impl BrowserAgentIdentity {
+    fn is_valid(&self) -> bool {
+        valid_agent_token(&self.agent_id)
+            && valid_agent_token(&self.activation_id)
+            && self.generation >= 1
+            && self.scope.is_valid()
+    }
+
+    fn to_broker_scope(&self) -> dsh_supervisor::Scope {
+        self.scope.to_broker_scope()
+    }
+
+    fn agent_id(&self) -> &str {
+        &self.agent_id
+    }
+
+    fn activation_id(&self) -> &str {
+        &self.activation_id
+    }
+
+    fn generation(&self) -> u64 {
+        self.generation
+    }
+}
+
+fn valid_agent_token(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Wire shape of the grant scope (mirrors specs/protocol/capability-lease
+/// scope, camelCase); converted to the broker Scope for enforcement.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserAgentScope {
+    session_id: Option<String>,
+    workspace: Option<String>,
+    #[serde(default)]
+    domains: Vec<String>,
+    #[serde(default)]
+    resources: Vec<String>,
+}
+
+impl BrowserAgentScope {
+    fn is_valid(&self) -> bool {
+        let non_empty = self.session_id.is_some()
+            || self.workspace.is_some()
+            || !self.domains.is_empty()
+            || !self.resources.is_empty();
+        non_empty
+            && self
+                .session_id
+                .as_deref()
+                .is_none_or(|value| !value.is_empty() && value.len() <= 128)
+            && self
+                .workspace
+                .as_deref()
+                .is_none_or(|value| !value.is_empty() && value.len() <= 128)
+            && valid_string_list(&self.domains)
+            && valid_string_list(&self.resources)
+    }
+
+    fn to_broker_scope(&self) -> dsh_supervisor::Scope {
+        dsh_supervisor::Scope {
+            session_id: self.session_id.clone(),
+            workspace: self.workspace.clone(),
+            domains: self.domains.clone(),
+            resources: self.resources.clone(),
+        }
+    }
+}
+
+fn valid_string_list(items: &[String]) -> bool {
+    if items.len() > 16 {
+        return false;
+    }
+    let mut seen = HashSet::new();
+    items
+        .iter()
+        .all(|item| !item.is_empty() && item.len() <= 128 && seen.insert(item))
+}
+
+/// Immutable agent ownership record of a session under agent interact.
+///
+/// ADR-0018 decision 1 (activation ownership): the recorded facts are the
+/// ones the broker gate validated when the interact was authorized; a
+/// human takeover revokes exactly the bound activations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AgentSessionBinding {
+    agent_id: String,
+    activation_id: String,
+    generation: u64,
+    scope: dsh_supervisor::Scope,
+}
+
+/// Human takeover request (AC-BRW-002): the operation itself is the
+/// semantic — no mode field, the human acts directly (not through
+/// agent_automation). Payload view of
+/// specs/browser/browser-takeover-request.schema.json.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserTakeoverRequest {
+    schema_version: u8,
+    session_id: String,
+    target: String,
+}
+
+impl BrowserTakeoverRequest {
+    pub(crate) fn session_id(&self) -> &str {
+        &self.session_id
+    }
+
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == SCHEMA_VERSION
+            && self.target == "human"
+            && validate_session_request(self.schema_version, &self.session_id)
     }
 }
 
@@ -235,10 +509,30 @@ type WindowHandle = tauri::WebviewWindow;
 #[cfg(any(not(windows), test))]
 type WindowHandle = ();
 
-/// App-managed browser state: one registry + the live window handles.
-#[derive(Clone, Default)]
-pub struct BrowserState {
+/// App-managed browser state: one registry + the live window handles,
+/// plus the shared capability broker that gates agent interact (M5-E3,
+/// ADR-0018 decision 7 — same shape as terminal::TerminalState).
+#[derive(Clone)]
+pub struct BrowserState<C: dsh_supervisor::Clock = dsh_supervisor::SystemClock> {
     inner: Arc<Mutex<BrowserBridge>>,
+    broker: Arc<Mutex<dsh_supervisor::Broker<C>>>,
+}
+
+impl Default for BrowserState<dsh_supervisor::SystemClock> {
+    fn default() -> Self {
+        Self::new(Arc::new(Mutex::new(dsh_supervisor::Broker::new())))
+    }
+}
+
+impl<C: dsh_supervisor::Clock> BrowserState<C> {
+    /// Builds the state sharing the app-level broker handle (lib.rs wires
+    /// the same broker into every agent_automation surface).
+    pub fn new(broker: Arc<Mutex<dsh_supervisor::Broker<C>>>) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(BrowserBridge::default())),
+            broker,
+        }
+    }
 }
 
 struct BrowserBridge {
@@ -247,6 +541,13 @@ struct BrowserBridge {
     /// Live window per session. The WebviewWindow re-derives the native
     /// ICoreWebView2 controller on demand; no raw COM handle is persisted.
     windows: HashMap<String, WindowHandle>,
+    /// M5-E3 (AC-BRW-002): agent ownership of sessions an interact was
+    /// authorized on (opaque session id -> binding); consumed by human
+    /// takeover.
+    bindings: HashMap<String, AgentSessionBinding>,
+    /// M5-E3 (AC-BRW-002): sessions taken over by the human; agent
+    /// interact is rejected fail-closed even before the broker gate.
+    human_controlled: HashSet<String>,
 }
 
 // Manual impl: tauri::WebviewWindow (the production WindowHandle) does not
@@ -258,6 +559,8 @@ impl Default for BrowserBridge {
         Self {
             registry: None,
             windows: HashMap::new(),
+            bindings: HashMap::new(),
+            human_controlled: HashSet::new(),
         }
     }
 }
@@ -513,6 +816,302 @@ pub(crate) async fn list_browsers(state: &BrowserState) -> Vec<BrowserReport> {
         Err(_) => return Vec::new(),
     };
     sessions.into_iter().map(public_report).collect()
+}
+
+// --------------------- Agent interact / human takeover (M5-E3, AC-BRW-002) ---------------------
+
+/// M5-E3: authorize one agent interact against the broker dispatch gate
+/// (ADR-0018 decision 7): browser capability + interact method + valid
+/// agent lease covering the request scope. Fail-closed order: request
+/// shape, live session, human-controlled flag, scope-vs-target
+/// consistency, broker gate.
+///
+/// Registry-only part (no window handle); unit tests exercise the whole
+/// authorization chain without the GUI. On success the session binding is
+/// recorded so a human takeover revokes the activation.
+pub(crate) fn authorize_interact<C: dsh_supervisor::Clock>(
+    state: &BrowserState<C>,
+    request: &BrowserInteractRequest,
+) -> Result<(), BrowserCommandError> {
+    if !request.is_valid() {
+        return Err(BrowserCommandError::malformed());
+    }
+    let session_id = request.session_id().to_string();
+    let agent = request.agent();
+    // A session-scoped lease must target exactly the session the mutation
+    // executes on (scope confusion guard; workspace-scoped leases are
+    // validated by the broker coverage rule instead).
+    if agent
+        .scope
+        .session_id
+        .as_deref()
+        .is_some_and(|scope_session| scope_session != session_id)
+    {
+        return Err(BrowserCommandError::unauthorized(
+            "Agent scope targets a different session.",
+            false,
+        ));
+    }
+    {
+        let mut bridge = state
+            .inner
+            .lock()
+            .map_err(|_| BrowserCommandError::state_unavailable())?;
+        bridge
+            .registry()
+            .get(&session_id)
+            .map_err(map_browser_error)?;
+        if bridge.human_controlled.contains(&session_id) {
+            return Err(BrowserCommandError::unauthorized(
+                "Browser session is human-controlled.",
+                false,
+            ));
+        }
+    }
+    // ADR-0014 dispatch gate: capability granted, owner matches, generation
+    // matches, request scope covered by the grant scope, valid lease.
+    let broker = state
+        .broker
+        .lock()
+        .map_err(|_| BrowserCommandError::state_unavailable())?;
+    broker
+        .enforce_dispatch(
+            &browser_capability(),
+            agent.agent_id(),
+            agent.generation(),
+            &agent.to_broker_scope(),
+        )
+        .map_err(map_broker_error)?;
+    drop(broker);
+    let mut bridge = state
+        .inner
+        .lock()
+        .map_err(|_| BrowserCommandError::state_unavailable())?;
+    bridge.bindings.insert(
+        session_id,
+        AgentSessionBinding {
+            agent_id: agent.agent_id().to_string(),
+            activation_id: agent.activation_id().to_string(),
+            generation: agent.generation(),
+            scope: agent.to_broker_scope(),
+        },
+    );
+    Ok(())
+}
+
+/// M5-E3: agent interact command. Authorization first, then the DOM-event
+/// dispatch in the live browser page (Windows); non-Windows and the
+/// unit-test binary fail closed like snapshot.
+pub(crate) async fn interact_browser<C: dsh_supervisor::Clock>(
+    app: &AppHandle,
+    state: &BrowserState<C>,
+    request: &BrowserInteractRequest,
+) -> Result<BrowserReport, BrowserCommandError> {
+    authorize_interact(state, request)?;
+    #[cfg(all(windows, not(test)))]
+    {
+        let window = {
+            let bridge = state
+                .inner
+                .lock()
+                .map_err(|_| BrowserCommandError::state_unavailable())?;
+            bridge
+                .windows
+                .get(request.session_id())
+                .cloned()
+                .ok_or_else(BrowserCommandError::session_unavailable)?
+        };
+        let script = interact_script(request)?;
+        // ExecuteScript callback runs on the UI thread; wait for it off the
+        // async runtime so a slow page never stalls a runtime worker.
+        let outcome =
+            tauri::async_runtime::spawn_blocking(move || execute_interact(&window, &script))
+                .await
+                .map_err(|_| {
+                    BrowserCommandError::unavailable("Browser interact task is unavailable.", true)
+                })??;
+        if !outcome.ok {
+            return Err(BrowserCommandError::unavailable(
+                "Browser interact target was not found.",
+                false,
+            ));
+        }
+        let report = {
+            let mut bridge = state
+                .inner
+                .lock()
+                .map_err(|_| BrowserCommandError::state_unavailable())?;
+            bridge
+                .registry()
+                .get(request.session_id())
+                .map(public_report)
+                .map_err(map_browser_error)?
+        };
+        let _ = app;
+        Ok(report)
+    }
+    #[cfg(any(not(windows), test))]
+    {
+        // The unit-test binary never links the GUI chain (WindowHandle is
+        // erased), so no window can exist here; fail closed like the
+        // production miss path.
+        let bridge = state
+            .inner
+            .lock()
+            .map_err(|_| BrowserCommandError::state_unavailable())?;
+        bridge
+            .windows
+            .get(request.session_id())
+            .cloned()
+            .ok_or_else(BrowserCommandError::session_unavailable)?;
+        let _ = app;
+        Err(BrowserCommandError::unavailable(
+            "Browser interact is unavailable.",
+            true,
+        ))
+    }
+}
+
+/// M5-E3: human takeover (AC-BRW-002). Marks the session human-controlled
+/// (subsequent agent interact is rejected fail-closed) and revokes every
+/// agent lease bound to the session through the broker
+/// (Broker::revoke_agent_grants, durable revocation). Idempotent; unknown
+/// sessions fail closed.
+pub(crate) fn take_over_browser<C: dsh_supervisor::Clock>(
+    state: &BrowserState<C>,
+    request: &BrowserTakeoverRequest,
+) -> Result<BrowserReport, BrowserCommandError> {
+    if !request.is_valid() {
+        return Err(BrowserCommandError::malformed());
+    }
+    let session_id = request.session_id().to_string();
+    // Mark the session human-controlled and drain its agent bindings under
+    // one bridge lock (fail-closed: later interact is rejected even before
+    // the broker gate).
+    let (session, bound_activations) = {
+        let mut bridge = state
+            .inner
+            .lock()
+            .map_err(|_| BrowserCommandError::state_unavailable())?;
+        let session = bridge
+            .registry()
+            .get(&session_id)
+            .map_err(map_browser_error)?;
+        bridge.human_controlled.insert(session_id.clone());
+        let bound_activations: Vec<String> = bridge
+            .bindings
+            .remove(&session_id)
+            .map(|binding| vec![binding.activation_id])
+            .unwrap_or_default();
+        (session, bound_activations)
+    };
+    // AC-BRW-002: revoke every agent lease of the bound activations
+    // (durable revocation — the same activation can never be re-issued).
+    let mut broker = state
+        .broker
+        .lock()
+        .map_err(|_| BrowserCommandError::state_unavailable())?;
+    for activation_id in &bound_activations {
+        let _ = broker.revoke_agent_grants(activation_id);
+    }
+    Ok(public_report(session))
+}
+
+/// Build the DOM-event dispatch script for one validated interact action
+/// (M5-E3 minimal implementation): WebView2 exposes no CDP input API, so
+/// clicks/typing are synthesized as DOM events via ExecuteScript.
+///
+/// Injection safety: every caller-supplied parameter is embedded as a JSON
+/// string literal (serde_json) — page-controlled strings can never escape
+/// the script literal. The script only touches the page DOM; the browser
+/// webview holds no privileged Desktop IPC (AC-BRW-001).
+fn interact_script(request: &BrowserInteractRequest) -> Result<String, BrowserCommandError> {
+    let json = |value: &str| serde_json::to_string(value).expect("JSON string encoding");
+    match request.action() {
+        "click" => {
+            let selector = json(
+                request
+                    .selector()
+                    .ok_or_else(BrowserCommandError::malformed)?,
+            );
+            Ok(format!(
+                "(()=>{{const el=document.querySelector({selector});if(!el)return{{ok:false,error:'not_found'}};const o={{bubbles:true,cancelable:true,view:window}};el.dispatchEvent(new MouseEvent('mousedown',o));el.dispatchEvent(new MouseEvent('mouseup',o));el.dispatchEvent(new MouseEvent('click',o));return{{ok:true}};}})()"
+            ))
+        }
+        "type" => {
+            let selector = json(
+                request
+                    .selector()
+                    .ok_or_else(BrowserCommandError::malformed)?,
+            );
+            let text = json(request.text().ok_or_else(BrowserCommandError::malformed)?);
+            Ok(format!(
+                "(()=>{{const el=document.querySelector({selector});if(!el)return{{ok:false,error:'not_found'}};if(!(el instanceof HTMLInputElement||el instanceof HTMLTextAreaElement))return{{ok:false,error:'not_editable'}};const set=Object.getOwnPropertyDescriptor(el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set;set.call(el,{text});el.dispatchEvent(new InputEvent('input',{{bubbles:true,inputType:'insertText',data:{text}}}));el.dispatchEvent(new Event('change',{{bubbles:true}}));return{{ok:true}};}})()"
+            ))
+        }
+        "scroll" => {
+            let delta_x = request.delta_x().unwrap_or(0);
+            let delta_y = request.delta_y().unwrap_or(0);
+            Ok(format!(
+                "(()=>{{window.scrollBy({delta_x},{delta_y});return{{ok:true}};}})()"
+            ))
+        }
+        "key" => {
+            let key = json(request.key().ok_or_else(BrowserCommandError::malformed)?);
+            Ok(format!(
+                "(()=>{{const el=document.activeElement||document.body;const o={{bubbles:true,cancelable:true,key:{key},code:{key}}};el.dispatchEvent(new KeyboardEvent('keydown',o));el.dispatchEvent(new KeyboardEvent('keyup',o));return{{ok:true}};}})()"
+            ))
+        }
+        _ => Err(BrowserCommandError::malformed()),
+    }
+}
+
+/// ExecuteScript result of one interact script (page-controlled).
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct InteractOutcome {
+    ok: bool,
+    error: Option<String>,
+}
+
+/// Decode the WebView2 ExecuteScript result into the outcome. The result
+/// arrives JSON-encoded (a string result is double-encoded, POC-M4B); an
+/// object result is decoded once from its JSON text.
+fn decode_interact_outcome(encoded: &str) -> Result<InteractOutcome, BrowserCommandError> {
+    let inner = serde_json::from_str::<String>(encoded).unwrap_or_else(|_| encoded.to_string());
+    let value: serde_json::Value = serde_json::from_str(&inner).map_err(|_| {
+        BrowserCommandError::unavailable("Browser interact result is unreadable.", false)
+    })?;
+    Ok(InteractOutcome {
+        ok: value
+            .get("ok")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+        error: value
+            .get("error")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+    })
+}
+
+/// Run one interact script in the live browser page (Windows only;
+/// ExecuteScript callback runs on the UI thread — callers wait off the
+/// async runtime).
+#[cfg(all(windows, not(test)))]
+fn execute_interact(
+    webview: &tauri::WebviewWindow,
+    script: &str,
+) -> Result<InteractOutcome, BrowserCommandError> {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    webview
+        .eval_with_callback(script, move |result| {
+            let _ = sender.send(result);
+        })
+        .map_err(|_| BrowserCommandError::unavailable("Browser interact is unavailable.", true))?;
+    let encoded = receiver
+        .recv_timeout(INTERACT_TIMEOUT)
+        .map_err(|_| BrowserCommandError::unavailable("Browser interact timed out.", true))?;
+    decode_interact_outcome(&encoded)
 }
 
 /// Record a finished page load (state ready). The bootstrap about:blank
@@ -870,6 +1469,25 @@ impl BrowserCommandError {
         }
     }
 
+    /// Agent authorization failure (M5-E3, AC-BRW-002).
+    fn unauthorized(message: &'static str, retryable: bool) -> Self {
+        Self {
+            code: "UNAUTHORIZED",
+            message,
+            retryable,
+            correlation_id: correlation_id(),
+        }
+    }
+
+    fn authorization(code: &'static str, message: &'static str, retryable: bool) -> Self {
+        Self {
+            code,
+            message,
+            retryable,
+            correlation_id: correlation_id(),
+        }
+    }
+
     fn unavailable(message: &'static str, retryable: bool) -> Self {
         Self {
             code: "UNAVAILABLE",
@@ -896,6 +1514,39 @@ fn map_url_error(error: UrlError) -> BrowserCommandError {
         | UrlError::UserinfoNotAllowed
         | UrlError::TooLong => BrowserCommandError::malformed(),
     }
+}
+
+/// Map a broker dispatch-gate rejection to the browser command error
+/// contract (M5-E3, ADR-0018 decision 7).
+///
+/// ERROR_MODEL.md: UNAUTHORIZED covers "未授权、lease 无效或 scope 不符"; an
+/// agent with no browser grant/lease at all is exactly that (the
+/// capability itself always exists on the Desktop), so UnknownCapability
+/// surfaces as UNAUTHORIZED, not UNAVAILABLE.
+fn map_broker_error(error: dsh_supervisor::BrokerError) -> BrowserCommandError {
+    let (code, message, retryable) = match error {
+        dsh_supervisor::BrokerError::UnknownCapability
+        | dsh_supervisor::BrokerError::NotGranted
+        | dsh_supervisor::BrokerError::LeaseExpired
+        | dsh_supervisor::BrokerError::LeaseRevoked
+        | dsh_supervisor::BrokerError::ScopeMismatch => (
+            "UNAUTHORIZED",
+            "Agent is not authorized for browser automation.",
+            false,
+        ),
+        dsh_supervisor::BrokerError::GenerationMismatch => (
+            "STALE_GENERATION",
+            "Agent browser request carries a stale generation.",
+            false,
+        ),
+        dsh_supervisor::BrokerError::Conflict => {
+            ("CONFLICT", "Browser broker state conflict.", false)
+        }
+        dsh_supervisor::BrokerError::UnknownProvider => {
+            ("UNAVAILABLE", "Browser provider is not registered.", true)
+        }
+    };
+    BrowserCommandError::authorization(code, message, retryable)
 }
 
 fn correlation_id() -> String {
@@ -1163,6 +1814,22 @@ mod tests {
     }
 
     #[test]
+    fn browser_capability_matches_agreement_fixture() {
+        // 坐标真源是 specs/protocol/fixtures/envelope.agreement.valid.json 的 granted 坐标；
+        // 门禁按 browser_capability() 判定，漂移会静默破坏 M6 协商→grant 接线（REVIEW-M5-INTEROP HIGH-1）。
+        let fixture =
+            include_str!("../../../../specs/protocol/fixtures/envelope.agreement.valid.json");
+        assert!(
+            fixture.contains("browser.dsh-desktop.local/v1alpha1"),
+            "agreement fixture must grant the browser coordinate"
+        );
+        assert_eq!(
+            browser_capability().to_string(),
+            "browser.dsh-desktop.local/v1alpha1/Browser"
+        );
+    }
+
+    #[test]
     fn browser_report_never_leaks_profile_paths() {
         // ADR-0017 decision 5: reports expose only id/state/currentUrl/created.
         let report = BrowserReport {
@@ -1179,6 +1846,348 @@ mod tests {
         assert!(!serialized.contains("browser-profiles"));
         assert!(!serialized.contains("AppData"));
         assert!(!serialized.contains("user-data"));
+    }
+
+    // --------------------- M5-E3 interact / take_over (AC-BRW-002) ---------------------
+
+    fn agent_identity(session_id: &str) -> BrowserAgentIdentity {
+        BrowserAgentIdentity {
+            agent_id: "agent-1".to_string(),
+            activation_id: "act-1".to_string(),
+            generation: 1,
+            scope: BrowserAgentScope {
+                session_id: Some(session_id.to_string()),
+                workspace: Some("ws-a".to_string()),
+                domains: Vec::new(),
+                resources: Vec::new(),
+            },
+        }
+    }
+
+    fn interact_request(session_id: &str, action: &str) -> BrowserInteractRequest {
+        BrowserInteractRequest {
+            schema_version: 1,
+            session_id: session_id.to_string(),
+            mode: "agent_automation".to_string(),
+            action: action.to_string(),
+            selector: None,
+            text: None,
+            key: None,
+            delta_x: None,
+            delta_y: None,
+            agent: agent_identity(session_id),
+        }
+    }
+
+    fn takeover_request(session_id: &str) -> BrowserTakeoverRequest {
+        BrowserTakeoverRequest {
+            schema_version: 1,
+            session_id: session_id.to_string(),
+            target: "human".to_string(),
+        }
+    }
+
+    /// Negotiate a browser grant + lease into the state's shared broker
+    /// (ADR-0018 chain: negotiation -> grant -> lease, same facts the
+    /// interact request carries).
+    fn grant_browser_lease(
+        state: &BrowserState,
+        agent_id: &str,
+        activation_id: &str,
+        session_id: &str,
+    ) {
+        let mut broker = state.broker.lock().unwrap();
+        broker
+            .broker_grant_from_negotiation(
+                agent_id,
+                dsh_supervisor::AgentNegotiationResult {
+                    activation_id: activation_id.to_string(),
+                    agreed: true,
+                    granted: vec![browser_capability()],
+                    conformance: dsh_supervisor::AgentConformanceState::Known,
+                    lease_constraints: Some(dsh_supervisor::AgentLeaseConstraints::new(3600)),
+                    scope: dsh_supervisor::Scope {
+                        session_id: Some(session_id.to_string()),
+                        workspace: Some("ws-a".to_string()),
+                        domains: Vec::new(),
+                        resources: Vec::new(),
+                    },
+                },
+            )
+            .expect("grant");
+    }
+
+    #[test]
+    fn interact_request_validation_fails_closed() {
+        let mut request = interact_request("brw-1", "click");
+        request.selector = Some("#submit".to_string());
+        assert!(request.is_valid());
+
+        let mut bad_mode = request.clone();
+        bad_mode.mode = "human_surface".to_string();
+        assert!(!bad_mode.is_valid());
+
+        let mut bad_action = request.clone();
+        bad_action.action = "hover".to_string();
+        assert!(!bad_action.is_valid());
+
+        let mut no_action = request.clone();
+        no_action.action = String::new();
+        assert!(!no_action.is_valid());
+
+        let mut bad_session = request.clone();
+        bad_session.session_id = "browser-1".to_string();
+        assert!(!bad_session.is_valid());
+
+        let click_without_selector = interact_request("brw-1", "click");
+        assert!(!click_without_selector.is_valid());
+
+        let mut typed = interact_request("brw-1", "type");
+        typed.selector = Some("#q".to_string());
+        assert!(!typed.is_valid()); // missing text
+        typed.text = Some("hi".to_string());
+        assert!(typed.is_valid());
+        typed.text = Some(String::new());
+        assert!(!typed.is_valid()); // empty text
+        typed.text = Some("x".repeat(4097));
+        assert!(!typed.is_valid()); // over bound
+
+        let mut scroll = interact_request("brw-1", "scroll");
+        assert!(!scroll.is_valid()); // no delta
+        scroll.delta_y = Some(400);
+        assert!(scroll.is_valid());
+        scroll.delta_y = Some(200_000);
+        assert!(!scroll.is_valid()); // over bound
+
+        let mut key = interact_request("brw-1", "key");
+        assert!(!key.is_valid()); // missing key
+        key.key = Some("Enter".to_string());
+        assert!(key.is_valid());
+
+        // Strict per-action params: click with text is malformed.
+        let mut strict = request.clone();
+        strict.text = Some("nope".to_string());
+        assert!(!strict.is_valid());
+
+        // Agent facts are required and validated (ADR-0018 decision 7).
+        let mut bad_token = request.clone();
+        bad_token.agent.agent_id = "bad id".to_string();
+        assert!(!bad_token.is_valid());
+        let mut bad_generation = request.clone();
+        bad_generation.agent.generation = 0;
+        assert!(!bad_generation.is_valid());
+        let mut empty_scope = request.clone();
+        empty_scope.agent.scope = BrowserAgentScope {
+            session_id: None,
+            workspace: None,
+            domains: Vec::new(),
+            resources: Vec::new(),
+        };
+        assert!(!empty_scope.is_valid());
+    }
+
+    #[test]
+    fn takeover_request_validation_fails_closed() {
+        let request = takeover_request("brw-1");
+        assert!(request.is_valid());
+        let mut bad_target = request.clone();
+        bad_target.target = "agent".to_string();
+        assert!(!bad_target.is_valid());
+        let mut bad_session = request.clone();
+        bad_session.session_id = "nope".to_string();
+        assert!(!bad_session.is_valid());
+    }
+
+    #[test]
+    fn interact_requires_agent_authorization() {
+        // No grant at all: the broker gate rejects with UNAUTHORIZED
+        // (fail-closed; AC-BRW-002) — a human session has no agent lease.
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        let mut request = interact_request(&created.session_id, "click");
+        request.selector = Some("#submit".to_string());
+        let error = authorize_interact(&state, &request).expect_err("no grant");
+        assert_eq!(error.code, "UNAUTHORIZED");
+        // Nothing was bound: a takeover of the session revokes nothing.
+        assert_eq!(
+            take_over_browser(&state, &takeover_request(&created.session_id))
+                .expect("takeover")
+                .state,
+            "created"
+        );
+    }
+
+    #[test]
+    fn interact_passes_with_valid_agent_lease() {
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        grant_browser_lease(&state, "agent-1", "act-1", &created.session_id);
+        let mut request = interact_request(&created.session_id, "click");
+        request.selector = Some("#submit".to_string());
+        authorize_interact(&state, &request).expect("authorized interact");
+        // The session binding is recorded so a human takeover can revoke
+        // exactly this activation.
+        let bridge = state.inner.lock().unwrap();
+        let binding = bridge
+            .bindings
+            .get(&created.session_id)
+            .expect("binding recorded");
+        assert_eq!(binding.agent_id, "agent-1");
+        assert_eq!(binding.activation_id, "act-1");
+        assert_eq!(binding.generation, 1);
+    }
+
+    #[test]
+    fn interact_rejected_for_session_outside_grant_scope() {
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        grant_browser_lease(&state, "agent-1", "act-1", &created.session_id);
+        // A second human session is outside the grant scope: the agent
+        // scope targets the other session while the grant covers only the
+        // created one — both the scope-confusion guard and the broker
+        // coverage rule fail closed (UNAUTHORIZED).
+        let other = create_session(&state, &create_request("human_surface")).expect("create");
+        let mut request = interact_request(&other.session_id, "click");
+        request.selector = Some("#submit".to_string());
+        let error = authorize_interact(&state, &request).expect_err("scope mismatch");
+        assert_eq!(error.code, "UNAUTHORIZED");
+    }
+
+    #[test]
+    fn interact_scope_confusion_guard_rejects_mismatched_target() {
+        // The agent scope pins session A but the mutation targets session B:
+        // rejected before the broker gate (scope confusion guard).
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        grant_browser_lease(&state, "agent-1", "act-1", &created.session_id);
+        let mut request = interact_request(&created.session_id, "click");
+        request.selector = Some("#submit".to_string());
+        request.agent.scope.session_id = Some("brw-other".to_string());
+        let error = authorize_interact(&state, &request).expect_err("scope confusion");
+        assert_eq!(error.code, "UNAUTHORIZED");
+        assert_eq!(error.message, "Agent scope targets a different session.");
+    }
+
+    #[test]
+    fn takeover_revokes_agent_lease_and_blocks_later_interact() {
+        // AC-BRW-002 end-to-end at the bridge level: authorized interact,
+        // then human takeover — the broker durably revokes the activation
+        // and the same activation can never interact again.
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        grant_browser_lease(&state, "agent-1", "act-1", &created.session_id);
+        let mut request = interact_request(&created.session_id, "click");
+        request.selector = Some("#submit".to_string());
+        authorize_interact(&state, &request).expect("authorized");
+
+        let report =
+            take_over_browser(&state, &takeover_request(&created.session_id)).expect("takeover");
+        assert_eq!(report.state, "created");
+
+        // The broker durably revoked the activation (AC-LEASE-001
+        // HumanTakeover), and the binding is drained.
+        assert!(
+            state
+                .broker
+                .lock()
+                .unwrap()
+                .agent_activation_revoked("agent-1", "act-1")
+        );
+        let bridge = state.inner.lock().unwrap();
+        assert!(!bridge.bindings.contains_key(&created.session_id));
+        drop(bridge);
+        // Later interact with the same activation is rejected.
+        let error = authorize_interact(&state, &request).expect_err("interact after takeover");
+        assert_eq!(error.code, "UNAUTHORIZED");
+    }
+
+    #[test]
+    fn takeover_marks_session_human_controlled() {
+        // Even a fresh activation granted after the takeover cannot interact
+        // with the taken-over session: the session stays human-controlled
+        // (fail-closed) until an explicit agent handover exists (M5+).
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        take_over_browser(&state, &takeover_request(&created.session_id)).expect("takeover");
+        grant_browser_lease(&state, "agent-2", "act-2", &created.session_id);
+        let mut request = interact_request(&created.session_id, "click");
+        request.selector = Some("#submit".to_string());
+        request.agent.agent_id = "agent-2".to_string();
+        request.agent.activation_id = "act-2".to_string();
+        let error = authorize_interact(&state, &request).expect_err("human-controlled session");
+        assert_eq!(error.code, "UNAUTHORIZED");
+        assert_eq!(error.message, "Browser session is human-controlled.");
+    }
+
+    #[test]
+    fn takeover_rejects_unknown_session() {
+        let state = BrowserState::default();
+        let error =
+            take_over_browser(&state, &takeover_request("brw-1-999")).expect_err("unknown session");
+        assert_eq!(error.code, "UNAVAILABLE");
+    }
+
+    #[test]
+    fn takeover_is_idempotent() {
+        let state = BrowserState::default();
+        let created = create_session(&state, &create_request("human_surface")).expect("create");
+        take_over_browser(&state, &takeover_request(&created.session_id)).expect("first");
+        take_over_browser(&state, &takeover_request(&created.session_id)).expect("second");
+    }
+
+    #[test]
+    fn interact_script_embeds_params_json_encoded() {
+        // Injection safety: caller-supplied strings are embedded as JSON
+        // string literals; a hostile selector can never escape the script.
+        let mut request = interact_request("brw-1", "click");
+        request.selector = Some("x\");alert(1);//".to_string());
+        let script = interact_script(&request).expect("script");
+        assert!(
+            script.contains("\"x\\\");alert(1);//\""),
+            "script: {script}"
+        );
+        assert!(
+            !script.contains("x\");alert(1);//"),
+            "raw injection must not appear"
+        );
+
+        let mut typed = interact_request("brw-1", "type");
+        typed.selector = Some("#q".to_string());
+        typed.text = Some("a\";alert(1);//".to_string());
+        let script = interact_script(&typed).expect("script");
+        assert!(script.contains("\"a\\\";alert(1);//\""), "script: {script}");
+        assert!(script.contains("InputEvent"), "input event dispatch");
+
+        let mut key = interact_request("brw-1", "key");
+        key.key = Some("Enter".to_string());
+        let script = interact_script(&key).expect("script");
+        assert!(script.contains("KeyboardEvent"), "keyboard event dispatch");
+
+        let mut scroll = interact_request("brw-1", "scroll");
+        scroll.delta_x = Some(10);
+        scroll.delta_y = Some(-20);
+        let script = interact_script(&scroll).expect("script");
+        assert!(
+            script.contains("window.scrollBy(10,-20)"),
+            "script: {script}"
+        );
+    }
+
+    #[test]
+    fn decode_interact_outcome_handles_webview2_encoding() {
+        // ExecuteScript returns the JS object as JSON text (a string result
+        // would arrive double-encoded, POC-M4B); both decode into the
+        // outcome.
+        let ok = decode_interact_outcome("{\"ok\":true,\"error\":null}").expect("object result");
+        assert!(ok.ok);
+        assert_eq!(ok.error, None);
+        let missing =
+            decode_interact_outcome("\"{\\\"ok\\\":false,\\\"error\\\":\\\"not_found\\\"}\"")
+                .expect("string-encoded object result");
+        assert!(!missing.ok);
+        assert_eq!(missing.error.as_deref(), Some("not_found"));
+        // Non-JSON results fail closed.
+        assert!(decode_interact_outcome("garbage").is_err());
     }
 
     fn list_browsers_blocking(state: &BrowserState) -> Vec<BrowserReport> {

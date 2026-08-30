@@ -14,7 +14,7 @@ M3 需要 Workbench 终端（AC-PTY-001：DSH restart 不终止 Desktop-owned PT
 ## 决策
 
 1. PTY 会话由 Desktop-owned：terminal-provider 直接 spawn 用户 shell（Windows ConPTY），进程树挂在本进程（Desktop）下，与 Managed DSH process tree 完全独立。DSH stop/restart/crash 不影响 PTY 存活（AC-PTY-001）。
-2. M3 只实现 `human_surface` 模式；`agent_automation` 请求 fail-closed 拒绝（需要 M5 adapter 授权链）。Terminal Surface 与 Automation 分权：Surface 只读/写自己的会话，不经 DSH tool/policy 授权不得执行。
+2. Terminal Surface 与 Automation 分权：Surface 只读/写自己的会话，不经 DSH tool/policy 授权不得执行。M3 只实现 `human_surface`，`agent_automation` fail-closed；M5-E2（ADR-0018 决策 7 授权链落地）反转：`agent_automation` create 经 capability broker 校验 grant + lease（无授权 UNAUTHORIZED），agent 会话 mutation 经 broker dispatch 门禁，human takeover 撤销 lease 后 agent 会话拒绝；human_surface 会话始终不经 broker。
 3. 会话标识为 opaque id（Desktop 生成）；输出经 Tauri event 推送到 Shell WebView（只允许 `shell` label 监听）；无 privileged native bridge（沿用 ADR-0004/0011 边界）。
 4. resize/write 有界：cols/rows 与单次 write/data 长度设上限；关闭幂等；Desktop 退出时 Drop 清理全部 PTY。
 5. PTY 内容不进入 usage、notification、diagnostics 或 tracking（隐私边界）。
@@ -23,7 +23,7 @@ M3 需要 Workbench 终端（AC-PTY-001：DSH restart 不终止 Desktop-owned PT
 
 - ConPTY 创建/IO/resize/关闭有 Rust 测试（Windows）。
 - AC-PTY-001 测试：Managed DSH healthy → 创建 PTY → stop/restart DSH → PTY 仍可 IO。
-- agent_automation 请求被拒；opaque id 不泄露 pid/路径。
+- M3 起 agent_automation 请求被拒；M5-E2 起无授权 agent_automation create 被拒（UNAUTHORIZED）、agent 会话 mutation 经 dispatch 门禁、takeover 后拒绝；opaque id 不泄露 pid/路径。
 - output event 只发往 shell WebView。
 
 ## 受影响模块

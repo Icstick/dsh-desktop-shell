@@ -1,0 +1,41 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-h8e7l6l5o4m3e2t1h0",
+  "kind": "Hello",
+  "participant": {
+    "component": "dsh-desktop-shell",
+    "facet": "agent"
+  },
+  "timestamp": "2026-08-31T09:30:04.000Z",
+  "generation": 0,
+  "method": "write",
+  "payload": {
+    "instanceId": "dsh-shell-host-7f3a9c2e",
+    "supports": [
+      {
+        "apiVersion": "terminal.dsh-desktop.local/v1alpha1",
+        "kind": "Terminal"
+      },
+      {
+        "apiVersion": "browser.dsh-desktop.local/v1alpha1",
+        "kind": "Browser"
+      }
+    ],
+    "requires": [
+      {
+        "coordinate": {
+          "apiVersion": "runtime.dsh-desktop.local/v1alpha1",
+          "kind": "Runtime"
+        },
+        "required": true
+      },
+      {
+        "coordinate": {
+          "apiVersion": "notification.dsh-desktop.local/v1alpha1",
+          "kind": "Notification"
+        },
+        "required": false
+      }
+    ]
+  }
+}

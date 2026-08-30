@@ -1,0 +1,10 @@
+{
+  "records": [
+    {
+      "package": "@dsh-std/core",
+      "version": "0.2.0-rc.1",
+      "commit": "3df0543",
+      "integrity": "sha512-I2tZEYk0V5QjlvkLvqKkAj/Fsvz0bTe0oDF2YFzL8EpmOS9KNcILrLBGSdVrt1qZnlBZP+9Zzh2byJzG0dJiOQ=="
+    }
+  ]
+}

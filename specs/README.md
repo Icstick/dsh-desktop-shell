@@ -55,7 +55,7 @@ Lifecycle request 只接受 Environment ID、expected generation 和必要的 lo
 - [PTY Report](terminal/terminal-report.schema.json)
 - [Output Event](terminal/terminal-output-event.schema.json)
 
-M3 只允许 human_surface 模式；agent_automation fail-closed（ADR-0015）。
+M3 起 human_surface；M5（AC-TERM-001）agent_automation 经 broker 授权链（grant/lease/dispatch，ADR-0018 决策 7）。
 
 ## Notification
 
@@ -82,7 +82,7 @@ usage 本地优先、无网络外发（AC-USG-002）。
 - [Browser Report](browser/browser-report.schema.json)
 - [Browser Event](browser/browser-event.schema.json)
 
-M4 只允许 human_surface 模式；agent_automation fail-closed，interact/take_over 延至 M5（ADR-0017）。导航仅 HTTP(S) 且无 userinfo；snapshot 支持 text/screenshot（accessibility 延 M5）。
+M4 human_surface；M5 新增 interact（agent_automation，DOM 事件派发）与 take_over（human 接管撤销 agent lease，AC-BRW-002）。导航仅 HTTP(S) 且无 userinfo；snapshot 支持 text/screenshot（accessibility 延后）。
 
 ## Protocol
 

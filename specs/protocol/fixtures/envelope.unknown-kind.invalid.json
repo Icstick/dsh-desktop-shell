@@ -1,0 +1,11 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-u9n8k7n6o5w4n3k2i1n",
+  "kind": "Bogus",
+  "participant": {
+    "component": "dsh-desktop-shell",
+    "facet": "agent"
+  },
+  "timestamp": "2026-08-31T09:30:09.000Z",
+  "generation": 0
+}

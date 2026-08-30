@@ -1,9 +1,11 @@
 schema_version: 1
 id: MOD-ADAPTER-DSH-STD
 name: "adapter-dsh-std"
-path: "packages/adapter-dsh-std"
+path: "crates/adapter-dsh-std"
+path_note: "2026-08-30 M5-D: 实现路径迁至 crates/adapter-dsh-std（Rust crate，workspace member）；packages/adapter-dsh-std 保留为文档壳。模块登记以追踪为准，实际路径以实现为准。",
+
 owner_role: interop-owner
-status: proposed
+status: in_progress
 milestone: M5
 interfaces:
   - IF-NEGOTIATION

@@ -1,0 +1,35 @@
+schema_version: 1
+id: HANDOFF-M5-INTEROP
+work_item: WI-M5-INTEROP
+from: dsh-agent-primary
+to: maintainer
+status: accepted
+completed:
+  - "M5-A 契约与基线：ADR-0018（7 决策：activation ownership/conformance 三锁/alpha 边界/additive/统一外源 API/M5-C 范围/授权链）、dsh-std 基线刷新（EXTERNAL_BASELINE：3df0543 + core 0.1.1-rc.1 双锁）、specs/protocol 22 envelope fixtures、envelope participant.activationId 一致性。"
+  - "M5-B1 capability-contracts TS 库（118 vitest：envelope 校验/协商状态机/跨消息语义/lease 映射，22 fixtures 三路防漂移）。"
+  - "M5-B2 统一外源 API 参考闭环 crates/external-api-example（26 tests：local-transport + envelope Invocation/Result/Event + 授权三规则）。"
+  - "M5-C Legacy adapter crates/adapter-dsh（62 tests：$events 消费/notification 映射/usage 聚合，tungstenite 0.30，fake-DSH 套件；restart hints 事件推断降级）。"
+  - "M5-D dsh-std adapter crates/adapter-dsh-std（61 tests：conformance 三态矩阵/negotiation/degrade，KNOWN 坐标 core rc.1 + 3df0543 + SRI）。"
+  - "M5-E1 broker 授权桥 crates/supervisor broker/agent.rs（26 tests：negotiation→grant/lease→dispatch，takeover 持久撤销）。"
+  - "M5-E2 terminal agent_automation（14 tests：AC-TERM-001 授权链，specs/terminal mode 扩展）。"
+  - "M5-E3 browser interact + human takeover（12 tests：AC-BRW-002，specs/browser 2 schemas + 22 fixtures）。"
+  - "独立评审 REVIEW-M5-INTEROP：实现/安全/门禁通过；2 个 HIGH 接线修复落地（坐标统一 + 共享 broker）+ tracking 全量同步。"
+  - "maintainer 2026-08-30 验收。"
+remaining:
+  - "DSH session/follow 端点活体验证（usage 聚合依赖；client.rs UNVERIFIED 标注）。"
+  - "api-session/removed→TurnCompleted 为推断语义。"
+  - "dsh-std facet 建模为推断（INFERENCE NOTE），真实 peer 前按 pinned README 复核。"
+  - "Rust 侧 22 envelope fixtures 全量比对（TS 侧 anti-drift 已承担）。"
+  - "统一外源 API 真实服务端接线（tauri 启动 bind + broker 驱动 GrantPolicy）：M6。"
+  - "interact GUI 运行时路径（真实 WebView2 ExecuteScript）自动化覆盖：live QA 补充。"
+  - "并行跑 diagnostics ac_log_001 偶发 flaky（顺序跑稳定）：M6 根治。"
+verification:
+  - "cargo test --workspace -- --test-threads=1 362 全绿 exit 0；并行全量偶发 1 flaky（已知）。"
+  - "vitest capability-contracts 118 + apps/desktop 43；validate-specs 61/116；validate-acl 35。"
+  - "fmt/clippy --all-targets -D warnings 干净。"
+risks:
+  - "DSH /api 无版本化（exact-keys 信封）：adapter-dsh 变化吸收高频触发，shape-driven + fail-closed 缓解。"
+  - "dsh-std rc 漂移快（connection rc.2 已动）：conformance 三锁 + 三态 fail-closed 吸收；M6 视稳定性再评估。"
+  - "terminal/browser 授权链依赖共享 broker 接线（已修复验证）；M6 协商 surface 接线时复核。"
+next_action: "M5 合并 main；M6 Daemon 规划（统一 API 服务端接线、daemon 化、scheduler wake、flaky 根治）。"
+created_at: "2026-08-30T07:30:00Z"

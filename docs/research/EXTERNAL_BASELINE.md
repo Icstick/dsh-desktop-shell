@@ -1,8 +1,8 @@
 ---
 id: DOC-RESEARCH-EXTERNAL-BASELINE
 status: verified
-verified_on: 2026-08-28
-verified_at: 2026-08-28T12:57:55Z
+verified_on: 2026-08-30
+verified_at: 2026-08-30T03:10:00Z
 ---
 
 # External Baseline
@@ -21,7 +21,7 @@ verified_at: 2026-08-28T12:57:55Z
 | Source | Repository coordinate | Distribution coordinate | Verified conclusion |
 |---|---|---|---|
 | DeepSeek Harness | `master@cd5ef8148158c3a752a658978873241fdf8e2bbc` | `@deepseek-ai/dsh@0.1.1-rc.2` (`latest`) | 仍为 Developer Preview；advisory source 已采用 authenticated Web bootstrap，registry latest 仍是独立 fixture |
-| dsh-std | `main@bb194ad53a72f4fa7da1286c88dcebb488b43eb9` | `@dsh-std/core`: `latest=0.1.0-rc1`, `rc=0.1.1-rc.1` | 代码与提案仍为 early drafts；版本选择必须显式绑定 dist-tag/版本 |
+| dsh-std | `main@3df0543`（08-29，+3 commits：fix(connection)×2 + merge） | `@dsh-std/core`: `latest=0.1.0-rc1`, `rc=0.1.1-rc.1`（core 自 08-23 未动）；`@dsh-std/connection` rc 标签已移至 `0.1.1-rc.2`（08-29）；17 包 tarball 全部可安装（integrity/types 齐全，ESM，zod@^4.4.3） | 仍标 early draft，但发布流水线激活（39 tags / 22 prerelease releases）；M5 pin 建议：`core@0.1.1-rc.1` + commit 3df0543 双锁，逐包精确版本 + integrity，不跟浮动标签 |
 | Tauri | `tauri-docs/v2@1eb8f13f5961301ee46e8376e0b31c23fa927e81` | `tauri-v2.11.5` | capability 按 window/webview 作用，多 capability 权限合并；remote IPC 必须显式开启 |
 | Desktop reference | `main@2a06026018fc498e4b2b52cd7e7bfdaae610ba10` | `v0.8.2` | 仅作非规范观察；MIT 顶层文本另附限制商业二次开发的条款 |
 | Apache-2.0 | official license text | SHA-256 `CFC7749B...BC523D30` | 本仓库 LICENSE 与官方完整文本在忽略外围空白后匹配 |

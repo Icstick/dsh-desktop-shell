@@ -1256,6 +1256,24 @@ pub async fn list_browsers(
     Ok(crate::browser::list_browsers(&browser_state).await)
 }
 
+#[tauri::command]
+pub async fn interact_browser(
+    app: AppHandle,
+    browser_state: State<'_, crate::browser::BrowserState>,
+    request: crate::browser::BrowserInteractRequest,
+) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
+    crate::browser::interact_browser(&app, &browser_state, &request).await
+}
+
+#[tauri::command]
+pub async fn take_over_browser(
+    _app: AppHandle,
+    browser_state: State<'_, crate::browser::BrowserState>,
+    request: crate::browser::BrowserTakeoverRequest,
+) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
+    crate::browser::take_over_browser(&browser_state, &request)
+}
+
 // ------------------------- Notification commands (M3-A, ADR-0016) -------------------------
 
 #[tauri::command]

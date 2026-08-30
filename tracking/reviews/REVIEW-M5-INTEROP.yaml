@@ -1,0 +1,41 @@
+schema_version: 1
+id: REVIEW-M5-INTEROP
+scope: "M5 Interop 八切片独立评审（评审基线 codex/wi-m5-interop @ d2605bd）：M5-A 契约、M5-B1 capability-contracts、M5-B2 external-api-example、M5-C adapter-dsh、M5-D adapter-dsh-std、M5-E1 broker/agent.rs、M5-E2 terminal.rs、M5-E3 browser.rs + specs/browser；门禁全量复跑；ADR-0018 决策 1-7 契约一致性。完整评审（含逐 check evidence 与 findings 明细）由 codex-reviewer-independent-5 交付，本文件为落盘记录。"
+status: failed
+reviewers:
+  - codex-reviewer-independent-5
+checks:
+  - id: contract-alignment
+    status: failed
+    evidence: "ADR-0018 决策 1-6 语义全部落地（activation 独立/conformance 三锁/alpha 不穿越/additive/统一 API/M5-C 范围）；两处接线偏差：browser 坐标 interop.* 与 fixture browser.* 不符（terminal 与 fixture 一致）；lib.rs 用 TerminalState::default() 私有 broker 而非共享 broker_state.inner()。两项均为 fail-closed 方向，但 M6 协商→grant 接线后对应 surface 恒 UNAUTHORIZED。"
+  - id: spec-alignment
+    status: passed
+    evidence: "validate-specs 复跑 61/116 ALL PASS；interact/takeover/terminal-create schema 与实现逐项一致（mode/action/if-then/agent 对象）。"
+  - id: security-semantics
+    status: passed
+    evidence: "授权链全链路测试驱动（无授权/过期/takeover 持久撤销/注入编码/scope 混淆防护）；错误消息静态；两处 wiring 偏差 fail-closed 方向。"
+  - id: test-quality
+    status: passed
+    evidence: "B1 三路防漂移、B2 真实 wire 无 mock、C 真实 RFC6455 字节帧、E2 真实 ConPTY echo、E3 双重 JSON 编码+注入断言。"
+  - id: gate-counts
+    status: passed
+    evidence: "cargo 361 全绿 ×2、fmt 0、clippy -D warnings 0、specs 61/116、ACL 35、vitest 118 + desktop 43、tsc 0。"
+  - id: tracking-consistency
+    status: failed
+    evidence: "M5.yaml/CURRENT.md/project.yaml/WI/MOD path/specs README/RISK 滞后（修复项见 next_action，已由父代理在收尾中落实）。"
+  - id: remaining-risks-honesty
+    status: passed
+    evidence: "五个已知缺口全部如实（session/follow UNVERIFIED、removed 推断、facet INFERENCE、Rust 无 22-fixture 比对、M6 未接线）；新增观察：无真实 DSH 活体验证、interact GUI 路径无自动化覆盖。"
+findings:
+  - "HIGH 能力坐标命名空间三处不一致（browser.rs/agent_broker.rs interop.* vs fixture browser.*；terminal 与 fixture 一致；supervisor 测试注释 interop）——M6 接线后 browser interact 恒 UNAUTHORIZED。修复：统一 browser.dsh-desktop.local/v1alpha1/Browser + 交叉断言（已落地）。"
+  - "HIGH lib.rs terminal 未共享 broker（TerminalState::default() 私有 broker vs 文档声称共享）——M6 授出的 terminal grant 进不了 terminal broker。修复：TerminalState::new(broker_inner)（已落地）。"
+  - "MEDIUM tracking/文档滞后（M5.yaml proposed、CURRENT/project 停 M4、WI evidence 缺 E1/E3、fixture 计数 113→116、agent_tests 9→11、HANDOFF/CHANGELOG fixture 计数错、specs README 未更新、MOD-ADAPTER-DSH-STD path 陈旧、RISK-STD-CHURN 未评估）——修复项已由父代理在 M5 收尾落实。"
+evidence:
+  - "git codex/wi-m5-interop @ d2605bd（16 commits vs main@1787edd）"
+  - "ADR-0018（7 决策）+ EXTERNAL_BASELINE（3df0543/core rc.1）+ SOURCE_REGISTER SRC-DSH-STD integrity 一致"
+  - "specs/protocol（envelope + 22 fixtures）+ specs/browser（interact/takeover 2 schemas + 22 fixtures）+ specs/terminal（agent 扩展）"
+  - "packages/capability-contracts（118 vitest）、crates/external-api-example（26）、adapter-dsh（62）、adapter-dsh-std（61）、supervisor broker/agent.rs（26）、desktop terminal.rs（14）/browser.rs（12 新）"
+  - "本评审复跑：cargo 361 全绿 ×2、fmt/clippy/tsc 0、specs 61/116、ACL 35、vitest 118 + 43"
+next_action: "M5 收尾（已执行）：1) 统一能力坐标命名空间 + 交叉断言（HIGH-1 修复落地）；2) lib.rs 共享 broker（HIGH-2 修复落地）；3) tracking 修复（M5.yaml/CURRENT/project/WI/sessions/MOD path/RISK 评估）；4) 修正 HANDOFF/CHANGELOG fixture 计数；5) specs/README 更新；6) maintainer 验收 + 合并 main。"
+created_at: "2026-08-30T05:35:51Z"
+updated_at: "2026-08-30T07:00:00Z"

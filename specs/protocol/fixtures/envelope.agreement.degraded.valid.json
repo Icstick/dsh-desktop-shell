@@ -1,0 +1,47 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-q2w3e4r5t6y7u8i9o0",
+  "kind": "Agreement",
+  "participant": {
+    "component": "dsh-desktop-shell",
+    "facet": "agent",
+    "activationId": "act-degraded-01"
+  },
+  "timestamp": "2026-08-31T09:30:01.000Z",
+  "generation": 2,
+  "replyTo": "msg-hk8sj2k3l4m5n6p7",
+  "payload": {
+    "activationId": "act-degraded-01",
+    "granted": [],
+    "unavailable": [
+      {
+        "coordinate": {
+          "apiVersion": "terminal.dsh-desktop.local/v1alpha1",
+          "kind": "Terminal"
+        },
+        "reason": "unavailable"
+      },
+      {
+        "coordinate": {
+          "apiVersion": "browser.dsh-desktop.local/v1alpha1",
+          "kind": "Browser"
+        },
+        "reason": "unsupported_version"
+      },
+      {
+        "coordinate": {
+          "apiVersion": "notification.dsh-desktop.local/v1alpha1",
+          "kind": "Notification"
+        },
+        "reason": "policy_denied"
+      },
+      {
+        "coordinate": {
+          "apiVersion": "usage.dsh-desktop.local/v1alpha1",
+          "kind": "Usage"
+        },
+        "reason": "provider_failed"
+      }
+    ]
+  }
+}

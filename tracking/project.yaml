@@ -1,10 +1,10 @@
 schema_version: 1
 project: dsh-desktop-shell
 phase: shell-mvp
-current_milestone: M5
+current_milestone: M6
 status: ready
 implementation_authorized: true
 start_date: "2026-08-25"
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-30T03:00:00Z"
-next_action: "M4 Shared Browser 完成并验收（HANDOFF-M4-SHARED-BROWSER，2026-08-30）待合并 main；M5 Interop 规划：adapter 授权链（agent_automation/interact/take_over）、dsh-std optional adapter、IF-NEGOTIATION/IF-INVOCATION 激活。"
+updated_at: "2026-08-30T07:30:00Z"
+next_action: "M5 Interop 完成并验收（HANDOFF-M5-INTEROP）待合并 main；M6 Daemon 规划：统一外源 API 真实服务端接线、daemon 化（UI/Supervisor 生命周期隔离）、scheduler wake、known flaky 根治。"

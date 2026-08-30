@@ -1,0 +1,24 @@
+[package]
+name = "dsh-external-api-example"
+version = "0.1.0"
+description = "Reference implementation of the unified external API loop: local-transport carrier + interop envelope + minimal activation authorization (ADR-0018 decision 5, M5-B)"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+# lib + bin: the binary runs a self-contained demo; the library surface
+# (envelope/server/client) is what integration tests and a future real
+# server would reuse.
+[lib]
+name = "dsh_external_api_example"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dsh-external-api-example"
+path = "src/main.rs"
+
+[dependencies]
+dsh-local-transport = { path = "../local-transport" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"

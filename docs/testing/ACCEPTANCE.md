@@ -25,7 +25,7 @@
 - AC-LEASE-001：disconnect、unload、expiry、human takeover 与 generation change 撤销 lease。
 - AC-PTY-001：DSH restart 不终止 Desktop-owned PTY。
 - AC-BRW-001：Browser page 无 Desktop IPC（label `browser` 零 privileged capability；AppManifest/permission/capability 三层闭合；独立 profile user-data-dir；navigation 前安装 permission/password/autofill deny）。
-- AC-BRW-002：Human takeover 撤销 Agent mutation lease（依赖 M5 agent 授权链；M4 验收项为 agent_automation 模式与 interact/take_over 请求 fail-closed）。
+- AC-BRW-002：Human takeover 撤销 Agent mutation lease——take_over 命令撤销绑定到该 session 的全部 agent activation lease（revoke_agent_grants，AC-LEASE-001 HumanTakeover 持久撤销）并将 session 转为 human 模式，此后同一 activation 的 interact 必须拒绝（UNAUTHORIZED）；interact 仅 agent_automation 模式（human 自己操作浏览器），无授权/lease 失效/scope 不符/human-controlled session 均拒绝（M5-E3 已验收：broker 门禁 + takeover 闭环测试）。
 - AC-BRW-003：Browser navigation 仅允许 HTTP(S) 且无 userinfo；file:/custom scheme、download、popup、permission request 默认拒绝；URL 长度上限 2048。
 - AC-BRW-004：Browser profile 隔离——独立 user-data-dir 且不共享 DSH/默认 WebView2 数据；report/event/log 不泄露 profile 路径与进程细节。
 - AC-COMP-001：Adapter 不兼容时 baseline 仍可用。
@@ -37,7 +37,7 @@
 - AC-NOT-002：dedupeKey 在 TTL 内折叠重复通知；审计记录可复查（id/event/title/policy/时间/source，无秘密）。
 - AC-USG-001：usage snapshot 可审计（来源/周期/token 估算/是否 estimate），且绝不包含终端或通知内容。
 - AC-USG-002：usage 记录本地优先，无网络外发。
-- AC-TERM-001：agent_automation 终端模式在 M5 adapter 授权链落地前 fail-closed 拒绝（human_surface 仅限）。
+- AC-TERM-001：agent_automation 终端模式经 M5 授权链控制——create 要求 agent 拥有 terminal 能力 grant + lease（无授权拒绝 UNAUTHORIZED），agent 会话的 write/resize/close 全部经 broker dispatch 门禁（owner=agent_id、generation、scope、lease）；human takeover（revoke_agent_grants）撤销 lease 后 agent 会话 mutation 拒绝；human_surface 会话不经过 broker。
 - AC-TERM-002：PTY 会话 id 为 opaque（不泄露 pid/路径）；输出事件只发往 shell WebView。
 
 ## M1 native Surface evidence state

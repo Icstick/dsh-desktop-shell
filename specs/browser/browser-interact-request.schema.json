@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/browser/browser-interact-request.schema.json",
+  "title": "BrowserInteractRequest",
+  "description": "Agent-only browser mutation (AC-BRW-002, ADR-0017 decision 2 rev): valid only in agent_automation mode — humans drive the browser themselves. The agent object carries the authorization facts (agentId/activationId/generation/scope) that the broker dispatch gate validates against the live grant + lease (ADR-0018 decision 7, same shape as terminal create agent).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "mode",
+    "action",
+    "agent"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^brw-[a-z0-9-]+$"
+    },
+    "mode": {
+      "const": "agent_automation"
+    },
+    "action": {
+      "enum": [
+        "click",
+        "type",
+        "scroll",
+        "key"
+      ]
+    },
+    "selector": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "deltaX": {
+      "type": "integer",
+      "minimum": -100000,
+      "maximum": 100000
+    },
+    "deltaY": {
+      "type": "integer",
+      "minimum": -100000,
+      "maximum": 100000
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agentId",
+        "activationId",
+        "generation",
+        "scope"
+      ],
+      "properties": {
+        "agentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "activationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "sessionId"
+              ]
+            },
+            {
+              "required": [
+                "workspace"
+              ]
+            },
+            {
+              "required": [
+                "domains"
+              ]
+            },
+            {
+              "required": [
+                "resources"
+              ]
+            }
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "workspace": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "domains": {
+              "type": "array",
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "resources": {
+              "type": "array",
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "click"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "selector"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "type"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "selector",
+          "text"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "key"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "scroll"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "anyOf": [
+          {
+            "required": [
+              "deltaX"
+            ]
+          },
+          {
+            "required": [
+              "deltaY"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

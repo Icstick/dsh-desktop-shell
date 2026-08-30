@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-interact-browser"
+description = "Enables the interact_browser command without any pre-configured scope."
+commands.allow = ["interact_browser"]
+
+[[permission]]
+identifier = "deny-interact-browser"
+description = "Denies the interact_browser command without any pre-configured scope."
+commands.deny = ["interact_browser"]

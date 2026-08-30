@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "mode": "agent_automation",
+  "cols": 120,
+  "rows": 32,
+  "shell": "powershell",
+  "agent": {
+    "agentId": "agent-1",
+    "activationId": "act-0001",
+    "generation": 1,
+    "scope": {
+      "sessionId": "session-1",
+      "workspace": "ws-a",
+      "domains": [
+        "terminal"
+      ],
+      "resources": [
+        "pty"
+      ]
+    }
+  }
+}

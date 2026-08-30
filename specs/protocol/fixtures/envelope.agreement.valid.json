@@ -1,0 +1,38 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-p9o8i7u6y5t4r3e2w1",
+  "kind": "Agreement",
+  "participant": {
+    "component": "dsh-desktop-shell",
+    "facet": "agent",
+    "activationId": "act-7f3a9c2e"
+  },
+  "timestamp": "2026-08-31T09:30:00.150Z",
+  "generation": 1,
+  "replyTo": "msg-hk8sj2k3l4m5n6p7",
+  "payload": {
+    "activationId": "act-7f3a9c2e",
+    "granted": [
+      {
+        "apiVersion": "terminal.dsh-desktop.local/v1alpha1",
+        "kind": "Terminal"
+      },
+      {
+        "apiVersion": "browser.dsh-desktop.local/v1alpha1",
+        "kind": "Browser"
+      }
+    ],
+    "unavailable": [
+      {
+        "coordinate": {
+          "apiVersion": "runtime.dsh-desktop.local/v1alpha1",
+          "kind": "Runtime"
+        },
+        "reason": "unsupported_version"
+      }
+    ],
+    "leaseConstraints": {
+      "maxSeconds": 3600
+    }
+  }
+}

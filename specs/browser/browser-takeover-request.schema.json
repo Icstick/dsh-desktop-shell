@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/browser/browser-takeover-request.schema.json",
+  "title": "BrowserTakeoverRequest",
+  "description": "Human takeover (AC-BRW-002): revokes the agent mutation lease of every agent activation bound to the session and switches the session to human control. The operation itself is the semantic — no mode field (the human acts directly, not through agent_automation).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "target"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^brw-[a-z0-9-]+$"
+    },
+    "target": {
+      "const": "human"
+    }
+  }
+}

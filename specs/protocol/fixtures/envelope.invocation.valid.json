@@ -1,0 +1,22 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-i4n3v2o1c9a8t7i6o5",
+  "kind": "Invocation",
+  "participant": {
+    "component": "dsh-desktop-shell",
+    "facet": "agent",
+    "activationId": "act-7f3a9c2e"
+  },
+  "timestamp": "2026-08-31T09:30:02.000Z",
+  "generation": 1,
+  "capability": {
+    "apiVersion": "terminal.dsh-desktop.local/v1alpha1",
+    "kind": "Terminal"
+  },
+  "method": "write",
+  "payload": {
+    "schemaVersion": 1,
+    "sessionId": "pty-4f2k9d8a",
+    "data": "ls -la\n"
+  }
+}

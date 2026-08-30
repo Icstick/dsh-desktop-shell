@@ -1,0 +1,26 @@
+{
+  "protocol": "interop.dsh-desktop.local/v1alpha1",
+  "id": "msg-r6e5s4u3l2t1b0o9t8h",
+  "kind": "Result",
+  "participant": {
+    "component": "dsh-desktop-shell",
+    "facet": "agent"
+  },
+  "timestamp": "2026-08-31T09:30:07.000Z",
+  "generation": 1,
+  "replyTo": "msg-i4n3v2o1c9a8t7i6o5",
+  "capability": {
+    "apiVersion": "terminal.dsh-desktop.local/v1alpha1",
+    "kind": "Terminal"
+  },
+  "method": "write",
+  "payload": {
+    "bytesWritten": 8
+  },
+  "error": {
+    "code": "TIMEOUT",
+    "message": "no ack",
+    "retryable": true,
+    "correlationId": "msg-i4n3v2o1c9a8t7i6o5"
+  }
+}

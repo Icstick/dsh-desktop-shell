@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "mode": "agent_automation",
+  "mode": "immersive",
   "cols": 120,
   "rows": 32
 }

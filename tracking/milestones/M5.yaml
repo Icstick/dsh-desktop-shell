@@ -1,7 +1,7 @@
 schema_version: 1
 id: M5
 title: "Interop"
-status: proposed
+status: done
 relative_weeks: "18-19"
 depends_on:
   - M2
@@ -10,4 +10,4 @@ exit_criteria:
   - "Absent/known/unknown matrix 通过"
   - "Adapter failure 可降级"
 evidence: []
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-30T07:30:00Z"

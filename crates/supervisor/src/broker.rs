@@ -12,6 +12,11 @@
 //! 5. a valid lease exists: matching capability/owner/generation, scope
 //!    covered, not expired, not revoked.
 //!
+//! The agent_automation path (ADR-0018 decision 7) funnels into the same
+//! gate: the agent authorization bridge (broker/agent.rs) maps negotiation
+//! results into grants/leases whose owner is the agent id, and every
+//! mutation dispatches through this exact gate.
+//!
 //! Errors are static, machine-readable strings: no secrets, paths, commands
 //! or user data cross the boundary (DEVELOPMENT.md error contract).
 
@@ -196,17 +201,21 @@ pub struct InvocationResult {
 }
 
 /// Registered provider: one capability per provider (ADR-0014 decision 7).
+///
+/// The handler is Send + Sync: the broker is shared across threads (tauri
+/// managed state, background drain tasks), so the whole broker must be
+/// thread-safe once the clock is.
 pub struct Provider {
     pub id: String,
     pub capability: CapabilityId,
-    handler: Box<dyn Fn(&Invocation) -> InvocationResult>,
+    handler: Box<dyn Fn(&Invocation) -> InvocationResult + Send + Sync>,
 }
 
 impl Provider {
     pub fn new(
         id: impl Into<String>,
         capability: CapabilityId,
-        handler: impl Fn(&Invocation) -> InvocationResult + 'static,
+        handler: impl Fn(&Invocation) -> InvocationResult + Send + Sync + 'static,
     ) -> Self {
         Self {
             id: id.into(),
@@ -288,6 +297,15 @@ pub struct Broker<C = SystemClock> {
     grants: HashMap<CapabilityId, CapabilityGrant>,
     leases: HashMap<String, Lease>,
     providers: HashMap<String, Provider>,
+    /// Agent authorization bridge register (broker/agent.rs,
+    /// ADR-0018 decision 7). Append-only per (agent, activation): a
+    /// revoked activation can never be re-issued, a superseded one can
+    /// never be replayed.
+    agent_activations: HashMap<String, HashMap<String, agent::AgentActivationState>>,
+    /// The agent's current activation id (replay is only allowed for it).
+    current_activation: HashMap<String, String>,
+    /// Per-agent monotonic generation counter for new activations.
+    next_generation: HashMap<String, u64>,
     clock: C,
 }
 
@@ -309,6 +327,9 @@ impl<C: Clock> Broker<C> {
             grants: HashMap::new(),
             leases: HashMap::new(),
             providers: HashMap::new(),
+            agent_activations: HashMap::new(),
+            current_activation: HashMap::new(),
+            next_generation: HashMap::new(),
             clock,
         }
     }
@@ -571,6 +592,8 @@ impl<C: Clock> Broker<C> {
         }
     }
 }
+
+pub mod agent;
 
 #[cfg(test)]
 mod tests;

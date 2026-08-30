@@ -1,5 +1,6 @@
 use tauri::Manager;
 
+mod agent_broker;
 mod attached_health;
 mod browser;
 mod commands;
@@ -15,11 +16,18 @@ mod usage;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // One capability broker shared by every agent_automation surface
+    // (ADR-0018 decision 7); the terminal agent wiring (TerminalState::new
+    // with a registered provider) lands with M5-E2 in the same branch.
+    let broker_state = agent_broker::BrokerState::default();
+    let broker_inner = broker_state.inner();
+    let browser_state = browser::BrowserState::new(broker_inner.clone());
     tauri::Builder::default()
+        .manage(broker_state)
         .manage(managed_runtime::ManagedRuntimeState::default())
         .manage(dsh_surface::DshSurfaceState::default())
-        .manage(terminal::TerminalState::default())
-        .manage(browser::BrowserState::default())
+        .manage(terminal::TerminalState::new(broker_inner))
+        .manage(browser_state)
         .manage(notification::NotificationService::default())
         .manage(usage::UsageService::default())
         .setup(|app| {
@@ -46,6 +54,8 @@ pub fn run() {
             commands::close_terminal,
             commands::create_browser,
             commands::create_terminal,
+            commands::interact_browser,
+            commands::take_over_browser,
             commands::list_browsers,
             commands::list_terminals,
             commands::navigate_browser,

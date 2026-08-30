@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-take-over-browser"
+description = "Enables the take_over_browser command without any pre-configured scope."
+commands.allow = ["take_over_browser"]
+
+[[permission]]
+identifier = "deny-take-over-browser"
+description = "Denies the take_over_browser command without any pre-configured scope."
+commands.deny = ["take_over_browser"]

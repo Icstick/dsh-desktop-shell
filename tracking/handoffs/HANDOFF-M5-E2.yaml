@@ -1,0 +1,28 @@
+schema_version: 1
+id: HANDOFF-M5-E2
+work_item: WI-M5-INTEROP
+from: dsh-agent-e2
+to: dsh-agent-primary
+status: review
+completed:
+  - "M5-E2 terminal agent_automation（AC-TERM-001 反转，ADR-0018 决策 7）：specs/terminal/terminal-create-request.schema.json mode const -> enum [human_surface, agent_automation] + agent 授权对象（agentId/activationId/generation/scope，if/then/else 跨模式互斥）；terminal-report mode 同步 enum；fixtures +4（create agent-automation valid/invalid、report agent-automation valid、create invalid 改为 invalid mode）；validate-specs 61 schema / 113 fixtures ALL PASS。"
+  - "terminal.rs：TerminalState<C: Clock> 持有共享 broker（Arc<Mutex<Broker<C>>>）；TerminalState::new 注册 terminal provider（坐标 terminal.dsh-desktop.local/v1alpha1 + Terminal，与 envelope.agreement.valid.json granted 坐标一致）；create agent_automation 经 enforce_dispatch（grant+lease，无授权 UNAUTHORIZED、stale STALE_GENERATION）；agent 会话 binding 记录 agent_id/activation_id/generation/scope；write/resize/close 经 broker.dispatch -> terminal provider 执行（TerminalMutation/TerminalProviderResult JSON 协议）；human 会话路径不经过 broker；status/list 带 mode（agent_automation/human_surface）。"
+  - "tauri 接线：agent_broker::BrokerState（E3 文件的共享 broker 状态，恢复 + 补 inner() 访问器）被 .manage()；lib.rs 构造共享 broker_state + TerminalState::new(broker_state.inner())；src-tauri Cargo.toml 加 dsh-supervisor 依赖（与 E3 重复行已去重）。"
+  - "crates/supervisor Provider handler 加 Send + Sync 约束（tauri manage 要求共享 broker 跨线程；E3 的 BrokerState 同样依赖此修复）；supervisor 26 tests 全绿。"
+  - "测试（terminal.rs agent_tests 11 项 + human 3 项）：agent 授权创建通过/无授权拒绝（UNAUTHORIZED）/stale generation/scope mismatch/lease 过期拒绝；agent write 经 dispatch 往返 echo；revoke lease 后 write/resize/close 拒绝；human takeover（revoke_agent_grants）后 agent 会话全拒绝 + 同 activation 重新 create 拒绝；shape matrix（agent 缺失/跨模式/非法 token/空 scope/generation 0 -> MALFORMED）；human 路径不回归。"
+  - "docs：ACCEPTANCE.md AC-TERM-001 更新为授权链语义；ADR-0015 决策 2 与验证门禁更新（M5-E2 反转）；CHANGELOG Added 记录；IF-TERMINAL updated_at；WI-M5-INTEROP evidence 追加。"
+remaining:
+  - "desktop crate 门禁：E3 并行代码已收敛（browser.rs:863 由 E3 修复；browser.rs:2080 clippy 断言与 commands.rs:1274 take_over 调用对齐由我修，E3 提交时请核对），合并后全量门禁通过：desktop 123 / supervisor 26 / terminal-provider 5 tests、clippy -D warnings、fmt、validate-specs 61/113、ACL 35 commands。"
+  - "commands.rs:1274 take_over_browser 调用已对齐 browser.rs:987 签名（2 参数同步、去 .await、app->_app）——这是我跨进 E3 领土的唯一修改，若 E3 已有其他方案请复核。"
+  - "E3 的 agent_broker.rs 曾被删除后由我恢复（内容为其原始实现 + inner()）；E3 若同时恢复请以我这份为准合并。"
+verification:
+  - "cargo test -p dsh-supervisor：26 passed（含 E1 bridge 全量，Provider Send+Sync 不破）。"
+  - "cargo test -p dsh-terminal-provider：5 passed。"
+  - "node scripts/validate-specs.mjs：61 schemas / 113 fixtures ALL PASS。"
+  - "cargo fmt --all -- --check：agent_broker.rs 已格式化，余无 diff（E3 代码 fmt 干净）。"
+  - "cargo check -p dsh-desktop-shell：我的代码（terminal.rs/lib.rs/agent_broker.rs/supervisor 变更）编译干净；仅剩 E3 的 browser.rs E0596 一处。"
+risks:
+  - "E3 与我在同一工作树并行：文件可能互相覆盖（本次已发生 agent_broker.rs 删除、Cargo.toml 重复行）。提交时按文件粒度 add，避免把 E3 未完成改动带进 commit。"
+  - "take_over 语义：terminal 侧 human takeover 后 agent 会话 close 也被门禁拒绝（任务要求 close 经 dispatch）；会话清理依赖 app 退出 Drop，或未来 surface 层 takeover 命令做 rebind/close。"
+next_action: "E3 修完 browser.rs:863 后由 primary 跑全量门禁（cargo test -p dsh-desktop-shell / clippy / fmt），并将 E2 与 E3 的提交合并验证 AC-TERM-001/AC-BRW-002。"
+created_at: "2026-08-30T13:24:00Z"

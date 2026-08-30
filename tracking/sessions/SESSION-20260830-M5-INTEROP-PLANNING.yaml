@@ -1,0 +1,13 @@
+schema_version: 1
+id: SESSION-20260830-M5-INTEROP-PLANNING
+status: active
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M5-INTEROP
+branch_or_worktree: codex/wi-m5-interop
+started_at: "2026-08-30T03:30:00Z"
+summary: "M5 Interop 规划：范围梳理（LADDER 变化吸收点、M1-M4 积累的 M5 项：agent_automation 授权链/notification-usage adapter/dsh-std optional adapter/IF-NEGOTIATION-INVOCATION 激活）、PLAN-M5.md 五切片（A 契约基线/B wire-shape/C Legacy/D dsh-std/E 授权链）、风险识别（dsh-std alpha 漂移、DSH 接口无稳定文档）。"
+artifacts:
+  - "docs/roadmap/PLAN-M5.md"
+  - "tracking/work-items/WI-M5-INTEROP.yaml"
+next_action: "M5-A 执行：dsh-std baseline refresh + ADR-0018 + IF 契约细化；需 maintainer 确认 dsh-std 基线范围（registry 坐标核验）。"
