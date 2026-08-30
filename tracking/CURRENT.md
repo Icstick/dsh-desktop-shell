@@ -1,8 +1,8 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M7 Setup Wizard + Multi-Profile (B1) —— 实现完成（向导 + 环境列表切换），live QA 6/6，待独立评审
-- Status：M1-M6 全部合并 main；M7 实现完成（分支 codex/wi-m7-wizard @ 待评审）
+- Milestone：M7 Setup Wizard + Multi-Profile (B1) —— 完成（main @ e629c7f）；M8 Stable Candidate 规划中
+- Status：M1-M7 全部合并 main（main @ e629c7f）
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
 - Last updated：2026-08-30T13:30:00Z

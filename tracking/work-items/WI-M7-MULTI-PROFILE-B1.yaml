@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M7-MULTI-PROFILE-B1
 title: "Multi-profile management panel with single-active switching (B1)"
-status: done
+status: verified
 milestone: M7
 module: MOD-ENVIRONMENT-SETTINGS
 owner_role: ui-owner
@@ -18,6 +18,6 @@ security_impact: "None"
 compatibility_impact: "None"
 evidence: []
 blocked_by: []
-next_action: "已完成（2026-08-30）：EnvironmentList + set_active_environment + 切换编排；待评审验收。"
+next_action: "已完成：maintainer 2026-08-30 验收，squash 合并 main @ e629c7f。"
 handoff: null
 updated_at: "2026-08-30T13:00:00Z"

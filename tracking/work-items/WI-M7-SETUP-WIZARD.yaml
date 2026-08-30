@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M7-SETUP-WIZARD
 title: "Guided setup wizard (6-step configuration guide)"
-status: done
+status: verified
 milestone: M7
 module: MOD-ENVIRONMENT-SETTINGS
 owner_role: ui-owner
@@ -19,6 +19,6 @@ security_impact: "None (configuration UX)"
 compatibility_impact: "catalog 写入路径变更（daemon 同步）"
 evidence: []
 blocked_by: []
-next_action: "已完成（2026-08-30）：六步向导 + discover_profiles/probe_port；live QA 6/6；待评审验收。"
+next_action: "已完成：maintainer 2026-08-30 验收，squash 合并 main @ e629c7f。"
 handoff: null
 updated_at: "2026-08-30T13:00:00Z"

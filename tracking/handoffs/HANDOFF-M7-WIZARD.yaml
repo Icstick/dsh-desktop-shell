@@ -3,7 +3,7 @@ id: HANDOFF-M7-WIZARD
 work_item: WI-M7-SETUP-WIZARD
 from: dsh-agent-primary
 to: maintainer
-status: proposed
+status: accepted
 completed:
   - "M7-A 六步配置向导：SetupWizard.tsx（模式 → DSH 发现 → Profile 扫描 → 数据目录与端口探测 → 预检 → 保存+启动），替代原单页 EnvironmentSetup；后端 discover_profiles（$DSH_HOME/profiles/ 扫描 + cordis.yml 标记）与 probe_port（回环有界探测），6 Rust 测试；ACL 38。"
   - "M7-B 多 profile 切换（B1）：EnvironmentList 组件（catalog 卡片 + active 徽标 + Activate）；store set_active_environment（校验/幂等/revision 递增/未知 id 拒绝）+ 命令 + ACL；ShellApp 编排 stop 当前 managed → 激活 → 启动目标（attached 则探测）。"
@@ -20,5 +20,5 @@ verification:
 risks:
   - "activateEnvironment 编排依赖 stopManaged/startManaged 的异步完成（await 已串行）；managed 正在 transitioning 时列表按钮禁用。"
   - "profile 扫描的 has_root_config 是提示性标记（无 cordis.yml 的目录仍可被选为 profile，创建语义由用户负责）。"
-next_action: "maintainer 验收 HANDOFF-M7 → 评审通过后 squash 合并 codex/wi-m7-wizard 到 main → M8 Stable Candidate 规划。"
+next_action: "已验收合并（main @ e629c7f）。M8 Stable Candidate 规划：三平台加固、签名/SBOM、named mutex 评估；B2 并发多 profile 定位 M9/M10。"
 created_at: "2026-08-30T15:00:00Z"
