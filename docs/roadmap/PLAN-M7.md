@@ -24,14 +24,19 @@ profile（B2）单独规划。
 4. **数据目录与端口**：dshHome 默认 `~/.dsh`（可改）、端口默认 auto（Managed
    需显式或由 daemon 分配）——新增端口占用探测
 5. **预检**：版本探测、依赖（node）、端口可用性、目录可写 —— 聚合展示
-6. **保存 + 启动**：写入 catalog（含 daemon catalog 同步，见下）、启动 Managed /
-   探测 Attached
+6. **保存 + 启动**：写入 catalog、启动 Managed / 探测 Attached
 
 后端新增：
 - `discover_profiles(dsh_home)`：列出 profile 目录（含 config.yaml 校验）
 - `probe_port(port)`：端口占用检测（复用 local-transport 探测模式）
-- **catalog 同步**：Shell 保存环境时同步写 daemon 数据目录 environments.json
-  （修复现状：daemon 读不到 Shell 保存的环境——两套 catalog 未打通）
+
+> **catalog 结论（2026-08-30 对齐审计修正）**：Shell 与 daemon 使用**同一文件**
+> `%APPDATA%/dev.dsh.desktop-shell/environment-catalog-v1.json`（tauri
+> app_data_dir 与 daemon data_dir 默认一致；daemon 每次调用重新 load_catalog，
+> 见 crates/daemon/src/runtime.rs per-invocation 加载）——**无需同步机制**。
+> 早期「双份未打通」判断错误（QA 隔离目录场景是 DSH_DAEMON_DATA_DIR override
+> 的预期行为）。唯一注意：自定义 DSH_DAEMON_DATA_DIR 部署时目录分离，属 override
+> 语义而非缺陷。
 
 ### M7-B 多 profile 管理（B1，WI-M7-MULTI-PROFILE-B1）
 
@@ -54,5 +59,5 @@ profile（B2）单独规划。
 
 ## 依赖
 
-- M6（daemon 化）已完成；catalog 同步改动涉及 environment_store 与 daemon 侧
-- B1 依赖 M7-A 的 catalog 同步（先 A 后 B）
+- M6（daemon 化）已完成
+- B1 依赖 M7-A 的环境注册能力（先 A 后 B）

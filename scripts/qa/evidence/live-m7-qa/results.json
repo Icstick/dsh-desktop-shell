@@ -1,0 +1,32 @@
+[
+  {
+    "name": "C1 Shell UI loaded",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "C2 settings surface opened",
+    "ok": true,
+    "detail": "CLICKED"
+  },
+  {
+    "name": "C3 SetupWizard rendered",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "C4 wizard shows six steps",
+    "ok": true,
+    "detail": "steps=6"
+  },
+  {
+    "name": "C5 EnvironmentList rendered",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "C6 wizard advances to harness step",
+    "ok": true,
+    "detail": ""
+  }
+]

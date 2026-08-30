@@ -1,7 +1,7 @@
 schema_version: 1
 id: M7
 title: "Setup Wizard + Multi-Profile (B1)"
-status: planned
+status: in_review
 relative_weeks: "25-28"
 depends_on:
   - M6
@@ -10,5 +10,8 @@ exit_criteria:
   - "多 profile 列表面板 + 单活跃切换"
   - "catalog 双份打通（Shell ↔ daemon）"
   - "B2 规划定稿（ADR-0020 草案 + 里程碑定位）"
-evidence: []
+evidence:
+  - "M7-A 六步向导（SetupWizard + discover_profiles/probe_port + ACL 38）"
+  - "M7-B EnvironmentList + set_active_environment（单活跃切换编排）"
+  - "vitest 63/63 + workspace 串行 + clippy + live QA 6/6（CDP）"
 updated_at: "2026-08-30T13:00:00Z"

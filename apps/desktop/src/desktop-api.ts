@@ -32,10 +32,15 @@ import type {
   DshSurfaceStatus,
   DshSurfaceStatusRequest,
   DshSurfaceUnmountRequest,
+  DiscoverProfilesReport,
+  DiscoverProfilesRequest,
   EnvironmentCatalog,
   EnvironmentValidation,
   HarnessDiscoveryReport,
   HarnessDiscoveryRequest,
+  ProbePortReport,
+  ProbePortRequest,
+  SetActiveEnvironmentRequest,
   ManagedRuntimeReport,
   ManagedRuntimeRestartRequest,
   ManagedRuntimeStartRequest,
@@ -62,6 +67,9 @@ export interface DesktopApi {
   statusTerminal(request: TerminalSessionRequest): Promise<TerminalReport>;
   writeTerminal(request: TerminalWriteRequest): Promise<void>;
   discoverHarnesses(request: HarnessDiscoveryRequest): Promise<HarnessDiscoveryReport>;
+  discoverProfiles(request: DiscoverProfilesRequest): Promise<DiscoverProfilesReport>;
+  probePort(request: ProbePortRequest): Promise<ProbePortReport>;
+  setActiveEnvironment(request: SetActiveEnvironmentRequest): Promise<EnvironmentCatalog>;
   evaluateDshSurfaceNavigation(
     request: DshSurfaceNavigationRequest,
   ): Promise<DshSurfaceNavigationDecision>;
@@ -105,6 +113,11 @@ export const desktopApi: DesktopApi = {
   writeTerminal: (request) => invoke<void>("write_terminal", { request }),
   discoverHarnesses: (request) =>
     invoke<HarnessDiscoveryReport>("discover_harnesses", { request }),
+  discoverProfiles: (request) =>
+    invoke<DiscoverProfilesReport>("discover_profiles", { request }),
+  probePort: (request) => invoke<ProbePortReport>("probe_port", { request }),
+  setActiveEnvironment: (request) =>
+    invoke<EnvironmentCatalog>("set_active_environment", { request }),
   evaluateDshSurfaceNavigation: (request) =>
     invoke<DshSurfaceNavigationDecision>("evaluate_dsh_surface_navigation", { request }),
   getDshSurfacePolicy: (request) =>

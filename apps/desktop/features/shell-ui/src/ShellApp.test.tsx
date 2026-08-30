@@ -103,6 +103,22 @@ function createApi(): DesktopApi {
       deferredSources: ["global"],
       candidates: [],
     }),
+    discoverProfiles: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      dshHome: "C:\\Users\\test\\.dsh",
+      profiles: [],
+    }),
+    probePort: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      port: 8080,
+      inUse: false,
+    }),
+    setActiveEnvironment: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      revision: 2,
+      activeEnvironmentId: request.environmentId,
+      environments: [],
+    })),
     evaluateDshSurfaceNavigation: vi.fn().mockResolvedValue({
       schemaVersion: 1,
       environmentId: "attached-local",
@@ -395,17 +411,23 @@ describe("ShellApp", () => {
     expect(screen.getByText("unconfigured")).toBeInTheDocument();
   });
 
-  it("validates a setup draft without installing or launching DSH", async () => {
+  it("validates a setup draft through the wizard without launching DSH", async () => {
     const api = createApi();
     const user = userEvent.setup();
     render(<ShellApp api={api} />);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
-    await user.type(screen.getByLabelText("DSH_HOME"), "C:/Users/example/.dsh");
-    await user.click(screen.getByRole("button", { name: "Validate environment" }));
+    await screen.findByTestId("setup-wizard");
+    // Wizard: mode (next) → harness (prefilled "dsh", next) → profile
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("dsh-home"), "C:/Users/example/.dsh");
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("run-validation"));
 
-    expect(await screen.findByLabelText("Redacted launch preview")).toBeInTheDocument();
+    expect(await screen.findByTestId("validation-ok")).toBeInTheDocument();
     expect(api.validateEnvironment).toHaveBeenCalledOnce();
     expect(api.validateEnvironment).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -415,19 +437,26 @@ describe("ShellApp", () => {
     );
   });
 
-  it("persists a validated environment without starting DSH", async () => {
+  it("persists a validated environment through the wizard without starting DSH", async () => {
     const api = createApi();
     const user = userEvent.setup();
     render(<ShellApp api={api} />);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
-    await user.type(screen.getByLabelText("DSH_HOME"), "C:/Users/example/.dsh");
-    await user.click(screen.getByRole("button", { name: "Validate environment" }));
-    await user.click(await screen.findByRole("button", { name: "Save active environment" }));
+    await screen.findByTestId("setup-wizard");
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("dsh-home"), "C:/Users/example/.dsh");
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("run-validation"));
+    await screen.findByTestId("validation-ok");
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("finish-save"));
 
     expect(api.saveEnvironment).toHaveBeenCalledOnce();
-    expect(await screen.findByText(/active catalog revision 1/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved at catalog revision 1/i)).toBeInTheDocument();
   });
 
   it("uses a launchable discovery candidate without executing it", async () => {
@@ -457,10 +486,11 @@ describe("ShellApp", () => {
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
-    await user.click(screen.getByRole("button", { name: "Discover harnesses" }));
+    await screen.findByTestId("setup-wizard");
+    await user.click(screen.getByTestId("wizard-next"));
+    await user.click(screen.getByTestId("discover-button"));
     expect(await screen.findByText("C:/tools/dsh.exe")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Use candidate" }));
-    expect(screen.getByLabelText("Executable or recipe path")).toHaveValue("C:/tools/dsh.exe");
+    expect(screen.getByTestId("harness-path")).toHaveValue("C:/tools/dsh.exe");
   });
 
   it("restores and validates the active persisted environment on startup", async () => {
@@ -826,6 +856,91 @@ describe("ShellApp", () => {
       await screen.findByText("Verified endpoint: http://127.0.0.1:4318"),
     ).toBeInTheDocument();
   });
+  it("switches managed environments: stop previous, activate, start target (REVIEW-M7 HIGH-1)", async () => {
+    const api = createApi();
+    const envA = managedEnvironment();
+    const envB = { ...managedEnvironment(), id: "work-dsh", label: "Work DSH" };
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 11,
+      activeEnvironmentId: envA.id,
+      environments: [envA, envB],
+    });
+    vi.mocked(api.getManagedRuntimeStatus).mockResolvedValue(healthyManagedReport());
+    vi.mocked(api.setActiveEnvironment).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 12,
+      activeEnvironmentId: envB.id,
+      environments: [envA, envB],
+    });
+    const user = userEvent.setup();
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await screen.findByTestId("setup-wizard");
+    await user.click(screen.getByTestId("activate-work-dsh"));
+
+    // Ordered B1 sequence: stop the previous managed environment, persist
+    // the activation, then start the target (explicit environments — no
+    // stale closure values).
+    await waitFor(() =>
+      expect(api.stopManagedEnvironment).toHaveBeenCalledWith({
+        schemaVersion: 1,
+        environmentId: envA.id,
+        expectedGeneration: 7,
+      }),
+    );
+    expect(api.setActiveEnvironment).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      environmentId: envB.id,
+    });
+    await waitFor(() =>
+      expect(api.startManagedEnvironment).toHaveBeenCalledWith({
+        schemaVersion: 1,
+        environmentId: envB.id,
+      }),
+    );
+    // The previous environment must never be restarted by the switch.
+    expect(api.startManagedEnvironment).not.toHaveBeenCalledWith({
+      schemaVersion: 1,
+      environmentId: envA.id,
+    });
+  });
+
+  it("starts the target managed environment after switching from attached (REVIEW-M7 HIGH-1)", async () => {
+    const api = createApi();
+    const envAttached = attachedEnvironment();
+    const envManaged = managedEnvironment();
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 13,
+      activeEnvironmentId: envAttached.id,
+      environments: [envAttached, envManaged],
+    });
+    vi.mocked(api.setActiveEnvironment).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 14,
+      activeEnvironmentId: envManaged.id,
+      environments: [envAttached, envManaged],
+    });
+    const user = userEvent.setup();
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await screen.findByTestId("setup-wizard");
+    await user.click(screen.getByTestId("activate-managed-local"));
+
+    // No previous managed process to stop; the target must still start
+    // (the pre-fix closure bug returned early for attached previous).
+    expect(api.stopManagedEnvironment).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(api.startManagedEnvironment).toHaveBeenCalledWith({
+        schemaVersion: 1,
+        environmentId: envManaged.id,
+      }),
+    );
+  });
+
 
   it("surfaces bounded recovery history and a safe-stop start path", async () => {
     const api = createApi();

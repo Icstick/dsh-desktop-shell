@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-probe-port"
+description = "Enables the probe_port command without any pre-configured scope."
+commands.allow = ["probe_port"]
+
+[[permission]]
+identifier = "deny-probe-port"
+description = "Denies the probe_port command without any pre-configured scope."
+commands.deny = ["probe_port"]

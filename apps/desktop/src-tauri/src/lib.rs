@@ -12,6 +12,7 @@ mod dsh_surface_policy;
 mod environment_store;
 mod managed_runtime;
 mod notification;
+mod setup_assist;
 mod terminal;
 mod usage;
 
@@ -48,6 +49,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::discover_harnesses,
+            commands::discover_profiles,
+            commands::set_active_environment,
+            commands::probe_port,
             commands::evaluate_dsh_surface_navigation,
             commands::get_dsh_surface_status,
             commands::get_dsh_surface_policy,

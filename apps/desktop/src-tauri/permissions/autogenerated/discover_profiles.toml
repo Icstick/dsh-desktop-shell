@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discover-profiles"
+description = "Enables the discover_profiles command without any pre-configured scope."
+commands.allow = ["discover_profiles"]
+
+[[permission]]
+identifier = "deny-discover-profiles"
+description = "Denies the discover_profiles command without any pre-configured scope."
+commands.deny = ["discover_profiles"]

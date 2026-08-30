@@ -76,6 +76,34 @@ pub(crate) fn load_catalog(path: &Path) -> Result<EnvironmentCatalog, StoreError
     Ok(catalog)
 }
 
+/// Switch the catalog's active environment without touching its
+/// definition (B1 multi-profile switching). Unknown ids are rejected
+/// (no silent activation of a missing environment).
+pub(crate) fn set_active_environment(
+    path: &Path,
+    environment_id: &str,
+) -> Result<EnvironmentCatalog, StoreError> {
+    let mut catalog = load_catalog(path)?;
+    if !catalog
+        .environments
+        .iter()
+        .any(|environment| environment.id() == environment_id)
+    {
+        return Err(StoreError::InvalidEnvironment);
+    }
+    if catalog.active_environment_id.as_deref() == Some(environment_id) {
+        return Ok(catalog);
+    }
+    catalog.active_environment_id = Some(environment_id.to_string());
+    catalog.revision = catalog
+        .revision
+        .checked_add(1)
+        .ok_or(StoreError::Capacity)?;
+    validate_catalog(&catalog)?;
+    write_catalog(path, &catalog)?;
+    Ok(catalog)
+}
+
 pub(crate) fn save_environment(
     path: &Path,
     environment: DshEnvironment,
@@ -320,5 +348,35 @@ mod tests {
             fs::read(&catalog_path).expect("catalog remains"),
             b"not json"
         );
+    }
+
+    #[test]
+    fn set_active_environment_switches_and_persists() {
+        let directory = TestDirectory::new();
+        let catalog_path = directory.0.join("environment-catalog-v1.json");
+        let dsh_home = directory.0.join("dsh-home");
+        save_environment(&catalog_path, environment("local-dsh", &dsh_home)).expect("first");
+        let after_first =
+            save_environment(&catalog_path, environment("work-dsh", &dsh_home)).expect("second");
+        assert_eq!(
+            after_first.active_environment_id.as_deref(),
+            Some("work-dsh")
+        );
+
+        // Switch back to the first environment.
+        let switched = set_active_environment(&catalog_path, "local-dsh").expect("switch");
+        assert_eq!(switched.active_environment_id.as_deref(), Some("local-dsh"));
+        assert!(switched.revision > after_first.revision);
+
+        // Idempotent when the target is already active (revision unchanged).
+        let again = set_active_environment(&catalog_path, "local-dsh").expect("idempotent");
+        assert_eq!(again.revision, switched.revision);
+
+        // Unknown ids are rejected without touching the catalog.
+        let error =
+            set_active_environment(&catalog_path, "ghost-dsh").expect_err("unknown environment");
+        assert!(matches!(error, StoreError::InvalidEnvironment));
+        let loaded = load_catalog(&catalog_path).expect("reload");
+        assert_eq!(loaded.active_environment_id.as_deref(), Some("local-dsh"));
     }
 }

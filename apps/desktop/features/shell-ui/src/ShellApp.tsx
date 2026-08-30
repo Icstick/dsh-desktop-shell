@@ -18,7 +18,8 @@ import type {
 } from "../../../src/contracts";
 import { desktopApi, type DesktopApi } from "../../../src/desktop-api";
 import { useI18n } from "../../../src/i18n";
-import { EnvironmentSetup } from "../../environment-settings/src/EnvironmentSetup";
+import { EnvironmentList } from "../../environment-settings/src/EnvironmentList";
+import { SetupWizard } from "../../environment-settings/src/SetupWizard";
 import { BrowserPanel } from "../../browser-ui/src/BrowserPanel";
 import { HarnessSurface } from "../../harness-surface/src/HarnessSurface";
 import { TerminalPanel } from "../../terminal-ui/src/TerminalPanel";
@@ -34,6 +35,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   const [snapshot, setSnapshot] = useState<ShellSnapshot | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [validatedEnvironment, setValidatedEnvironment] = useState<DshEnvironment | null>(null);
+  const [catalog, setCatalog] = useState<EnvironmentCatalog | null>(null);
   const [validation, setValidation] = useState<EnvironmentValidation | null>(null);
   const [attachedHealth, setAttachedHealth] = useState<AttachedHealthReport | null>(null);
   const [attachedHealthError, setAttachedHealthError] = useState<string | null>(null);
@@ -74,6 +76,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         ]);
         if (!current) return;
         setSnapshot(nextSnapshot);
+        setCatalog(catalog);
 
         const activeEnvironment = catalog.environments.find(
           (environment) => environment.id === catalog.activeEnvironmentId,
@@ -421,6 +424,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   ) => {
     setValidatedEnvironment(environment);
     setValidation(result);
+    setCatalog(catalog);
     setSnapshot((current) =>
       current
         ? {
@@ -440,6 +444,41 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
+  const activateEnvironment = async (
+    nextCatalog: EnvironmentCatalog,
+    environment: DshEnvironment,
+  ) => {
+    const previous = validatedEnvironment;
+    // Single-active semantics, ordered stop → activate → start (the
+    // documented B1 sequence; REVIEW-M7 HIGH-1): stop the currently
+    // running managed environment first (explicit previous environment —
+    // closures would otherwise read a stale value after the state update),
+    // then persist the activation, then start the target.
+    if (
+      previous?.ownership === "managed" &&
+      previous.id !== environment.id &&
+      managedRuntime &&
+      managedRuntime.environmentId === previous.id &&
+      managedRuntime.generation >= 1 &&
+      managedRuntime.state === "healthy"
+    ) {
+      await stopManaged(previous);
+    }
+    setCatalog(nextCatalog);
+    setValidatedEnvironment(environment);
+    setValidation(null);
+    if (environment.ownership === "attached") {
+      setSnapshot((current) =>
+        current ? { ...current, environmentId: environment.id } : current,
+      );
+      return;
+    }
+    setSnapshot((current) =>
+      current ? { ...current, environmentId: environment.id, runtimeState: "stopped" } : current,
+    );
+    await startManaged(environment);
+  };
+
   const applyManagedReport = (report: ManagedRuntimeReport) => {
     setManagedRuntime(report);
     setSnapshot((snapshot) =>
@@ -449,8 +488,11 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     );
   };
 
-  const startManaged = async () => {
-    if (validatedEnvironment?.ownership !== "managed") return;
+  const startManaged = async (environment?: DshEnvironment) => {
+    // The button wiring may pass a DOM event; only a real environment
+    // (carrying ownership) is accepted as the explicit target.
+    const target = environment?.ownership ? environment : validatedEnvironment;
+    if (!target || target.ownership !== "managed") return;
     setTransitioningManaged(true);
     setManagedRuntimeError(null);
     setConfirmingManagedStop(false);
@@ -458,7 +500,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       applyManagedReport(
         await api.startManagedEnvironment({
           schemaVersion: 1,
-          environmentId: validatedEnvironment.id,
+          environmentId: target.id,
         }),
       );
     } catch (error: unknown) {
@@ -468,11 +510,13 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
-  const stopManaged = async () => {
+  const stopManaged = async (environment?: DshEnvironment) => {
+    const target = environment?.ownership ? environment : validatedEnvironment;
     if (
-      validatedEnvironment?.ownership !== "managed" ||
+      !target ||
+      target.ownership !== "managed" ||
       !managedRuntime ||
-      managedRuntime.environmentId !== validatedEnvironment.id ||
+      managedRuntime.environmentId !== target.id ||
       managedRuntime.generation < 1
     ) {
       return;
@@ -483,7 +527,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       applyManagedReport(
         await api.stopManagedEnvironment({
           schemaVersion: 1,
-          environmentId: validatedEnvironment.id,
+          environmentId: target.id,
           expectedGeneration: managedRuntime.generation,
         }),
       );
@@ -656,11 +700,22 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
             />
           )}
           {activeSurface === "settings" && (
-            <EnvironmentSetup
-              api={api}
-              initialEnvironment={validatedEnvironment}
-              onSaved={handleSaved}
-            />
+            <>
+              <SetupWizard
+                api={api}
+                initialEnvironment={validatedEnvironment}
+                onSaved={handleSaved}
+              />
+              {catalog && (
+                <EnvironmentList
+                  api={api}
+                  catalog={catalog}
+                  activeEnvironmentId={catalog.activeEnvironmentId}
+                  transitioning={transitioningManaged}
+                  onActivated={activateEnvironment}
+                />
+              )}
+            </>
           )}
         </div>
       </section>

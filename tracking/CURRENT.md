@@ -1,11 +1,11 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M6 Daemon —— 完成（main @ cd4745d）；M7 Stable Candidate 规划中
-- Status：M1-M5 已合并 main；M6 分支 codex/wi-m6-daemon（实现 + 两个 transport 真 bug 修复 + QA 脚本）
+- Milestone：M7 Setup Wizard + Multi-Profile (B1) —— 实现完成（向导 + 环境列表切换），live QA 6/6，待独立评审
+- Status：M1-M6 全部合并 main；M7 实现完成（分支 codex/wi-m7-wizard @ 待评审）
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
-- Last updated：2026-08-30T12:00:00Z
+- Last updated：2026-08-30T13:30:00Z
 
 ## 当前状态
 
@@ -19,7 +19,13 @@
 
 ## remaining
 
-- **M4-D**：live desktop QA（GUI 实际操作：开 browser 窗口/导航/关闭、profile 隔离运行时证据、AC-BRW-001 三层闭合复核）→ 独立评审 → maintainer 验收 → 合并 main。
+- **M7**：配置向导（WI-M7-SETUP-WIZARD：6 步引导 + discover_profiles + probe_port）、
+  多 profile 切换 B1（WI-M7-MULTI-PROFILE-B1：环境列表面板 + 单活跃切换）。
+- **M8 候选**：Stable Candidate（三平台加固、签名/SBOM；含 named mutex/ADR 修订评估）。
+- **M9/M10 候选**：B2 并发多 profile（per-environment supervisor + 端口分配器 → 多 surface tab），
+  详见 PLAN-B2-MULTI-PROFILE-CONCURRENT.md。
+- M6 遗留：browser 状态上报 daemon（Shell browser.rs TODO(M6-C4)）、handover 会话接管
+  （daemon TODO(M6-C)）、envelope 固定端口（TODO(M6-C)）、dsh-surface bootstrap token 验证。
 - flaky 根治（M6-E，2026-08-30）：① local-transport concurrency_limit —— Windows RST 竞态（reject_busy 未读 hello 即关闭 → RST 清空 reply），修复为 reject 前先短超时读帧；② local-transport malformed_handshake_rejected —— 计数顺序竞态（rejected_auth 在 reply 后才 +1），修复为所有 stats 计数先于可观察信号（reply/槽位释放）；③ diagnostics ac_log_001 —— C4 重写为 mock fixture 后消除。三个均 20-40 次压力验证 0 失败。
 - M3 remaining：TerminalPanel 前端自动化用例恢复；macOS/Linux target-host 证据；diagnostics 专项 UI。
 - 待跟进（用户 2026-08-29 提及）：DSH 自身偶发崩溃 exit 3221226505（=0xC0000139 STATUS_ENTRYPOINT_NOT_FOUND，与 GUI 测试崩溃同码，疑原生模块依赖系统 DLL 入口点问题）。
@@ -30,4 +36,5 @@
 
 ## 下一动作
 
-M7 Stable Candidate 规划（三平台加固、签名/SBOM、MEDIUM 遗留：named mutex/ADR 修订、browser 状态上报、dsh-surface token 验证、handover 接管）。
+M7 独立评审（REVIEW-M7）→ 验收合并 → M8 Stable Candidate 规划（三平台、签名/SBOM、
+named mutex 评估）。B2 并发多 profile 定位 M9/M10（见 PLAN-B2）。

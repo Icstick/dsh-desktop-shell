@@ -32,6 +32,12 @@ ADR-0008 冻结了演进路径：P0 Supervisor 在 Tauri 进程内，M6 拆为�
 - daemon 单实例锁：Windows named mutex（`dev.dsh.desktop-shell.daemon`）+ 端口所有权双重检测。
 - 第二个实例启动：检测到锁 → 退出（exit code 约定）并记录；Shell 连接已存在实例。
 - 测试：双实例启动 → 第二实例拒绝；锁释放后可启动；Shell 重连到现存实例。
+- **实现记录（2026-08-30 修订，REVIEW-M6-DAEMON MEDIUM-1）**：M6 交付实现为
+  **claim 端口 37771 所有权 + 数据目录 lockfile**（`crates/daemon/src/singleton.rs`，
+  exit codes 3/4，陈旧锁接管 + 外部进程占端口检测，split_brain 5 tests 覆盖），
+  **named mutex 未实现**。功能等效（端口所有权为权威信号，lockfile 为协作锁；
+  硬杀后陈旧锁由端口权威恢复）。named mutex 作为三平台加固候选留 M8（Stable
+  Candidate）评估（跨平台等价物为 Unix domain socket 锁）。
 
 ### 决策 5：统一外源 API 服务端（M5-B2 升级）
 - daemon 内 local-transport bind（固定 loopback 端口）+ envelope 服务端（external-api-example 的 serve_connection/handle_envelope + GrantPolicy→broker 驱动——M5-E1 授权桥）。
@@ -55,5 +61,6 @@ ADR-0008 冻结了演进路径：P0 Supervisor 在 Tauri 进程内，M6 拆为�
 
 - 回归面大：M1-M5 所有命令路径改造（IPC 化）——分片迁移，每片保留 L0 fallback。
 - daemon 崩溃策略：资源保留 vs 重建（PTY 子进程可保留，broker 状态重建）——M6-C 细化。
-- Windows named mutex + 端口锁的竞态细节。
+- 单实例锁竞态细节：claim 端口所有权 + lockfile 的时序窗口（陈旧锁接管已有测试）；
+  named mutex 强化留 M8 评估。
 - 统一 API 首版本能力面收敛（避免全量暴露）。

@@ -117,6 +117,39 @@ export interface HarnessDiscoveryReport {
   candidates: HarnessCandidate[];
 }
 
+export interface DiscoverProfilesRequest {
+  schemaVersion: 1;
+  dshHome: string;
+}
+
+export interface ProfileEntry {
+  name: string;
+  path: string;
+  hasRootConfig: boolean;
+}
+
+export interface DiscoverProfilesReport {
+  schemaVersion: 1;
+  dshHome: string;
+  profiles: ProfileEntry[];
+}
+
+export interface ProbePortRequest {
+  schemaVersion: 1;
+  port: number;
+}
+
+export interface ProbePortReport {
+  schemaVersion: 1;
+  port: number;
+  inUse: boolean;
+}
+
+export interface SetActiveEnvironmentRequest {
+  schemaVersion: 1;
+  environmentId: string;
+}
+
 export interface AttachedHealthRequest {
   schemaVersion: 1;
   environmentId: string;

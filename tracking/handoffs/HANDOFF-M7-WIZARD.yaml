@@ -1,0 +1,24 @@
+schema_version: 1
+id: HANDOFF-M7-WIZARD
+work_item: WI-M7-SETUP-WIZARD
+from: dsh-agent-primary
+to: maintainer
+status: proposed
+completed:
+  - "M7-A 六步配置向导：SetupWizard.tsx（模式 → DSH 发现 → Profile 扫描 → 数据目录与端口探测 → 预检 → 保存+启动），替代原单页 EnvironmentSetup；后端 discover_profiles（$DSH_HOME/profiles/ 扫描 + cordis.yml 标记）与 probe_port（回环有界探测），6 Rust 测试；ACL 38。"
+  - "M7-B 多 profile 切换（B1）：EnvironmentList 组件（catalog 卡片 + active 徽标 + Activate）；store set_active_environment（校验/幂等/revision 递增/未知 id 拒绝）+ 命令 + ACL；ShellApp 编排 stop 当前 managed → 激活 → 启动目标（attached 则探测）。"
+  - "测试：vitest 63/63（SetupWizard 4 + EnvironmentList 3 + ShellApp 重写 3 + 既有 53）；workspace 串行 + clippy + fmt 全绿；live QA 6/6（CDP：Shell UI → settings → 向导 6 步渲染 → 环境列表 → 步骤推进，截图 evidence）。"
+  - "独立评审 REVIEW-M7：HIGH-1（activateEnvironment 闭包竞态）已修复（参数化 start/stop + stop→activate→start 顺序 + 2 回归测试）；MEDIUM-1/2 一并修复；MEDIUM-3 i18n 记录为约定债。"
+remaining:
+  - "向导英文硬编码：未走 i18n t()（与既有 UI 一致）；zh 列真实中文文案填充时统一处理。"
+  - "B2 并发多 profile：PLAN-B2-MULTI-PROFILE-CONCURRENT.md 已定稿（定位 M9/M10，M8=Stable Candidate）。"
+  - "EnvironmentSetup.tsx 已删除（git 历史可追溯）。"
+verification:
+  - "cargo test --workspace -- --test-threads=1 全绿；clippy -D warnings 干净；fmt 干净"
+  - "vitest 65/65（含 2 个激活路径回归）；tsc -b 干净；validate-acl 38 commands"
+  - "live QA 6/6（scripts/qa/evidence/live-m7-qa/results.json + settings-wizard.png）"
+risks:
+  - "activateEnvironment 编排依赖 stopManaged/startManaged 的异步完成（await 已串行）；managed 正在 transitioning 时列表按钮禁用。"
+  - "profile 扫描的 has_root_config 是提示性标记（无 cordis.yml 的目录仍可被选为 profile，创建语义由用户负责）。"
+next_action: "maintainer 验收 HANDOFF-M7 → 评审通过后 squash 合并 codex/wi-m7-wizard 到 main → M8 Stable Candidate 规划。"
+created_at: "2026-08-30T15:00:00Z"

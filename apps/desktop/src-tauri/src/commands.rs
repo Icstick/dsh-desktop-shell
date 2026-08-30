@@ -196,6 +196,14 @@ impl CommandError {
         }
     }
 
+    fn malformed_setup_assist() -> Self {
+        Self::unavailable("Setup assistance request is malformed.", false)
+    }
+
+    fn setup_assist_io() -> Self {
+        Self::unavailable("Setup assistance could not inspect the environment.", false)
+    }
+
     fn malformed_discovery() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
@@ -586,6 +594,56 @@ pub fn discover_harnesses(
 ) -> Result<HarnessDiscoveryReport, CommandError> {
     discovery::discover_harnesses(request).map_err(|error| match error {
         DiscoveryError::MalformedRequest => CommandError::malformed_discovery(),
+    })
+}
+
+/// Switch the active environment in the catalog (B1 multi-profile).
+#[tauri::command]
+pub fn set_active_environment(
+    app: AppHandle,
+    request: SetActiveEnvironmentRequest,
+) -> Result<EnvironmentCatalog, CommandError> {
+    if request.schema_version != 1 || !is_valid_id(&request.environment_id) {
+        return Err(CommandError::unavailable(
+            "Environment activation request is malformed.",
+            false,
+        ));
+    }
+    environment_store::set_active_environment(&catalog_path(&app)?, &request.environment_id)
+        .map_err(CommandError::from_store)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetActiveEnvironmentRequest {
+    pub schema_version: u8,
+    pub environment_id: String,
+}
+
+#[tauri::command]
+pub fn discover_profiles(
+    request: crate::setup_assist::DiscoverProfilesRequest,
+) -> Result<crate::setup_assist::DiscoverProfilesReport, CommandError> {
+    crate::setup_assist::discover_profiles(&request).map_err(|error| match error {
+        crate::setup_assist::SetupAssistError::MalformedRequest => {
+            CommandError::malformed_setup_assist()
+        }
+        crate::setup_assist::SetupAssistError::HomeMissing
+        | crate::setup_assist::SetupAssistError::HomeNotDirectory
+        | crate::setup_assist::SetupAssistError::Io(_) => CommandError::setup_assist_io(),
+    })
+}
+
+/// Probe whether a loopback port is in use (M7-A setup wizard).
+#[tauri::command]
+pub fn probe_port(
+    request: crate::setup_assist::ProbePortRequest,
+) -> Result<crate::setup_assist::ProbePortReport, CommandError> {
+    crate::setup_assist::probe_port(&request).map_err(|error| match error {
+        crate::setup_assist::SetupAssistError::MalformedRequest => {
+            CommandError::malformed_setup_assist()
+        }
+        _ => CommandError::setup_assist_io(),
     })
 }
 

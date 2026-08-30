@@ -14,8 +14,9 @@ WebView）或快速切换。
 1. **supervisor 单活跃**：`ManagedRuntimeSupervisor` 持有单一 `process` 槽位，
    同一时刻只运行一个 Managed 环境（`ManagedRuntimeError::Conflict`）。
    根因：M1-M2 设计决策（单一 DSH 实例管理、FM-4 防串号）。
-2. **catalog 双份未打通**（M7 修复）：Shell `state/environment-catalog-v1.json`
-   与 daemon `environments.json` 不同路径，daemon 读不到 Shell 保存的环境。
+2. **catalog 单文件共享**（2026-08-30 对齐审计确认）：Shell 与 daemon 共用
+   `%APPDATA%/dev.dsh.desktop-shell/environment-catalog-v1.json`，daemon
+   per-invocation 重新加载——**天然打通，无需同步机制**。
 3. **dsh_surface 单实例**：Shell 内单 WebView 挂载（label 标识）；多 profile 同时
    可见需要多 surface（多窗口或 tab 化 WebView）。
 4. **端口规划**：Managed 启动需显式端口（DSH 默认端口冲突）；当前 catalog 端口
@@ -50,9 +51,10 @@ WebView）或快速切换。
   中取未占用端口；环境显式端口优先，冲突则报错
 - 分配记录持久化（环境绑定端口，重启沿用）
 
-### 决策 4：catalog 同步（M7 前置）
+### 决策 4：catalog 单文件共享（已验证）
 
-- Shell 保存 → 同步写 daemon environments.json（M7-A 已做）；B2 依赖此打通
+- Shell 与 daemon 共用同一 catalog 文件（同目录同名，per-invocation 加载）；
+  B2 直接依赖现有机制，无前置改动
 
 ## 风险
 
