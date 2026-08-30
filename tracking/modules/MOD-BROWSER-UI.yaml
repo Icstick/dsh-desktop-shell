@@ -3,12 +3,12 @@ id: MOD-BROWSER-UI
 name: "browser-ui"
 path: "apps/desktop/features/browser-ui"
 owner_role: ui-owner
-status: proposed
+status: in_progress
 milestone: M4
 interfaces:
   - IF-BROWSER
 depends_on:
   - MOD-BROWSER-PROVIDER
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+updated_at: "2026-08-30T02:30:00Z"
+next_action: "M4-C 完成：BrowserPanel（URL 栏/状态/事件订阅）+ rail 入口（13 vitest）；live desktop QA 待排期。"

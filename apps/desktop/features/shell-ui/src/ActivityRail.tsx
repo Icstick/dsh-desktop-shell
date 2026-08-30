@@ -1,4 +1,11 @@
-export type SurfaceId = "dsh" | "terminal" | "runtime" | "settings" | "notifications" | "usage";
+export type SurfaceId =
+  | "dsh"
+  | "browser"
+  | "terminal"
+  | "runtime"
+  | "settings"
+  | "notifications"
+  | "usage";
 
 interface RailItem {
   id: SurfaceId | "browser" | "terminal" | "usage" | "timer";
@@ -9,7 +16,7 @@ interface RailItem {
 
 const items: RailItem[] = [
   { id: "dsh", label: "DSH", shortLabel: "DS", enabled: true },
-  { id: "browser", label: "Browser（M4）", shortLabel: "BR", enabled: false },
+  { id: "browser", label: "Browser", shortLabel: "BR", enabled: true },
   { id: "terminal", label: "Terminal", shortLabel: "TM", enabled: true },
   { id: "notifications", label: "Notifications", shortLabel: "NT", enabled: true },
   { id: "usage", label: "Usage", shortLabel: "US", enabled: true },

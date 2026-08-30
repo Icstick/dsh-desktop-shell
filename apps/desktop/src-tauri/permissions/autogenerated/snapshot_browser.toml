@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-snapshot-browser"
+description = "Enables the snapshot_browser command without any pre-configured scope."
+commands.allow = ["snapshot_browser"]
+
+[[permission]]
+identifier = "deny-snapshot-browser"
+description = "Denies the snapshot_browser command without any pre-configured scope."
+commands.deny = ["snapshot_browser"]

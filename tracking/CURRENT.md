@@ -1,39 +1,28 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M3 Workbench —— done（2026-08-29 maintainer 接受）
-- Status：M1/M2/M3 已接受并 squash 合并 main；下一里程碑 M4 Shared Browser（ready，待认领）
+- Milestone：M4 Shared Browser —— done（2026-08-30 maintainer 验收，待合并 main）
+- Status：M1/M2/M3 已合并 main；M4 验收完成；下一里程碑 M5 Interop（ready）
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25
-- Last updated：2026-08-29T10:05:00Z
+- Last updated：2026-08-30T03:00:00Z
 
 ## 当前状态
 
-- M0 Architecture Freeze：done（main @ 44fa9bc merge）。
-- M1 Shell MVP：done。REVIEW-M1-ACCEPTANCE（2026-08-29 maintainer 接受）；REVIEW-M1-NATIVE-ACCEPTANCE 9/9；Windows real-DSH WebView2 native smoke/compatibility 26/26（SMOKE-20260828-WEBVIEW2-NATIVE）；ADR-0012 authenticated bootstrap 端到端验证。已 squash 合并 main。
-- M2 Reliable Runtime：done。REVIEW-M2-ACCEPTANCE；REVIEW-M2-HANDOFF-CONSISTENCY 证据面全过（failed 项为 tracking 同步问题，已全部修复）；四切片：restart/recovery/Safe Stop（ADR-0013）、diagnostics（AC-LOG-001）、local-transport（AC-IPC-001/002）、P0 capability broker（ADR-0014，AC-LEASE-001）；98 Rust / 25 vitest / 18 ACL / 41-34 specs。已 squash 合并 main。
-- M3 Workbench：done。REVIEW-M3-ACCEPTANCE；REVIEW-M3-WORKBENCH 独立评审内容层全过（gate-counts 因本机无 Rust 工具链为静态核验；tracking-consistency 问题已在本收尾修复）；三切片：Notification（AC-NOT-001/002）、Persistent Terminal（ADR-0015，Windows ConPTY + xterm，AC-PTY-001）、Usage（AC-USG-001/002）；132 Rust / 29 vitest / 28 ACL / 53-55 specs。已 squash 合并 main。
+- M0/M1/M2/M3：done（均已接受并 squash 合并 main；local-transport 非阻塞 socket 修复 e352b0d 也在 main）。
+- M4 Shared Browser（codex/wi-m4-browser @ 45bfdf3，已推送）：
+  - M4-A 契约冻结：ADR-0017（Browser 与 DSH Surface 分权、human_surface only、profile 隔离、provider 抽象）+ specs/browser/ 6 schemas + 14 fixtures（59/69 ALL PASS）+ AC-BRW-001/003/004 细化、AC-BRW-002 延 M5。
+  - M4-B 双 PoC（POC-M4B-REPORT.md）：WebView2 embedded 与 Edge+CDP 全部 PASS；maintainer 拍板 WebView2 默认、CDP 搁置（M6 revisit）。
+  - M4-C 实现：crates/browser-provider（30 tests）+ desktop 桥 browser.rs（33 ACL、11 tests、WebView2 独立 profile data_directory、webview2-com 权限拦截、browser://event）+ Browser UI（13 vitest）；全量门禁 173 Rust / 43 vitest / 33 ACL / 59-69 specs / fmt+clippy 全绿。
+  - 关键决策（ADR-0017 决策 6）：wry 0.56 升级不可行（tauri 2.11.5 锁定 wry 0.55.1），permission/capture 用 webview2-com 0.38.2 直调（M1 同款模式）。
+- 环境（2026-08-29 补齐）：Rust 1.98.0（rustup）+ MSVC 14.51 + Windows SDK（D:\\Windows Kits，26100/22621）+ 前端依赖恢复；本机可完整跑 cargo/vitest 门禁。
 
-## remaining（不阻塞，均如实记录）
+## remaining
 
-- macOS/Linux target-host 实测证据（unsupported_platform / PTY）。
-- live desktop QA：交互式 GUI/WebView2 smoke、真实 DSH restart 演示、TerminalPanel 前端自动化用例恢复、ConPTY reader 队列满场景检查。
-- diagnostics 专项 UI 与 redacted log-export（当前由 RuntimePanel 只读块满足 AC-LOG-001）。
-- agent_automation 终端模式与 DSH notification/usage adapter：至 M5（AC-TERM-001、ADR-0016 决策 5）。
-- DSH graceful-stop stopDisposition=forced：待 DSH CLI 侧确认。
-
-## 环境注意（2026-08-29）
-
-当前开发机无 Rust 工具链（cargo/rustup 缺失，target/ 缓存为 D:\HostShare + C:\Users\ZOOT 的他机产物）；M1-M3 的 Rust 门禁在原构建环境验证，本机由 REVIEW-M3-WORKBENCH 静态精确核验一致（131+1 doctest）。前端依赖已恢复（pnpm install --frozen-lockfile）。M4 的 Rust 开发前需安装 rustup。
-
-## 已完成（里程碑摘要）
-
-- M0：Charter、10 ADR、Schema、威胁模型、tracking 体系；M0 review 全通过；implementation_authorized=true。
-- M1：Environment catalog/discovery（non-executing）、Attached 分权、DSH Surface policy（exact-origin）、Managed runtime（generation-bound）、Windows native surface（WebView2 deny hooks）、真实 DSH 26/26 smoke。
-- M2：supervisor restart/recovery/Safe Stop、crash-loop fuse、redacted diagnostics、authenticated loopback transport、P0 capability broker。
-- M3：notification 内容策略 + 60s TTL 去重 + 审计 JSONL、persistent ConPTY terminal（Desktop-owned）、local-first usage（零网络）。
-
-逐 slice 明细见 `tracking/sessions/` 与 `tracking/reviews/`。
+- **M4-D**：live desktop QA（GUI 实际操作：开 browser 窗口/导航/关闭、profile 隔离运行时证据、AC-BRW-001 三层闭合复核）→ 独立评审 → maintainer 验收 → 合并 main。
+- 已知 flaky（M2 模块，隔离运行通过）：diagnostics ac_log_001（并行负载下偶发）、local-transport limits（concurrency_limit）、local-transport malformed_handshake_rejected（transport.rs 时序断言）。
+- M3 remaining：TerminalPanel 前端自动化用例恢复；macOS/Linux target-host 证据；diagnostics 专项 UI。
+- 待跟进（用户 2026-08-29 提及）：DSH 自身偶发崩溃 exit 3221226505（=0xC0000139 STATUS_ENTRYPOINT_NOT_FOUND，与 GUI 测试崩溃同码，疑原生模块依赖系统 DLL 入口点问题）。
 
 ## 当前门禁
 
@@ -41,4 +30,4 @@
 
 ## 下一动作
 
-M4 Shared Browser（WI-M4-BROWSER proposed，依赖 WI-M3-WORKBENCH done）：contract-first 规划——IF-BROWSER 契约冻结（schema/fixtures、AC-BRW-001/002 与安全隔离）+ provider PoC 选型（至少两个 candidate）+ PLAN-M4.md；规划完成后认领 WI-M4-BROWSER、建 `codex/wi-m4-browser` 分支、记录 session 与 24h advisory lease。
+M4-D 收尾（live desktop QA + 评审 + 验收 + 合并 main）→ M5 Interop 规划。

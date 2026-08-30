@@ -1,0 +1,11 @@
+[package]
+name = "dsh-browser-provider"
+version = "0.1.0"
+description = "Pure-logic shared browser surface provider: session lifecycle, URL policy, audit events (MOD-BROWSER-PROVIDER, ADR-0017)"
+authors = ["DSH Desktop Shell contributors"]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+[dependencies]

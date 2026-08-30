@@ -1,0 +1,13 @@
+schema_version: 1
+id: SESSION-20260829-M4-BROWSER-PLANNING
+status: closed
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M4-BROWSER
+branch_or_worktree: codex/wi-m4-browser
+started_at: "2026-08-29T12:15:00Z"
+summary: "M4 Shared Browser 启动：contract-first 规划——provider 选型（WebView2 embedded vs external CDP）、IF-BROWSER 契约冻结计划、PLAN-M4.md 分片；PoC 前不进入实现。"
+artifacts:
+  - "docs/roadmap/PLAN-M4.md"
+  - "tracking/work-items/WI-M4-BROWSER.yaml"
+next_action: "已关闭：选型确认（WebView2 默认）+ M4-A 契约冻结完成；实现转入 SESSION-20260829-M4-BROWSER-IMPL。"

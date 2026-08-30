@@ -73,6 +73,17 @@ M3 只允许 human_surface 模式；agent_automation fail-closed（ADR-0015）�
 
 usage 本地优先、无网络外发（AC-USG-002）。
 
+## Browser
+
+- [Create Request](browser/browser-create-request.schema.json)
+- [Navigate Request](browser/browser-navigate-request.schema.json)
+- [Snapshot Request](browser/browser-snapshot-request.schema.json)
+- [Close Request](browser/browser-close-request.schema.json)
+- [Browser Report](browser/browser-report.schema.json)
+- [Browser Event](browser/browser-event.schema.json)
+
+M4 只允许 human_surface 模式；agent_automation fail-closed，interact/take_over 延至 M5（ADR-0017）。导航仅 HTTP(S) 且无 userinfo；snapshot 支持 text/screenshot（accessibility 延 M5）。
+
 ## Protocol
 
 - [Protocol Coordinate](protocol/protocol-coordinate.schema.json)

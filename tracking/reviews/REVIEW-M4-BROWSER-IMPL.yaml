@@ -1,0 +1,46 @@
+schema_version: 1
+id: REVIEW-M4-BROWSER-IMPL
+scope: "M4-C Shared Browser 实现独立证据评审（评审基线 codex/wi-m4-browser @ 353eee4 + 1 处未提交 Cargo.toml 语义等价修改）：M4C-CONTRACT vs crates/browser-provider + apps/desktop/src-tauri/src/browser.rs + features/browser-ui + 集成；门禁全量复跑；AC-BRW-001/002/003/004 语义；tracking 一致性。"
+status: failed
+reviewers:
+  - codex-reviewer-independent-4
+checks:
+  - id: contract-alignment
+    status: passed
+    evidence: "M4C-CONTRACT 逐项核对：trait 四签名、UrlPolicy（http(s)/无 userinfo/≤2048）、BrowserSession/BrowserEvent 字段齐全；5 命令名与 lib.rs invoke_handler 33 命令一致；label 实现为每会话 'browser-<session_id>'（多会话唯一 label，ADR-0017 决策 3/5 一致）；snapshot 返回 flatten report+text；browser://event 30ms drain。偏差：ADR-0017 决策 2 声称的 interact/take_over 接口保留与 fail-closed fixtures 未落实（实现契约未要求，fail-closed 由 agent_automation 拒绝 + screenshot NOT_SUPPORTED 承担）。"
+  - id: schema-alignment
+    status: passed
+    evidence: "report/event 序列化 fixture 比对测试（include_str + serde 精确相等）真实驱动；validate-specs 复跑 59/69 ALL PASS exit 0。LOW：browser-provider event.rs to_json 缺 schemaVersion（仅测试使用）。"
+  - id: security-semantics
+    status: passed
+    evidence: "AC-BRW-001：capabilities webviews 仅 ['shell'] + label 前缀 browser- 不匹配 + 单测断言 + validate-acl 33 三层闭合；AC-BRW-003：UrlPolicy + is_allowed_navigation_url + WebView2 deny hooks（permission/password/autofill/popup/download/devtools/extensions），deny-order 不变式（about:blank → hooks → 初始导航）；AC-BRW-004：data_directory=browser-profiles/<id> 独立 profile + report 不泄路径断言；agent_automation fail-closed 双层。GUI 运行时路径依赖 live QA（如实记录）。"
+  - id: test-quality
+    status: passed
+    evidence: "browser-provider 30 tests（url_policy 8/session 18/event 4）与 browser.rs 11 tests 均真实驱动语义（状态机/边界/双重 JSON 解码/fixture 比对/AC-BRW-001 断言），抽查确认非存在性检查。"
+  - id: gate-counts
+    status: passed
+    evidence: "本机复跑：specs 59/69、ACL 33、fmt、clippy -D warnings、vitest 43/43、tsc、vite build 全 exit 0；cargo test --workspace 并行全量 2 次各撞 1 个 local-transport 时序 flaky（malformed_handshake_rejected、limits concurrency），逐 crate 隔离全绿 173（30+94+28+15+5+1）。"
+  - id: tracking-consistency
+    status: failed
+    evidence: "IF-BROWSER/CURRENT.md 已正确更新；矛盾：WI-M4-BROWSER evidence 空/next_action 陈旧/session 指 PLANNING、M4.yaml 仍 proposed、project.yaml 重复键+尾随逗号+陈旧 next_action、MOD updated_at 停留 08-25、SESSION-PLANNING 仍 active、RISK-BROWSER 未评估。"
+  - id: remaining-risks-honesty
+    status: passed
+    evidence: "CURRENT.md remaining 与事实相符；新增观察：malformed_handshake_rejected 为未列入清单的 flaky；工作树 1 处 Cargo.toml 语义等价修改；INITIAL_URL=example.com 使 create 后立即外部导航（离线转 error，无默认主页配置）。"
+findings:
+  - "MEDIUM WI-M4-BROWSER/M4.yaml/project.yaml/MOD tracking 滞后于实现进度（评审 next_action 已列修复项，M4-D 执行）。"
+  - "MEDIUM ADR-0017 决策 2/consequences 的 interact/take_over 措辞与 specs 不符（无对应 schema/fixture/接口操作）；fail-closed 由 mode 拒绝承担，M4-D 修订 ADR 措辞或补 fixtures。"
+  - "LOW 工作树残留 Cargo.toml 修改（tauri-build features 显式化，语义等价）未提交。"
+  - "LOW malformed_handshake_rejected 未列入已知 flaky 清单（与 limits 同类时序问题）。"
+  - "LOW event.rs to_json 缺 schemaVersion（仅测试使用，注释误导）。"
+  - "INFO GUI 运行时路径（deny hooks 安装/profile 目录创建/真实导航拦截）无自动化覆盖，依赖 M4-D live desktop QA；AC 口径保持 'implementation evidence passed, real smoke pending'。"
+  - "INFO INITIAL_URL=example.com 每会话一次外部导航；无默认主页配置项。"
+  - "INFO is_allowed_navigation_url 字节长度 vs UrlPolicy 字符长度口径差异（字节更严格，不构成绕过）。"
+  - "INFO RISK-BROWSER 保持 mitigating（M4-D 评估后更新）。"
+evidence:
+  - "git codex/wi-m4-browser @ 353eee4 + 1 未提交 Cargo.toml"
+  - "crates/browser-provider（30 tests）、browser.rs（1191 行、11 tests）、commands.rs/lib.rs/capabilities（33 ACL）、BrowserPanel（13 vitest）、contracts.ts/desktop-api.ts"
+  - "specs/browser 6+14、ACCEPTANCE.md AC-BRW-*、ADR-0017、M4C-CONTRACT、POC-M4B 系列"
+  - "本评审复跑输出（2026-08-30）：59/69、33、fmt/clippy 0、43 vitest、tsc/vite 0、cargo 隔离 173 全绿、并行全量 2 次各 1 flaky"
+next_action: "M4-D 收尾执行（评审只读未改文件）：tracking 修复（WI/M4/project/MOD/session/RISK）、ADR-0017 措辞对齐、提交 Cargo.toml 残留、flaky 清单补全、live desktop QA、maintainer 验收、合并 main。"
+created_at: "2026-08-30T02:15:00Z"
+updated_at: "2026-08-30T02:15:00Z"

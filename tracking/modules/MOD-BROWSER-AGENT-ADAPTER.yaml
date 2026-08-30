@@ -12,4 +12,4 @@ depends_on:
   - MOD-BROWSER-PROVIDER
 security_review: required
 updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+next_action: "M4 范围外：human_surface only（ADR-0017 决策 2），agent_automation 授权链至 M5 激活。"

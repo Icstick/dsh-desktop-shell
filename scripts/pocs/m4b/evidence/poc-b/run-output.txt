@@ -1,0 +1,8 @@
+[profile] C:\Users\Administrator\AppData\Local\Temp\dsh-pocb-VzF3eC
+[debug-port] 5668
+[target] about:blank ws://127.0.0.1:5668/devtools/page/DF3CCEB8FE3125775308251063934632
+[readyState] complete
+[snapshot] {"t":"Example Domain","n":129}
+[screenshot] 25998 bytes -> D:\DSH_workspace\development\dsh-desktop-shell\scripts\pocs\m4b\evidence\poc-b\pocb-screenshot.png
+[kill] tree terminated
+[done] profile cleanup attempted: C:\Users\Administrator\AppData\Local\Temp\dsh-pocb-VzF3eC

@@ -10,6 +10,7 @@
 
 ### Added
 
+- M4 Shared Browser contract freeze（ADR-0017）：Browser 与 DSH Surface 分权（独立 webview label、零 privileged capability）、M4 human_surface only（agent_automation fail-closed 至 M5）、profile 隔离（独立 user-data-dir）、navigation 仅 HTTP(S) 无 userinfo；新增 specs/browser/ 6 schemas + 14 fixtures；IF-BROWSER operations 收敛为 create/navigate/snapshot/close；AC-BRW-001/003/004 细化、AC-BRW-002 验收移至 M5。
 - 完成 M3 Workbench：ADR-0015 Desktop-owned Persistent Terminal（crates/terminal-provider 手写 Windows ConPTY 包装、Desktop-owned PTY registry 独立于 Managed DSH 进程树、human_surface only，AC-PTY-001 证明 PTY 跨 Managed DSH stop/restart 存活；xterm.js 6 终端面板 + terminal://output 事件仅 shell webview）、ADR-0016 Notification 内容策略（AC-NOT-001/002：content policy 三档、60s TTL 折叠去重不重复审计、AppData 审计 JSONL 滚动上限 1000）与本地优先 Usage（AC-USG-001/002：零内容泄漏、零网络外发、AppData JSONL 滚动上限 4096）；新增 terminal/notification/usage schema 与 fixtures（53 schemas / 55 fixtures）；AC-TERM-001/002 加入验收目录；根 workspace 扩为四成员。
 - M1-M3 里程碑经 maintainer 接受（REVIEW-M1/M2/M3-ACCEPTANCE，2026-08-29）后依次 squash 合并至 main；M3 独立评审 REVIEW-M3-WORKBENCH 内容层全过。
 - 完成 M2 Reliable Runtime：ADR-0013 Supervisor restart/bounded recovery/Safe Stop（restart 操作、crash-loop fuse、credential-free recovery 报告）、ADR-0014 P0 Capability Broker（grant/lease/scope/generation dispatch 门禁、AC-LEASE-001 撤销矩阵）、AC-LOG-001 diagnostics report（whitelist redaction、golden corpus 测试）、AC-IPC-001/002 authenticated loopback local transport（一次性 credential、64 KiB framing 上限、deadline/concurrency 限制）。

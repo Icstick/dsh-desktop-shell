@@ -1,0 +1,12 @@
+[target] http://tauri.localhost/
+[cdp] connected
+[buttons] [{"t":"DSDSH","title":"DSH","aria":null},{"t":"BRBrowser","title":"Browser","aria":null},{"t":"TMTerminal","title":"Terminal","aria":null},{"t":"NTNotifications","title":"Notifications","aria":null},{"t":"USUsage","title":"Usage","aria":null},{"t":"TITimer（M3）","title":"Timer（M3）","aria":null},{"t":"RTRuntime","title":"Runtime","aria":null},{"t":"STSettings","title":"Settings","aria":null},{"t":"Open","title":"","aria":null},{"t":"Reload","title":"","aria":null},{"t":"Close","title":"","aria":null}]
+[rail-click] CLICKED
+[url-input] SET:https://example.com
+[open-click] CLICKED
+[panel-status] D | DS | DSH | BR | Browser | TM | Terminal | NT | Notifications | US | Usage | TI | Timer（M3） | RT | Runtime | ST | Settings | DSH DESKTOP SHELL | Browser | unconfigured | brw-1788055973732-1 | READY | Browser URL | Open | Reload | Close | SESSION | brw-1788055973732-1 | CURRENT URL | https://example.com | STATE | ready | ERROR | none
+[snapshot] SNAP_OK:{"schemaVersion":1,"sessionId":"brw-1788055973732-1","state":"ready","mode":"human_surface","currentUrl":"https://example.com","createdAtUnixMs":17880
+[bad-nav] BAD_NAV_REJECTED:[object Object]
+[profiles] ["brw-1788055950653-1","brw-1788055973732-1"]
+[windows] ["DSH Browser"]
+[close] CLOSED

@@ -3,11 +3,11 @@ id: MOD-BROWSER-PROVIDER
 name: "browser-provider"
 path: "crates/browser-provider"
 owner_role: browser-and-security-owner
-status: proposed
+status: in_progress
 milestone: M4
 interfaces:
   - IF-BROWSER
 depends_on: []
 security_review: required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+updated_at: "2026-08-30T02:30:00Z"
+next_action: "M4-C 实现完成：browser-provider crate（30 tests）+ desktop 桥（33 ACL、11 tests、WebView2 独立 profile/permission deny）+ Browser UI（13 vitest）；M4-D 收尾与 maintainer 验收待做。"

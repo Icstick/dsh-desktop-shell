@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-close-browser"
+description = "Enables the close_browser command without any pre-configured scope."
+commands.allow = ["close_browser"]
+
+[[permission]]
+identifier = "deny-close-browser"
+description = "Denies the close_browser command without any pre-configured scope."
+commands.deny = ["close_browser"]

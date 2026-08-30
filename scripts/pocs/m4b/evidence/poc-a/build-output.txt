@@ -1,0 +1,5 @@
+   Compiling m4b-poc-a v0.1.0 (D:\DSH_workspace\development\dsh-desktop-shell\scripts\pocs\m4b\poc-a)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.67s
+
+--- final rebuild after snapshot-parsing fix (2026-02-21) ---
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s

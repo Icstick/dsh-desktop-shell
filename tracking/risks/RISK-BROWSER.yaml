@@ -6,12 +6,14 @@ probability: medium
 impact: critical
 owner_role: browser-and-security-owner
 mitigation:
-  - "Isolated profile"
-  - "No raw CDP/WebView IPC"
-  - "Human takeover"
+  - "Isolated profile（data_directory=browser-profiles/<id>，AC-BRW-004）"
+  - "No raw CDP/WebView IPC（browser label 零 privileged capability，AC-BRW-001 三层闭合）"
+  - "Human takeover（M4 human_surface only，agent fail-closed 至 M5）"
+evaluation: "M4-C 评估（2026-08-30，REVIEW-M4-BROWSER-IMPL 实现层通过）：独立 profile/权限拦截/ACL 三层闭合已实现并有单测证据；GUI 运行时路径（deny hooks 安装顺序、真实导航拦截）待 live desktop QA 补运行时证据后评估 mitigated。维持 mitigating。",
+
 triggers:
   - "Provider PoC or permission change"
 related_modules:
   - MOD-BROWSER-PROVIDER
   - MOD-BROWSER-AGENT-ADAPTER
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-30T02:30:00Z"

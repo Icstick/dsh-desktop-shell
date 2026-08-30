@@ -1211,6 +1211,51 @@ pub fn list_terminals(
     crate::terminal::list_terminals(&terminal_state)
 }
 
+// ------------------------- Browser commands (M4-C, ADR-0017) -------------------------
+
+#[tauri::command]
+pub async fn create_browser(
+    app: AppHandle,
+    browser_state: State<'_, crate::browser::BrowserState>,
+    request: crate::browser::BrowserCreateRequest,
+) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
+    crate::browser::create_browser(&app, &browser_state, &request).await
+}
+
+#[tauri::command]
+pub async fn navigate_browser(
+    app: AppHandle,
+    browser_state: State<'_, crate::browser::BrowserState>,
+    request: crate::browser::BrowserNavigateRequest,
+) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
+    crate::browser::navigate_browser(&app, &browser_state, &request).await
+}
+
+#[tauri::command]
+pub async fn snapshot_browser(
+    app: AppHandle,
+    browser_state: State<'_, crate::browser::BrowserState>,
+    request: crate::browser::BrowserSnapshotRequest,
+) -> Result<crate::browser::BrowserSnapshotReport, crate::browser::BrowserCommandError> {
+    crate::browser::snapshot_browser(&app, &browser_state, &request).await
+}
+
+#[tauri::command]
+pub async fn close_browser(
+    app: AppHandle,
+    browser_state: State<'_, crate::browser::BrowserState>,
+    request: crate::browser::BrowserCloseRequest,
+) -> Result<crate::browser::BrowserReport, crate::browser::BrowserCommandError> {
+    crate::browser::close_browser(&app, &browser_state, &request).await
+}
+
+#[tauri::command]
+pub async fn list_browsers(
+    browser_state: State<'_, crate::browser::BrowserState>,
+) -> Result<Vec<crate::browser::BrowserReport>, crate::browser::BrowserCommandError> {
+    Ok(crate::browser::list_browsers(&browser_state).await)
+}
+
 // ------------------------- Notification commands (M3-A, ADR-0016) -------------------------
 
 #[tauri::command]

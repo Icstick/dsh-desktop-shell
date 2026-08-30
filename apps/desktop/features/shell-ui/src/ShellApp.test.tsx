@@ -13,7 +13,18 @@ vi.mock("@tauri-apps/api/event", () => ({
 function createApi(): DesktopApi {
   return {
     dismissNotification: vi.fn().mockResolvedValue(undefined),
+    listBrowsers: vi.fn().mockResolvedValue([]),
     listNotifications: vi.fn().mockResolvedValue([]),
+    navigateBrowser: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      sessionId: request.sessionId,
+      state: "ready",
+      mode: "human_surface",
+      currentUrl: request.url,
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: 1787792400100,
+      error: null,
+    })),
     notifyApplication: vi.fn().mockResolvedValue({
       schemaVersion: 1,
       id: "notif-1787792400000-1",
@@ -25,7 +36,27 @@ function createApi(): DesktopApi {
       dedupeKey: null,
       deduplicated: false,
     }),
+    closeBrowser: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      sessionId: request.sessionId,
+      state: "closed",
+      mode: "human_surface",
+      currentUrl: null,
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: 1787792400100,
+      error: null,
+    })),
     closeTerminal: vi.fn().mockResolvedValue(undefined),
+    createBrowser: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      sessionId: "brw-test-1",
+      state: "created",
+      mode: "human_surface",
+      currentUrl: null,
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: null,
+      error: null,
+    }),
     createTerminal: vi.fn().mockResolvedValue({
       schemaVersion: 1,
       sessionId: "pty-test-1",
@@ -198,6 +229,17 @@ function createApi(): DesktopApi {
       revision: 1,
       activeEnvironmentId: environment.id,
       environments: [environment],
+    })),
+    snapshotBrowser: vi.fn().mockImplementation(async (request) => ({
+      schemaVersion: 1,
+      sessionId: request.sessionId,
+      state: "ready",
+      mode: "human_surface",
+      currentUrl: "https://example.com/",
+      createdAtUnixMs: 1787792400000,
+      lastActivityUnixMs: 1787792400100,
+      error: null,
+      text: "Example Domain",
     })),
     restartManagedEnvironment: vi.fn().mockImplementation(async (request) => ({
       schemaVersion: 1,
@@ -1025,6 +1067,17 @@ describe("ShellApp", () => {
     expect(screen.getByText("1200 in · 300 out")).toBeInTheDocument();
     expect(screen.getByText("0 in · 0 out")).toBeInTheDocument();
     expect(screen.queryByText(/echo bridge-ok|secret body/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the Browser surface from the rail", async () => {
+    const api = createApi();
+    const user = userEvent.setup();
+    render(<ShellApp api={api} />);
+
+    await user.click(screen.getByRole("button", { name: "Browser" }));
+    expect(await screen.findByRole("heading", { name: "Browser" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Browser URL" })).toBeInTheDocument();
+    expect(api.listBrowsers).toHaveBeenCalled();
   });
 });
 

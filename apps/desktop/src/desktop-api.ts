@@ -2,6 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   AttachedHealthReport,
+  BrowserCloseRequest,
+  BrowserCreateRequest,
+  BrowserEvent,
+  BrowserNavigateRequest,
+  BrowserReport,
+  BrowserSnapshotReport,
+  BrowserSnapshotRequest,
   TerminalCreateRequest,
   TerminalOutputEvent,
   TerminalReport,
@@ -40,9 +47,14 @@ import type {
 } from "./contracts";
 
 export interface DesktopApi {
+  closeBrowser(request: BrowserCloseRequest): Promise<BrowserReport>;
+  createBrowser(request: BrowserCreateRequest): Promise<BrowserReport>;
   dismissNotification(request: NotificationDismissRequest): Promise<void>;
+  listBrowsers(): Promise<BrowserReport[]>;
   listNotifications(): Promise<NotificationReport[]>;
+  navigateBrowser(request: BrowserNavigateRequest): Promise<BrowserReport>;
   notifyApplication(request: NotificationRequest): Promise<NotificationReport>;
+  snapshotBrowser(request: BrowserSnapshotRequest): Promise<BrowserSnapshotReport>;
   closeTerminal(request: TerminalSessionRequest): Promise<void>;
   createTerminal(request: TerminalCreateRequest): Promise<TerminalReport>;
   listTerminals(): Promise<TerminalReport[]>;
@@ -73,11 +85,18 @@ export interface DesktopApi {
 }
 
 export const desktopApi: DesktopApi = {
+  closeBrowser: (request) => invoke<BrowserReport>("close_browser", { request }),
+  createBrowser: (request) => invoke<BrowserReport>("create_browser", { request }),
   dismissNotification: (request) =>
     invoke<void>("dismiss_notification", { request }),
+  listBrowsers: () => invoke<BrowserReport[]>("list_browsers"),
   listNotifications: () => invoke<NotificationReport[]>("list_notifications"),
+  navigateBrowser: (request) =>
+    invoke<BrowserReport>("navigate_browser", { request }),
   notifyApplication: (request) =>
     invoke<NotificationReport>("notify_application", { request }),
+  snapshotBrowser: (request) =>
+    invoke<BrowserSnapshotReport>("snapshot_browser", { request }),
   closeTerminal: (request) => invoke<void>("close_terminal", { request }),
   createTerminal: (request) => invoke<TerminalReport>("create_terminal", { request }),
   listTerminals: () => invoke<TerminalReport[]>("list_terminals"),

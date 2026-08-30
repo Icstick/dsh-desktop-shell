@@ -1,0 +1,17 @@
+schema_version: 1
+id: SESSION-20260829-M4-BROWSER-IMPL
+status: active
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M4-BROWSER
+branch_or_worktree: codex/wi-m4-browser
+started_at: "2026-08-29T13:00:00Z"
+summary: "M4-B/C 执行：provider PoC（WebView2 embedded + Edge CDP，双 PASS，maintainer 拍板 WebView2 默认）；M4-C 实现（browser-provider crate 30 tests + desktop 桥 33 ACL/11 tests + Browser UI 13 vitest；WebView2 独立 profile data_directory、webview2-com 权限拦截、browser://event；wry 升级因 tauri 2.11.5 锁定改为 webview2-com 直调，ADR-0017 决策 6）。"
+artifacts:
+  - "docs/roadmap/POC-M4B.md"
+  - "docs/roadmap/POC-M4B-REPORT.md"
+  - "docs/roadmap/M4C-CONTRACT.md"
+  - "crates/browser-provider/"
+  - "apps/desktop/src-tauri/src/browser.rs"
+  - "apps/desktop/features/browser-ui/"
+next_action: "M4-D 收尾：AC-BRW-001 三层闭合验证、profile 隔离运行时证据（live QA）、全量门禁、tracking/handoff、maintainer 验收、合并 main。"

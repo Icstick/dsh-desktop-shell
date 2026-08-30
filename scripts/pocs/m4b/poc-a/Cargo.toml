@@ -1,0 +1,20 @@
+# M4-B PoC A：嵌入式 WebView2 surface 最小验证
+# 版本全部对齐 dsh-desktop-shell 根 Cargo.lock（wry 0.55.1 / tao 0.35.3 / serde_json 1.0.151），
+# 配合 --target-dir 共享主仓库 target 目录 → 增量缓存全命中，首次编译 <2 分钟
+
+[workspace]
+# 空表：把本 crate 从 dsh-desktop-shell 父 workspace 摘除，独立解析依赖
+
+[package]
+name = "m4b-poc-a"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# 裸 wry + tao（不需要 tauri）：
+# wry 提供 WebView 嵌入；tao 提供窗口 + 事件循环（wry 自身不携带）
+wry = "=0.55.1"
+tao = "=0.35.3"
+# 解析 evaluate_script_with_callback 回调返回的 JSON 序列化值
+serde_json = "=1.0.151"

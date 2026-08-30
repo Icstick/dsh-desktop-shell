@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const tauriRoot = join(root, "src-tauri");
 const expectedCommands = [
+  "close_browser",
   "close_terminal",
+  "create_browser",
   "create_terminal",
   "dismiss_notification",
   "discover_harnesses",
@@ -21,10 +23,13 @@ const expectedCommands = [
   "probe_attached_environment",
   "reload_dsh_surface",
   "save_environment",
+  "list_browsers",
   "list_terminals",
   "list_notifications",
+  "navigate_browser",
   "notify_application",
   "resize_terminal",
+  "snapshot_browser",
   "start_managed_environment",
   "restart_managed_environment",
   "status_terminal",

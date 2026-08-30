@@ -1148,3 +1148,95 @@ textarea:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ------------------------- Browser (M4-C, ADR-0017) ------------------------- */
+
+.browser-panel {
+  display: grid;
+  gap: 18px;
+  padding: clamp(22px, 4vw, 38px);
+  border: 1px solid #252e3d;
+  border-radius: 18px;
+  background: rgb(17 22 32 / 92%);
+}
+
+.browser-panel__chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.browser-panel__session {
+  overflow: hidden;
+  color: #bdc8d8;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-panel__state {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid #354158;
+  border-radius: 999px;
+  color: #b8c4d7;
+  background: #141c28;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.browser-panel__state[data-state="ready"] {
+  border-color: #285c49;
+  color: #bcebd5;
+  background: #10251e;
+}
+
+.browser-panel__state[data-state="loading"] {
+  border-color: #665428;
+  color: #ead59a;
+  background: #251f10;
+}
+
+.browser-panel__state[data-state="error"] {
+  border-color: #69343c;
+  color: #ffc3c8;
+  background: #26151a;
+}
+
+.browser-panel__state[data-state="closed"] {
+  opacity: 0.6;
+}
+
+.browser-panel__form {
+  display: flex;
+  gap: 10px;
+}
+
+.browser-panel__url {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #303b4e;
+  border-radius: 9px;
+  color: #edf2fa;
+  background: #111925;
+}
+
+.browser-panel__url:disabled {
+  color: #78869a;
+  background: #0b1119;
+}
+
+.browser-panel__actions {
+  justify-content: flex-start;
+}
+
+.browser-panel__url-value {
+  overflow-wrap: anywhere;
+}

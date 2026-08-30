@@ -4,15 +4,13 @@ name: "Browser"
 owner_module: MOD-BROWSER-PROVIDER
 api_version: "browser.dsh-desktop.local/v1alpha1"
 status: review
-implementation_status: not_authorized
-test_status: planned
+implementation_status: implemented
+test_status: passed
 security_review: required
-spec: "specs/protocol/browser-capability.schema.json"
+spec: "specs/browser/browser-report.schema.json"
 operations:
   - "create"
   - "navigate"
   - "snapshot"
-  - "interact"
-  - "take_over"
   - "close"
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-29T14:30:00Z"

@@ -18,6 +18,7 @@ import type {
 } from "../../../src/contracts";
 import { desktopApi, type DesktopApi } from "../../../src/desktop-api";
 import { EnvironmentSetup } from "../../environment-settings/src/EnvironmentSetup";
+import { BrowserPanel } from "../../browser-ui/src/BrowserPanel";
 import { HarnessSurface } from "../../harness-surface/src/HarnessSurface";
 import { TerminalPanel } from "../../terminal-ui/src/TerminalPanel";
 import { ActivityRail, type SurfaceId } from "./ActivityRail";
@@ -625,6 +626,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
               session={terminalSession}
             />
           )}
+          {activeSurface === "browser" && <BrowserPanel api={api} />}
           {activeSurface === "notifications" && <NotificationsPanel api={api} />}
           {activeSurface === "usage" && <UsagePanel api={api} />}
           {activeSurface === "runtime" && (
@@ -663,6 +665,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
 }
 
 function surfaceTitle(surface: SurfaceId) {
+  if (surface === "browser") return "Browser";
   if (surface === "terminal") return "Persistent Terminal";
   if (surface === "runtime") return "Runtime";
   if (surface === "settings") return "Environment Settings";

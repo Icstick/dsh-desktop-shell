@@ -1,0 +1,9 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running `D:\DSH_workspace\development\dsh-desktop-shell\target\debug\m4b-poc-a.exe`
+[profile] C:\Users\Administrator\AppData\Local\Temp\m4b-poc-a-profile
+[nav] https://example.com/
+[load finished] https://example.com/
+[snapshot raw] "{\"t\":\"Example Domain\",\"n\":129,\"s\":\"Example Domain\\n\\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\\n\\nLearn more\"}"
+[snapshot] title=Example Domain innerText_len=129
+[exit] done. profile kept at %TEMP%\m4b-poc-a-profile
+libpng warning: iCCP: cHRM chunk does not match sRGB

@@ -1,6 +1,7 @@
 use tauri::Manager;
 
 mod attached_health;
+mod browser;
 mod commands;
 mod diagnostics;
 mod discovery;
@@ -18,12 +19,15 @@ pub fn run() {
         .manage(managed_runtime::ManagedRuntimeState::default())
         .manage(dsh_surface::DshSurfaceState::default())
         .manage(terminal::TerminalState::default())
+        .manage(browser::BrowserState::default())
         .manage(notification::NotificationService::default())
         .manage(usage::UsageService::default())
         .setup(|app| {
             let handle = app.handle().clone();
             let state = app.state::<terminal::TerminalState>();
-            terminal::start_event_drain(handle, state.inner().clone());
+            terminal::start_event_drain(handle.clone(), state.inner().clone());
+            let browser_state = app.state::<browser::BrowserState>();
+            browser::start_event_drain(handle, browser_state.inner().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -38,9 +42,14 @@ pub fn run() {
             commands::get_usage_snapshot,
             commands::mount_dsh_surface,
             commands::probe_attached_environment,
+            commands::close_browser,
             commands::close_terminal,
+            commands::create_browser,
             commands::create_terminal,
+            commands::list_browsers,
             commands::list_terminals,
+            commands::navigate_browser,
+            commands::snapshot_browser,
             commands::dismiss_notification,
             commands::list_notifications,
             commands::notify_application,

@@ -527,3 +527,55 @@ export interface UsageSnapshotRequest {
   schemaVersion: 1;
   sinceUnixMs?: number;
 }
+
+// ------------------------- Browser (M4-C, ADR-0017) -------------------------
+
+export type BrowserState = "created" | "loading" | "ready" | "closed" | "error";
+export type BrowserMode = "human_surface";
+export type BrowserSnapshotMode = "text" | "screenshot";
+export type BrowserEventKind = "navigation_changed" | "load_failed" | "closed";
+
+export interface BrowserCreateRequest {
+  schemaVersion: 1;
+  mode: BrowserMode;
+}
+
+export interface BrowserNavigateRequest {
+  schemaVersion: 1;
+  sessionId: string;
+  url: string;
+}
+
+export interface BrowserSnapshotRequest {
+  schemaVersion: 1;
+  sessionId: string;
+  snapshotMode: BrowserSnapshotMode;
+}
+
+export interface BrowserCloseRequest {
+  schemaVersion: 1;
+  sessionId: string;
+}
+
+export interface BrowserReport {
+  schemaVersion: 1;
+  sessionId: string;
+  state: BrowserState;
+  mode: BrowserMode;
+  currentUrl: string | null;
+  createdAtUnixMs: number;
+  lastActivityUnixMs: number | null;
+  error: string | null;
+}
+
+export interface BrowserSnapshotReport extends BrowserReport {
+  text: string;
+}
+
+export interface BrowserEvent {
+  schemaVersion: 1;
+  sessionId: string;
+  kind: BrowserEventKind;
+  occurredAtUnixMs: number;
+  url: string | null;
+}

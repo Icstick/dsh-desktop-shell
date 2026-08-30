@@ -24,8 +24,10 @@
 - AC-PATH-001：symlink/TOCTOU 不能逃逸已授权 executable、cwd、workspace 或 download scope。
 - AC-LEASE-001：disconnect、unload、expiry、human takeover 与 generation change 撤销 lease。
 - AC-PTY-001：DSH restart 不终止 Desktop-owned PTY。
-- AC-BRW-001：Browser page 无 Desktop IPC。
-- AC-BRW-002：Human takeover 撤销 Agent mutation lease。
+- AC-BRW-001：Browser page 无 Desktop IPC（label `browser` 零 privileged capability；AppManifest/permission/capability 三层闭合；独立 profile user-data-dir；navigation 前安装 permission/password/autofill deny）。
+- AC-BRW-002：Human takeover 撤销 Agent mutation lease（依赖 M5 agent 授权链；M4 验收项为 agent_automation 模式与 interact/take_over 请求 fail-closed）。
+- AC-BRW-003：Browser navigation 仅允许 HTTP(S) 且无 userinfo；file:/custom scheme、download、popup、permission request 默认拒绝；URL 长度上限 2048。
+- AC-BRW-004：Browser profile 隔离——独立 user-data-dir 且不共享 DSH/默认 WebView2 数据；report/event/log 不泄露 profile 路径与进程细节。
 - AC-COMP-001：Adapter 不兼容时 baseline 仍可用。
 - AC-LOG-001：诊断 golden corpus 不泄漏 secret。
 

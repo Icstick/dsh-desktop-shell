@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/browser/browser-report.schema.json",
+  "title": "BrowserReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "state",
+    "mode",
+    "createdAtUnixMs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^brw-[a-z0-9-]+$"
+    },
+    "state": {
+      "enum": [
+        "created",
+        "loading",
+        "ready",
+        "closed",
+        "error"
+      ]
+    },
+    "mode": {
+      "const": "human_surface"
+    },
+    "currentUrl": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2048
+    },
+    "createdAtUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastActivityUnixMs": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    }
+  }
+}

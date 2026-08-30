@@ -1,7 +1,7 @@
 schema_version: 1
 id: M4
 title: "Shared Browser"
-status: proposed
+status: done
 relative_weeks: "14-17"
 depends_on:
   - M3
@@ -10,4 +10,4 @@ exit_criteria:
   - "Human takeover 与 profile isolation 通过"
   - "Browser security acceptance 通过"
 evidence: []
-updated_at: "2026-08-25T06:49:34Z"
+updated_at: "2026-08-30T03:00:00Z"

@@ -1,0 +1,27 @@
+schema_version: 1
+id: HANDOFF-M4-SHARED-BROWSER
+work_item: WI-M4-BROWSER
+from: dsh-agent-primary
+to: maintainer
+status: accepted
+completed:
+  - "M4-A 契约冻结：ADR-0017（Browser 与 DSH Surface 分权、human_surface only、profile 隔离、provider 抽象、会话 opaque id、wry 版本策略决策 6）；specs/browser/ 6 schemas + 14 fixtures（validate-specs 59/69）；IF-BROWSER operations 收敛 create/navigate/snapshot/close；AC-BRW-001/003/004 细化、AC-BRW-002 延 M5。"
+  - "M4-B 双 PoC：WebView2 embedded（wry 独立 crate：profile 隔离 198 项 EBWebView 结构、双重 JSON 编码坑识别）与 Edge+CDP（零依赖 Node：1.5s 全流程、taskkill 零残留）全部 PASS；maintainer 拍板 WebView2 默认、CDP 搁置（M6 revisit）。"
+  - "M4-C 实现：crates/browser-provider（30 tests：URL 策略/状态机/事件）；desktop 桥 browser.rs（5 命令、WebView2 独立 profile data_directory=browser-profiles/<id>、webview2-com 权限拦截、browser://event、33 ACL、11 tests 含 AC-BRW-001 断言）；Browser UI（BrowserPanel 13 vitest）；门禁 173 Rust / 43 vitest / 33 ACL / 59-69 specs / fmt+clippy 全绿。"
+  - "M4-D 收尾：独立评审 REVIEW-M4-BROWSER-IMPL（实现/安全/门禁全过，tracking 修复项全部落实）；live desktop QA（真实 app：rail→URL→Open→example.com ready→snapshot→file:// 拒绝→独立 profile 目录→DSH Browser 窗口→close 全过，证据 scripts/qa/evidence/live-qa/）；maintainer 2026-08-30 验收。"
+remaining:
+  - "agent_automation browser 模式与 interact/take_over 接口：M5 adapter 授权链（ADR-0017 决策 2、AC-BRW-002）。"
+  - "CDP provider 升级评估：M6 daemon 阶段 revisit（POC-M4B-REPORT 建议搁置）。"
+  - "GUI deny hooks 的跨版本回归：Tauri/Wry/WebView2 依赖漂移时 re-review（RISK-WEBVIEW-PERMISSION-HOOK 同源）。"
+  - "INITIAL_URL=example.com 每会话一次外部导航；无默认主页配置项（已知行为）。"
+verification:
+  - "cargo test --workspace 隔离串行 173 全过（30 browser-provider + 94 desktop + 28 local-transport + 15 supervisor + 5 terminal-provider + 1 doctest）；并行全量存在 3 个已知 local-transport/diagnostics 时序 flaky（已列入 CURRENT.md）。"
+  - "vitest 43（BrowserPanel 13 + ShellApp 22 + env 8）、tsc、vite build 通过；validate-acl 33 commands；validate-specs 59/69。"
+  - "fmt/clippy -D warnings 干净；tauri build --debug 通过（QA 构建）；live QA 全部验证点通过。"
+risks:
+  - "wry 0.55.1 被 tauri 2.11.5 锁定：permission handler 依赖 webview2-com 直调（M1 同款模式），tauri 升级时（M6/M7）评估 wry 0.56 API。"
+  - "WebView2 ExecuteScript 回调双重 JSON 编码（已处理，M5 复用注意）。"
+  - "browser 窗口为独立 tauri 窗口（非内嵌面板）：后续如需内嵌布局需 M5/M6 调整。"
+  - "已知 flaky 3 项（M2 模块）未修复，隔离运行通过；建议 M5 前统一处理统计断言时序。"
+next_action: "M4 合并 main；M5 Interop 规划（adapter 授权链、interact/take_over、agent_automation 落地）。"
+created_at: "2026-08-30T03:00:00Z"

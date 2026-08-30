@@ -671,9 +671,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dsh-browser-provider"
+version = "0.1.0"
+
+[[package]]
 name = "dsh-desktop-shell"
 version = "0.1.0"
 dependencies = [
+ "dsh-browser-provider",
  "dsh-terminal-provider",
  "libc",
  "serde",

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/browser/browser-event.schema.json",
+  "title": "BrowserEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "kind",
+    "occurredAtUnixMs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^brw-[a-z0-9-]+$"
+    },
+    "kind": {
+      "enum": [
+        "navigation_changed",
+        "load_failed",
+        "closed"
+      ]
+    },
+    "occurredAtUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2048
+    }
+  }
+}
