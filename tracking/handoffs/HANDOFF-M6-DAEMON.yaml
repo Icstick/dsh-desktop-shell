@@ -3,7 +3,7 @@ id: HANDOFF-M6-DAEMON
 work_item: WI-M6-DAEMON
 from: dsh-agent-primary
 to: maintainer
-status: proposed
+status: accepted
 completed:
   - "M6-A 架构冻结：ADR-0019（6 决策：独立 daemon bin、claim 端口 37771 + lockfile 单实例、资源迁移、split-brain 语义、凭证文件、browser Plan A——渲染在 Shell WebView2、状态权威在 daemon）+ PLAN-M6 五切片 + Plan A 记录。"
   - "M6-B daemon 骨架：crates/daemon（main/credential/singleton/server/capabilities），claim 端口 + lockfile + exit codes 3/4，envelope 服务端（broker 驱动授权），system.ping/daemon.status。"
@@ -40,5 +40,5 @@ risks:
   - "daemon 成为 desktop 依赖（wire 类型/常量/credential 解析 + 集成测试），desktop 二进制带 daemon 库代码；无循环依赖。"
   - "Windows 平台专有：PeekNamedPipe/CreateProcess/claim 端口行为未在非 Windows 验证（M7 三平台加固范围）。"
   - "dsh-std rc 漂移（M5 遗留）：M6 未再评估稳定性，M7 处理。"
-next_action: "maintainer 验收（HIGH 已修复、门禁全绿、QA 25/25）→ squash 合并 codex/wi-m6-daemon 到 main → M7 Stable Candidate 规划（三平台加固、签名/SBOM、MEDIUM-1/2/3、browser 状态上报、handover 接管）。"
+next_action: "已验收合并（main @ cd4745d）。M7 Stable Candidate 规划：三平台加固、签名/SBOM、MEDIUM-1/2/3、browser 状态上报、handover 接管。"
 created_at: "2026-08-30T12:00:00Z"

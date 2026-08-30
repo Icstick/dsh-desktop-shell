@@ -1,7 +1,7 @@
 # Current Project State
 
 - Phase：`shell-mvp`
-- Milestone：M6 Daemon —— 实现完成 + 独立评审 2 HIGH 已修复，live QA 25/25，待 maintainer 验收合并
+- Milestone：M6 Daemon —— 完成（main @ cd4745d）；M7 Stable Candidate 规划中
 - Status：M1-M5 已合并 main；M6 分支 codex/wi-m6-daemon（实现 + 两个 transport 真 bug 修复 + QA 脚本）
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
@@ -30,4 +30,4 @@
 
 ## 下一动作
 
-M6 验收：maintainer 确认 HANDOFF-M6-DAEMON → squash 合并 codex/wi-m6-daemon 到 main → M7 Stable Candidate 规划（三平台加固、签名/SBOM、MEDIUM 遗留项）。
+M7 Stable Candidate 规划（三平台加固、签名/SBOM、MEDIUM 遗留：named mutex/ADR 修订、browser 状态上报、dsh-surface token 验证、handover 接管）。

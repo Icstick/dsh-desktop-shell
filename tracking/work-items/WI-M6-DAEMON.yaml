@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M6-DAEMON
 title: "Daemonize Supervisor"
-status: review
+status: verified
 milestone: M6
 module: MOD-SUPERVISOR
 owner_role: milestone-owner
@@ -25,6 +25,6 @@ evidence:
   - "flaky 根治：reject_busy RST 竞态 + stats 计数顺序（40/40 压力验证）+ ac_log_001（C4 重写消除，20 轮 0 失败）"
   - "门禁：cargo test --workspace -- --test-threads=1 全绿、fmt、clippy -D warnings、vitest 56、specs 61/124、ACL 35"
 blocked_by: []
-next_action: "独立评审 2 个 HIGH 已修复验证；待 maintainer 验收 → squash 合并 main。"
+next_action: "已完成：maintainer 2026-08-30 验收，squash 合并 main @ cd4745d。"
 handoff: null
 updated_at: "2026-08-30T08:00:00Z"
