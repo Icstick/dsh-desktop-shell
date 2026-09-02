@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   id-token: write # attest-build-provenance (SLSA provenance)
+  attestations: write # persist attestation (repo attestation API)
 
 env:
   CARGO_TERM_COLOR: always
