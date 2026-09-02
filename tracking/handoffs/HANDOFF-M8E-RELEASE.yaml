@@ -1,0 +1,29 @@
+schema_version: 1
+id: HANDOFF-M8E-RELEASE
+work_item: WI-M8-RELEASE
+from: dsh-agent-primary
+to: maintainer
+status: in_progress
+completed:
+  - "真实 DSH token 验证完成（docs/verification/M8E-REAL-DSH-TOKEN.md）：authenticated root（401）、launchToken 43 位契约匹配、真实 cookie 200"
+  - "release workflow 建成并 6 轮调试全绿（run 33594767100：三平台 bundles + checksums + draft release 创建 17 assets）；修复链：icon 配置、root-target upload path、attestations 权限、私有仓库 attestation 不可用改 checksums、空格文件名 xargs -0、目录当 asset 改逐文件 upload、上传仅正式产物 filter"
+  - "draft v0.1.0 就绪：17 assets（setup-signed/msi/deb/dmg/shell exe + checksums ×2 + SBOM 11 文件）+ 中文 release notes（docs/release/v0.1.0-release-notes.md）"
+  - "本地签名完成（PowerShell 自签：setup exe + shell exe，thumbprint 1B6A576C...）"
+  - "externalBin 打包 daemon 提交（0e25ac8：tauri.conf + .gitignore + release.yml daemon build/stage steps）"
+  - "live-daemon-qa 本机 25/25 PASS（evidence 已提交）"
+remaining:
+  - "【卡点 A】Shell GUI bootstrap 卡住调查（docs/investigations/m8e-shell-bootstrap-stuck.md）：daemon 协商偶发卡（QA 25/25 过但 shell 场景卡）；待验证假设 A（spawn 后立即 connect 竞态）等"
+  - "【卡点 B】i18n 中文模式界面仍英文（用户报告）——待查语言切换生效路径"
+  - "externalBin 本地重建安装包验证（tauri build --bundles nsis 应包含 daemon）→ 更新 draft 的 setup exe → publish"
+  - "repo public 后：attestation 启用（release.yml 注释已留）"
+  - "M8 收尾：CURRENT.md / project.yaml 更新"
+verification:
+  - "release run 33594767100：build ×3 + provenance(checksums) + publish 全 success；draft 17 assets"
+  - "live-daemon-qa 25/25 PASS（scripts/qa/evidence/live-daemon-qa/results.json）"
+  - "M8 三平台 CI 全绿（33580515851）+ REVIEW-M8 双轴 approve-with-comments 闭环"
+risks:
+  - "daemon 协商偶发卡：未定性（QA 稳定过但 shell 场景复现卡）——发布前必须解决（安装包用户会遇到）"
+  - "i18n 中文不生效：影响中文用户体验（v0.1.0 前修或标注）"
+  - "attestation 待 repo public"
+next_action: "① 卡点 A：按 m8e-shell-bootstrap-stuck.md 的 4 步调试建议定位 daemon 偶发卡（线程栈/时序/二次连接测试/手动 daemon 预热）→ 修复 → 本地 GUI 验证通过 ② 卡点 B：i18n 中文生效验证 ③ externalBin 重建 setup + 更新 draft + publish v0.1.0 ④ CURRENT/project.yaml 收尾。分支：main @ 0e25ac8（remote 5c50ed6 README 用户提交 + 0e25ac8），release @ 47c92a8。"
+created_at: "2026-09-02T14:20:00Z"
