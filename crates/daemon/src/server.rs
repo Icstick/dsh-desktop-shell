@@ -89,6 +89,14 @@ pub const SHELL_FACET: &str = "shell";
 /// connection (ADR-0018 decision 1, no Agreement caching).
 pub const LEASE_MAX_SECONDS: u64 = 3600;
 
+/// Bootstrap-credential refresh lead (BLOCK-M8E-BOOTSTRAP-STUCK fix): the
+/// daemon rewrites the credential file when the file token has less than
+/// this much lifetime left. A daemon that has been idle past a full lease
+/// would otherwise leave the Shell with a stale token and no re-issue
+/// path (re-issue happened only on disconnect) - the Shell retry loop
+/// then fails forever and the GUI stays stuck in bootstrap.
+pub const BOOTSTRAP_REFRESH_LEAD: Duration = Duration::from_secs(60);
+
 /// One negotiated activation on a connection (session-layer view; the
 /// broker holds the authoritative grant/lease state).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,6 +152,10 @@ pub struct DaemonServer {
     events: Arc<EventRouter>,
     claim_port: u16,
     started_at: SystemTime,
+    /// Expiry of the token in the on-disk credential file (recorded on
+    /// every issue/reissue; the freshness maintenance compares against
+    /// it so the Shell always finds a usable credential).
+    file_credential_expiry: Mutex<Option<SystemTime>>,
 }
 
 impl DaemonServer {
@@ -176,6 +188,7 @@ impl DaemonServer {
             events: EventRouter::spawn(),
             claim_port,
             started_at: SystemTime::now(),
+            file_credential_expiry: Mutex::new(None),
         };
         server.start_terminal_event_bridge();
         Ok(server)
@@ -294,17 +307,20 @@ impl DaemonServer {
         // lease TTL bounds them until then.
     }
 
-    /// Re-issue the bootstrap credential and atomically rewrite the
-    /// credential file (best-effort: a failure leaves the previous file,
-    /// which the Shell's retry loop re-reads). Only meaningful when the
-    /// server was bound with a data directory.
-    fn reissue_credential_file(&self) {
+    /// Issue a fresh bootstrap credential and atomically rewrite the
+    /// credential file. Records the file token expiry for the freshness
+    /// maintenance. Only meaningful when the server was bound with a data
+    /// directory (otherwise `Ok(None)`). `ttl` is the credential
+    /// lifetime (callers pass [LEASE_MAX_SECONDS]; tests use short TTLs to
+    /// exercise the maintenance threshold).
+    pub fn issue_bootstrap_credential_file(
+        &self,
+        ttl: Duration,
+    ) -> io::Result<Option<CredentialFile>> {
         let Some(dir) = self.credential_dir.clone() else {
-            return;
+            return Ok(None);
         };
-        let credential = self
-            .transport
-            .issue_credential(Duration::from_secs(LEASE_MAX_SECONDS));
+        let credential = self.transport.issue_credential(ttl);
         let file = CredentialFile::new(
             crate::DAEMON_VERSION,
             std::process::id(),
@@ -314,8 +330,60 @@ impl DaemonServer {
             credential.expires_at(),
             SystemTime::now(),
         );
-        if let Err(error) = file.write_to(&dir) {
+        file.write_to(&dir)?;
+        *self
+            .file_credential_expiry
+            .lock()
+            .expect("file credential expiry lock poisoned") = Some(credential.expires_at());
+        Ok(Some(file))
+    }
+
+    /// Re-issue the bootstrap credential after a disconnect so the next
+    /// Shell start re-attaches to this surviving daemon (HIGH-1 fix:
+    /// one-time credentials are consumed by the first handshake; the file
+    /// must carry a fresh one for the next Shell). Best-effort: a failure
+    /// leaves the previous file, which the Shell's retry loop re-reads.
+    fn reissue_credential_file(&self) {
+        if let Err(error) =
+            self.issue_bootstrap_credential_file(Duration::from_secs(LEASE_MAX_SECONDS))
+        {
             eprintln!("dsh-daemon: cannot reissue the credential file: {error}");
+        }
+    }
+
+    /// Freshness maintenance for the bootstrap credential file: rewrite
+    /// it when the recorded token is missing or has less than
+    /// [BOOTSTRAP_REFRESH_LEAD] lifetime left, or when the file itself
+    /// has gone missing. Call periodically from the serve loop (the
+    /// Shell's connect retry then always finds a usable token).
+    pub fn maintain_bootstrap_credential(&self) {
+        let file_missing = match &self.credential_dir {
+            Some(dir) => CredentialFile::read_from(dir).is_err(),
+            None => false,
+        };
+        let expiring = {
+            let expiry = self
+                .file_credential_expiry
+                .lock()
+                .expect("file credential expiry lock poisoned");
+            match *expiry {
+                Some(expiry) => {
+                    // Stable alternative to the unstable
+                    // saturating_duration_since: an already-expired token
+                    // is Duration::ZERO (inside the refresh window).
+                    let remaining = expiry
+                        .duration_since(SystemTime::now())
+                        .unwrap_or(Duration::ZERO);
+                    remaining <= BOOTSTRAP_REFRESH_LEAD
+                }
+                None => true,
+            }
+        };
+        if (file_missing || expiring)
+            && let Err(error) =
+                self.issue_bootstrap_credential_file(Duration::from_secs(LEASE_MAX_SECONDS))
+        {
+            eprintln!("dsh-daemon: cannot refresh the credential file: {error}");
         }
     }
 

@@ -21,6 +21,7 @@
 - **BLOCK-M8E-BOOTSTRAP-STUCK**：Shell GUI 停在 "Reading canonical runtime state"（daemon 协商偶发卡）。
   调查：`docs/investigations/m8e-shell-bootstrap-stuck.md`；调试 4 步见 `docs/roadmap/PLAN-DEBUG-OPTIMIZATION.md` §2.1。
 - **BLOCK-M8E-I18N-ZH**：切中文后界面仍英文。排查 ShellApp 语言切换链路。
+- 已知观察（未调查，用户 2026-09-02）：SetupWizard 环境配置向导有问题——待用户详述后立项。
 
 ## remaining
 

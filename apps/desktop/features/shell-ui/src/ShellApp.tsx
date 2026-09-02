@@ -68,6 +68,13 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
 
   useEffect(() => {
     let current = true;
+    let retryTimer: number | undefined;
+    // BLOCK-M8E-BOOTSTRAP-STUCK: the daemon connector installs in the
+    // background (retry loop), so the very first getShellSnapshot can
+    // fail before the daemon is reachable. Without a retry the snapshot
+    // stays null forever and HarnessSurface renders the bootstrap state
+    // permanently. Retry on failure (2s, matching the daemon connect
+    // interval) until the snapshot loads or the component unmounts.
     const load = async () => {
       try {
         const [nextSnapshot, catalog] = await Promise.all([
@@ -76,6 +83,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         ]);
         if (!current) return;
         setSnapshot(nextSnapshot);
+        setSnapshotError(null);
         setCatalog(catalog);
 
         const activeEnvironment = catalog.environments.find(
@@ -89,12 +97,16 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           setValidation(nextValidation);
         }
       } catch {
-        if (current) setSnapshotError(tRef.current("error.desktopUnavailable"));
+        if (current) {
+          setSnapshotError(tRef.current("error.desktopUnavailable"));
+          retryTimer = window.setTimeout(() => void load(), 2000);
+        }
       }
     };
     void load();
     return () => {
       current = false;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
   }, [api]);
 

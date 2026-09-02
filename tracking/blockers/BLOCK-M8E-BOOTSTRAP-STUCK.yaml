@@ -1,7 +1,7 @@
 schema_version: 1
 id: BLOCK-M8E-BOOTSTRAP-STUCK
 title: "Shell GUI bootstrap 偶发卡死（daemon 协商）——v0.1.0 发布硬门"
-status: open
+status: resolved
 owner_role: milestone-owner
 blocked_items:
   - WI-M8-RELEASE
@@ -15,6 +15,15 @@ details: >-
   分支永挂。调查文档：docs/investigations/m8e-shell-bootstrap-stuck.md（暂停于
   2026-09-02，调试步骤见 PLAN-DEBUG-OPTIMIZATION §2.1）。发布前必须解决——安装包
   用户会遇到。附带 0xC0000409 fastfail 一次（疑似与手动杀进程撞车，非稳定复现）。
-resolution: null
+resolution: >-
+  根因已实证（2026-09-02）：bootstrap credential 死锁——daemon 仅在连接断开时 reissue
+  credential 文件；daemon 存活且空闲超过 lease（3600s）后文件 token 过期，Shell 连接被
+  stale 拒绝且无任何 reissue 触发路径 → 重试死循环 → GUI 永久卡 bootstrap。现场证据：
+  存活 daemon 的 credential 文件 token 过期，裸 socket 握手返回 {"accepted":false,
+  "reason":"stale"}。修复：daemon 周期维护（serve loop 每 1s）——文件 token 剩余寿命
+  <60s 或文件缺失时立即 reissue（DaemonServer::maintain_bootstrap_credential，
+  BOOTSTRAP_REFRESH_LEAD=60s）。回归单测 ×2 通过（短 TTL 刷新 + 文件缺失恢复），daemon
+  全量测试/fmt/clippy 全绿。解除条件：GUI 实机连续启动验证通过 + live-daemon-qa 回归。
+  详情：docs/investigations/m8e-shell-bootstrap-stuck.md（2026-09-02 更新段）。
 created_at: "2026-09-02T15:00:00Z"
-updated_at: "2026-09-02T15:00:00Z"
+updated_at: "2026-09-02T17:00:00Z"

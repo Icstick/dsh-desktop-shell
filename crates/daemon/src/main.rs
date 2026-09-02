@@ -26,8 +26,8 @@ use std::thread;
 use std::time::Duration;
 
 use dsh_daemon::DAEMON_VERSION;
-use dsh_daemon::credential::{CLAIM_PORT, CREDENTIAL_FILE_NAME, CredentialFile, data_dir};
-use dsh_daemon::server::{DaemonServer, LEASE_MAX_SECONDS};
+use dsh_daemon::credential::{CLAIM_PORT, CREDENTIAL_FILE_NAME, data_dir};
+use dsh_daemon::server::DaemonServer;
 use dsh_daemon::singleton::{EXIT_ALREADY_RUNNING, EXIT_LOCK_CONFLICT, InstanceGuard};
 use dsh_local_transport::Limits;
 
@@ -101,7 +101,7 @@ fn main() -> ExitCode {
         }
     };
 
-    // --- 2) envelope server + one-time credential ---
+    // --- 2) envelope server ---
     let server = match DaemonServer::bind(Limits::default(), claim_port) {
         Ok(server) => server,
         Err(error) => {
@@ -109,22 +109,23 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let credential = server.issue_credential(Duration::from_secs(LEASE_MAX_SECONDS));
 
-    // --- 3) credential file for the Shell ---
-    let credential_file = CredentialFile::new(
-        DAEMON_VERSION,
-        std::process::id(),
-        claim_port,
-        server.addr().port(),
-        credential.token(),
-        credential.expires_at(),
-        std::time::SystemTime::now(),
-    );
-    if let Err(error) = credential_file.write_to(&data_dir) {
-        eprintln!("dsh-desktop-daemon: cannot write the credential file: {error}");
-        return ExitCode::FAILURE;
-    }
+    // --- 3) credential file for the Shell (freshness-maintained so a
+    // Shell start always finds a usable token, even after an idle period
+    // past the lease; BLOCK-M8E-BOOTSTRAP-STUCK fix) ---
+    match server
+        .issue_bootstrap_credential_file(Duration::from_secs(dsh_daemon::server::LEASE_MAX_SECONDS))
+    {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            eprintln!("dsh-desktop-daemon: no data directory for the credential file");
+            return ExitCode::FAILURE;
+        }
+        Err(error) => {
+            eprintln!("dsh-desktop-daemon: cannot write the credential file: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     println!("dsh-desktop-daemon {DAEMON_VERSION} started");
     println!("  pid:          {}", std::process::id());
@@ -140,7 +141,15 @@ fn main() -> ExitCode {
     // (dedup by connection id; the transport removes closed connections).
     let server = std::sync::Arc::new(server);
     let mut served: HashSet<u64> = HashSet::new();
+    let mut last_credential_maintain = std::time::Instant::now();
     loop {
+        // Bootstrap credential freshness (BLOCK-M8E-BOOTSTRAP-STUCK fix):
+        // keep the file token usable even when the daemon is idle past a
+        // lease, so a Shell (re)start can always re-attach.
+        if last_credential_maintain.elapsed() >= Duration::from_secs(1) {
+            server.maintain_bootstrap_credential();
+            last_credential_maintain = std::time::Instant::now();
+        }
         for conn in server.connections() {
             if served.insert(conn.id()) {
                 let server = std::sync::Arc::clone(&server);

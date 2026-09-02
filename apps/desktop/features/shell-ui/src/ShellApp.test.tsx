@@ -1235,6 +1235,40 @@ describe("language switching", () => {
     expect(screen.getByRole("combobox", { name: "Language" })).toHaveValue("en");
     expect(await screen.findByTitle("Timer (M3)")).toBeInTheDocument();
   });
+
+  it("retries the bootstrap snapshot when the daemon is not connected yet", async () => {
+    // BLOCK-M8E-BOOTSTRAP-STUCK regression: the daemon connector installs
+    // in the background, so the first getShellSnapshot can fail; without a
+    // retry the snapshot stays null and HarnessSurface renders the
+    // bootstrap state forever.
+    const api = createApi();
+    vi.mocked(api.getShellSnapshot)
+      .mockRejectedValueOnce(new Error("The daemon is not connected."))
+      .mockResolvedValueOnce({
+        phase: "shell-mvp",
+        runtimeState: "unconfigured",
+        environmentId: null,
+        generation: 0,
+      });
+    render(<ShellApp api={api} />);
+
+    // First attempt fails: the bootstrap state is visible and the retry
+    // timer is armed.
+    await screen.findByText("Reading canonical runtime state…");
+    await waitFor(
+      () => expect(api.getShellSnapshot).toHaveBeenCalledTimes(2),
+      { timeout: 5000 },
+    );
+
+    // The retried snapshot leaves the bootstrap state.
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText("Reading canonical runtime state…"),
+        ).not.toBeInTheDocument(),
+      { timeout: 3000 },
+    );
+  });
 });
 
 function attachedEnvironment(): DshEnvironment {
