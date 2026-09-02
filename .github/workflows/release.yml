@@ -140,7 +140,11 @@ jobs:
             --title "${{ github.ref_name }} — DSH Desktop Shell" \
             --generate-notes \
             --draft
-          find dist -type f -print0 | while IFS= read -r -d '' file; do
+          # Only final artifacts (deb/dmg build dirs contain intermediate
+          # files: control/, md5sums, icons, scripts - exclude them).
+          find dist -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.deb" \
+            -o -name "*.dmg" -o -name "checksums.txt" \) -print0 | \
+            while IFS= read -r -d '' file; do
             gh release upload "${{ github.ref_name }}" "$file" \
               --repo "${{ github.repository }}" --clobber
           done
