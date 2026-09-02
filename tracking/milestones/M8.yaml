@@ -1,7 +1,7 @@
 schema_version: 1
 id: M8
 title: "Stable Candidate (three-platform + release readiness)"
-status: planned
+status: accepted
 relative_weeks: "29-33"
 depends_on:
   - M7
@@ -10,5 +10,13 @@ exit_criteria:
   - "terminal-provider Unix PTY、browser 非 Windows 降级策略落地"
   - "签名决策关闭 + 安装包 + SBOM/provenance"
   - "named mutex 决策 + 真实 DSH token 验证 + v0.1.0 发布"
-evidence: []
-updated_at: "2026-08-30T16:00:00Z"
+evidence:
+  - "三平台 CI 全绿（run 33580515851：test ×3 + live-qa-windows success；含 cargo-deny 门禁）"
+  - "M8-A: terminal-provider 平台拆分（platform_unix.rs openpty + O_NONBLOCK reader + 全 WNOHANG 有界 reap；platform_windows.rs ConPTY）；ADR-0015 M8 增补"
+  - "M8-B: browser 非 Windows 降级（wry 默认 webview + degraded 字段，ADR-0017 M8 增补）；macOS 双根因排查全记录 docs/investigations/m8-ci-terminal-integration.md"
+  - "M8-C/D: deny.toml 策略 + CI 门禁；sbom.mjs（10 crate cdx + pnpm 167 组件）；Windows 自签实测（PowerShell 路径）"
+  - "REVIEW-M8 双轴评审 approve-with-comments，全部 major/minor 修复闭环（shell 契约枚举、EAGAIN 写入有界重试、CHANGELOG/ADR 增补）"
+  - "maintainer 验收 2026-09-01；squash 合并 main @ 4c21489；release 分支同步"
+remaining:
+  - "M8-E（独立工作项）：真实 DSH token 验证 + v0.1.0 发布（tag + release notes + SBOM artifacts + attestation 接入 + --bundles 构建）"
+updated_at: "2026-09-01T22:00:00Z"
