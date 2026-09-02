@@ -7,12 +7,12 @@
   {
     "name": "A2 credential file written",
     "ok": true,
-    "detail": "pid=34900 port=4750"
+    "detail": "pid=9552 port=4272"
   },
   {
     "name": "A3 credential schema v1 + pid match",
     "ok": true,
-    "detail": "schema=1 pid=34900/34900"
+    "detail": "schema=1 pid=9552/9552"
   },
   {
     "name": "A4 envelope handshake (one-time credential)",
@@ -47,7 +47,7 @@
   {
     "name": "A10 terminal.create real PTY",
     "ok": true,
-    "detail": "session=pty-1788087974928-1"
+    "detail": "session=pty-1788328999962-1"
   },
   {
     "name": "A11 terminal.status contains session",
@@ -57,7 +57,7 @@
   {
     "name": "A12 terminal.output event bridge",
     "ok": true,
-    "detail": "{\"data\":\"echo LIVE_QA_OK\\r\\n\",\"schemaVersion\":1,\"seq\":4,\"sessionId\":\"pty-1788087974928-1\",\"timestamp"
+    "detail": "{\"data\":\"echo LIVE_QA_OK\\r\\n\",\"schemaVersion\":1,\"seq\":3,\"sessionId\":\"pty-1788328999962-1\",\"timestamp"
   },
   {
     "name": "A13 terminal.close",
@@ -67,12 +67,12 @@
   {
     "name": "A14 browser.create",
     "ok": true,
-    "detail": "session=brw-1788087975164-1"
+    "detail": "session=brw-1788329000198-1"
   },
   {
     "name": "A15 browser.list contains session",
     "ok": true,
-    "detail": "{\"browsers\":[{\"createdAtUnixMs\":1788087975164,\"currentUrl\":null,\"error\":null,\"lastActivityUnixMs\":null,\"mode\":\"human_sur"
+    "detail": "{\"browsers\":[{\"createdAtUnixMs\":1788329000198,\"currentUrl\":null,\"error\":null,\"lastActivityUnixMs\":null,\"mode\":\"human_sur"
   },
   {
     "name": "A16 browser.session-closed event",
@@ -87,7 +87,7 @@
   {
     "name": "A18 scheduler.wake",
     "ok": true,
-    "detail": "{\"pending\":1,\"repeat\":null,\"scheduledFor\":\"2026-08-30T11:06:15.911Z\",\"wakeId\":\"qa-wake-1\"}"
+    "detail": "{\"pending\":1,\"repeat\":null,\"scheduledFor\":\"2026-09-02T06:03:20.943Z\",\"wakeId\":\"qa-wake-1\"}"
   },
   {
     "name": "B1 daemon alive after Shell start",
@@ -107,7 +107,7 @@
   {
     "name": "B4 daemon re-issues credential after disconnect",
     "ok": true,
-    "detail": "new token: lt_3077f9ab2"
+    "detail": "new token: lt_d973117b8"
   },
   {
     "name": "B5 re-attach with reissued credential (handshake+invoke)",

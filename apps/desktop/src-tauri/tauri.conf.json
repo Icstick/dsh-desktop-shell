@@ -30,6 +30,7 @@
   "bundle": {
     "active": false,
     "targets": ["nsis", "deb", "dmg"],
+    "externalBin": ["binaries/dsh-desktop-daemon"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

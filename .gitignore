@@ -16,6 +16,7 @@ node_modules/
 .pnpm-store/
 dist/
 target/
+apps/desktop/src-tauri/binaries/
 apps/desktop/src-tauri/gen/
 *.log
 *.tsbuildinfo
