@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M8-STABLE
 title: "Stable Candidate: platform gaps, CI matrix, signing/SBOM, v0.1.0"
-status: proposed
+status: in_progress
 milestone: M8
 module: MOD-PROCESS-MANAGER
 owner_role: milestone-owner
@@ -15,9 +15,18 @@ acceptance_criteria:
   - "三平台 CI 全绿；terminal Unix PTY；browser 降级策略；签名/SBOM；v0.1.0"
 security_impact: "Signing/provenance; platform-specific unsafe surface"
 compatibility_impact: "三平台 target-host；非 Windows browser 能力差异"
-evidence: []
-blocked_by:
-  - "maintainer 决策：Windows 签名 A/B、macOS 账号、Linux 包范围"
-next_action: "等待 maintainer 确认 PLAN-M8 决策点 → M8-A 平台补齐开工。"
+evidence:
+  - "M8-A: terminal-provider 平台拆分（platform_unix.rs openpty + poll reader + 堆损坏修复；unix cargo check 通过）"
+  - "M8-A: named mutex 决策关闭（ADR-0019）；browser 降级策略（ADR-0017）"
+  - "M8-B: 三平台 CI 矩阵全绿（run 33404398168：test×3 + live-qa-windows 全 success；排查文档 docs/investigations/m8-ci-terminal-integration.md 记录 10 个真实问题）"
+  - "M8-B: macOS 双根因修复——poll 假阳性 POLLIN（O_NONBLOCK reader）+ SIGKILL 后阻塞 waitpid 不返回（全 WNOHANG 有界 reap）"
+  - "M8-B: live-qa 修复——daemon bin 显式构建、live-m7-qa ROOT 硬编码路径去除"
+  - "M8-C: cargo-deny 实跑全绿（licenses/advisories/bans/sources；deny.toml 修 0.20 语法 + MPL-2.0/LLVM-exception allow + 16 个 unmaintained ignore；CI 加 deny step @ ubuntu）"
+  - "M8-C: sbom.mjs 验证通过（cargo-cyclonedx 0.5.9 输出 10 个 crate cdx + 自写 pnpm-lock 转换器 167 组件；cyclonedx-npm 不支持 pnpm）"
+  - "M8-D: Windows 自签验证完成（New-SelfSignedCertificate + Set-AuthenticodeSignature + DigiCert 时间戳；PowerShell 替代 signtool 实测路径已写入 docs/release/signing-and-distribution.md；证书 thumbprint 1B6A576C... 存 CurrentUser\\My）"
+  - "M8-B browser 降级完成（4be10b3/871a7f9）：wry 默认 webview、deny hooks cfg(windows)、report degraded 字段；三平台 CI 全绿（run 33518082535）"
+  - "REVIEW-M8 双轴评审（standards + spec，均 approve-with-comments）：major 已修（shell 契约枚举+fixtures、EAGAIN 写入有界重试）；minor 收尾（CHANGELOG、ADR-0015/0019 增补、signing doc）"
+blocked_by: []
+next_action: "验收合并 main → M8-E：①真实 DSH token 验证（本机 DSH + 真实 session cookie 验证 binding；独立检查清单：启动真实 DSH → Shell attach → surface mount → token 路径验证 → 记录 evidence）②v0.1.0 发布（tag + 中文 release notes + 证据账本 + SBOM artifacts + attestation 接入 + --bundles 构建）③CURRENT.md/project.yaml 收尾。"
 handoff: null
-updated_at: "2026-08-30T16:00:00Z"
+updated_at: "2026-08-31T14:30:00Z"

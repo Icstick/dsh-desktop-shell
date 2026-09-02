@@ -29,6 +29,20 @@
   },
   "bundle": {
     "active": false,
-    "targets": "all"
+    "targets": ["nsis", "deb", "dmg"],
+    "category": "DeveloperTool",
+    "shortDescription": "DeepSeek Harness desktop shell",
+    "longDescription": "Desktop shell for DeepSeek Harness: managed DSH runtimes, terminals, shared browser, and multi-profile switching (dsh-desktop-shell).",
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"]
+      }
+    }
   }
 }

@@ -6,7 +6,16 @@
 
 ### Fixed
 
-- crates/local-transport：accepted socket 继承 listener 非阻塞模式（accept 轮询所需），使 worker_loop 的 SO_RCVTIMEO deadline 失效；64 KiB 整帧部分到达时 read_some 丢弃已读字节、流错位（payload 被读成长度前缀 → Oversized）导致 Protocol 断开（本机全量测试稳定复现 exact_max_frame_passes_over_wire 失败）。修复：connection_worker 恢复阻塞 I/O（set_nonblocking(false)），保留 deadline 语义；framing_io 5/5 重跑、workspace 132 tests、fmt/clippy -D warnings 全过。
+- M8 terminal-provider Unix PTY 平台化后修复（macOS 双根因 + 通用）：① macOS poll(2) 对 PTY master 的假阳性 POLLIN（kqueue 模拟）导致阻塞 read 挂死 reader → master 设 O_NONBLOCK + EAGAIN 有界重试；② SIGKILL 后阻塞 waitpid 在 macOS 不返回（flaky ~50%）→ 全部 waitpid 改 WNOHANG + 有界 reap（SIGKILL 后 200ms 循环，超时交 init）。另修异步 Event 插入协商（TestClient + daemon_client 缓冲 Event 直到 Agreement，产品级）、unix fd 重用竞态（master 在 reader join 后关闭）、FD_CLOEXEC 缺失。排查全记录 docs/investigations/m8-ci-terminal-integration.md。
+- M8 CI/live-qa 首跑修复：live-qa 显式构建 daemon bin（tauri build 只编 app）；live-m7-qa.mjs 硬编码本机路径改为从脚本位置推导 ROOT；scheduler 测试固定日期过期改相对时间。
+- M8 write 背压语义：O_NONBLOCK master 上 EAGAIN 不再直接失败——有界重试（5s deadline，EINTR 不计时），对齐 Windows 阻塞排队语义。
+
+### Added
+
+- M8 三平台 CI 矩阵（.github/workflows/ci.yml）：windows/macos/ubuntu test ×3（fmt、clippy -D warnings、workspace 串行、pnpm check/test、validate-acl、validate-specs、tauri debug build）+ live-qa-windows（daemon envelope QA + M7 CDP QA）+ cargo-deny 门禁（ubuntu）。
+- M8-A terminal-provider 平台拆分：platform.rs cfg 分发 + platform_unix.rs（openpty/fork/exec/TIOCSWINSZ/poll reader，fork 后仅 async-signal-safe 调用）+ platform_windows.rs（ConPTY 迁移）；shell 枚举跨平台化（schema [default,cmd,powershell,pwsh,sh,bash,zsh] + fixtures +2；Windows 补 pwsh）。
+- M8-B browser 非 Windows 降级（ADR-0017 M8 增补）：wry 默认 webview、WebView2 deny hooks cfg(windows) 跳过、on_navigation 导航门保留、browser-report 新增 degraded 字段（仅非 Windows 序列化；schema/contracts.ts 同步）。
+- M8-C/D 发布链路：deny.toml license/advisory 策略（MPL-2.0/LLVM-exception allow；16 个 unmaintained ignore 均注释）；scripts/release/sbom.mjs（cargo-cyclonedx 10 crate cdx + 自写 pnpm-lock 转换器 167 组件）；Windows 自签实测路径（New-SelfSignedCertificate + Set-AuthenticodeSignature + DigiCert 时间戳，docs/release/signing-and-distribution.md）。（accept 轮询所需），使 worker_loop 的 SO_RCVTIMEO deadline 失效；64 KiB 整帧部分到达时 read_some 丢弃已读字节、流错位（payload 被读成长度前缀 → Oversized）导致 Protocol 断开（本机全量测试稳定复现 exact_max_frame_passes_over_wire 失败）。修复：connection_worker 恢复阻塞 I/O（set_nonblocking(false)），保留 deadline 语义；framing_io 5/5 重跑、workspace 132 tests、fmt/clippy -D warnings 全过。
 
 ### Added
 

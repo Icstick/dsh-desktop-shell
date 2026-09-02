@@ -1518,7 +1518,11 @@ mod tests {
             },
             "dshHome": "C:/Users/example/.dsh",
             "profile": "default",
-            "nodePath": "C:/does-not-exist/node.exe",
+            "nodePath": if cfg!(windows) {
+                "C:/does-not-exist/node.exe"
+            } else {
+                "/does-not-exist/node"
+            },
             "endpoint": { "host": "127.0.0.1", "port": 4317 },
             "ownership": "managed"
         }))

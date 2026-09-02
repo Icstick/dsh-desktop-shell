@@ -61,10 +61,15 @@
       "maximum": 300
     },
     "shell": {
+      "description": "Cross-platform union: Windows accepts default/cmd/powershell/pwsh; Unix accepts default/sh/bash/zsh/pwsh. Each platform rejects the other's values (resolve_shell).",
       "enum": [
         "default",
         "cmd",
-        "powershell"
+        "powershell",
+        "pwsh",
+        "sh",
+        "bash",
+        "zsh"
       ]
     },
     "cwd": {

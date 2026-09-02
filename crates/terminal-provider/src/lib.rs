@@ -1,9 +1,12 @@
-//! Desktop-owned PTY sessions on Windows ConPTY (MOD-TERMINAL-PROVIDER, ADR-0015).
+//! Desktop-owned PTY sessions (MOD-TERMINAL-PROVIDER, ADR-0015).
 //!
-//! The provider owns the PTY lifecycle: it creates a pseudo console, spawns
-//! the user's shell as a child of THIS process (never of the Managed DSH
-//! process tree), relays output as events, and cleans up on close or Drop.
+//! The provider owns the PTY lifecycle: it creates a pseudo console /
+//! pseudo terminal (Windows ConPTY or Unix openpty), spawns the user's
+//! shell as a child of THIS process (never of the Managed DSH process
+//! tree), relays output as events, and cleans up on close or Drop.
 //! Session ids are opaque; callers never see PIDs or paths (AC-TERM-002).
+
+mod platform;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -12,17 +15,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
-use windows_sys::Win32::Storage::FileSystem::{ReadFile, WriteFile};
-use windows_sys::Win32::System::Console::{
-    COORD, ClosePseudoConsole, CreatePseudoConsole, HPCON, ResizePseudoConsole,
-};
-use windows_sys::Win32::System::Pipes::CreatePipe;
-use windows_sys::Win32::System::Threading::{
-    CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-    InitializeProcThreadAttributeList, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_INFORMATION,
-    STARTF_USESTDHANDLES, STARTUPINFOEXW, UpdateProcThreadAttribute,
-};
+use platform::PlatformSession;
 
 /// Upper bounds enforced by the provider (mirror specs/terminal schemas).
 pub const MIN_COLS: u16 = 20;
@@ -96,21 +89,7 @@ impl PtyRegistry {
         if guard.closed {
             return Err(PtyError::UnknownSession);
         }
-        let handle = guard.write_handle.ok_or(PtyError::Io)?.0;
-        let bytes = data.as_bytes();
-        let mut written = 0u32;
-        let result = unsafe {
-            WriteFile(
-                handle,
-                bytes.as_ptr(),
-                bytes.len() as u32,
-                &mut written,
-                std::ptr::null_mut(),
-            )
-        };
-        if result == 0 {
-            return Err(PtyError::Io);
-        }
+        guard.platform.write(data)?;
         guard.last_activity_unix_ms = Some(unix_ms());
         Ok(())
     }
@@ -130,13 +109,7 @@ impl PtyRegistry {
         if guard.closed {
             return Err(PtyError::UnknownSession);
         }
-        let size = COORD {
-            X: cols as i16,
-            Y: rows as i16,
-        };
-        unsafe {
-            let _ = ResizePseudoConsole(guard.pseudo_console.0 as isize, size);
-        }
+        guard.platform.resize(cols, rows)?;
         guard.cols = cols;
         guard.rows = rows;
         guard.last_activity_unix_ms = Some(unix_ms());
@@ -221,39 +194,21 @@ impl Drop for PtyRegistry {
         }
     }
 }
-/// Send+Sync wrapper for Win32 kernel handles. A handle value is safe to
-/// move between threads as long as a single owner closes it exactly once;
-/// Session guarantees that invariant (the reader thread only carries the
-/// raw value as usize for the session lifetime).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RawHandle(*mut core::ffi::c_void);
-
-unsafe impl Send for RawHandle {}
-unsafe impl Sync for RawHandle {}
-
-impl RawHandle {
-    fn is_null(self) -> bool {
-        self.0.is_null()
-    }
-}
-
 #[derive(Debug)]
 struct Session {
     id: String,
-    pseudo_console: RawHandle,
-    process: RawHandle,
     cols: u16,
     rows: u16,
     created_at_unix_ms: u64,
     last_activity_unix_ms: Option<u64>,
     closed: bool,
     error: Option<String>,
-    read_handle: Option<RawHandle>,
-    write_handle: Option<RawHandle>,
     reader: Option<JoinHandle<()>>,
     /// Set by terminate() so the polling reader loop exits promptly; the
-    /// reader never blocks indefinitely on ReadFile (see spawn_output_reader).
+    /// reader never blocks indefinitely (poll/PeekNamedPipe).
     reader_stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Platform PTY state (ConPTY on Windows, openpty on Unix).
+    platform: PlatformSession,
 }
 
 impl Drop for Session {
@@ -264,39 +219,28 @@ impl Drop for Session {
 
 impl Session {
     fn terminate(&mut self) {
-        // Teardown order (M6-C1 deadlock finding): the reader polls with
-        // PeekNamedPipe and never blocks indefinitely on ReadFile, so
-        // stopping it is just a flag. Sequence: signal stop -> close the
-        // child's stdin write end -> kill the child (bounded backstop) ->
-        // join the reader (exits within one poll tick) -> close the read
-        // handle (no pending I/O, CloseHandle cannot block) -> close the
-        // pseudo console.
+        // Teardown order (M6-C1 deadlock finding): the reader polls
+        // (PeekNamedPipe / poll) and never blocks indefinitely, so
+        // stopping it is just a flag. Sequence: signal stop -> platform
+        // teardown (close write end, kill the child, close the console /
+        // reap the child) -> join the reader (exits within one poll tick)
+        // -> platform closes the read side.
         self.reader_stop
             .store(true, std::sync::atomic::Ordering::SeqCst);
-        if let Some(handle) = self.write_handle.take() {
-            unsafe {
-                let _ = CloseHandle(handle.0);
-            }
-        }
         if !self.closed {
             self.closed = true;
-            unsafe {
-                if !self.process.is_null() {
-                    let _ =
-                        windows_sys::Win32::System::Threading::TerminateProcess(self.process.0, 1);
-                    let _ = CloseHandle(self.process.0);
-                }
-                ClosePseudoConsole(self.pseudo_console.0 as isize);
-            }
+            // Teardown phase 1: stop the child and release the writer side.
+            // The read side (Windows read pipe / Unix master fd) stays open
+            // until the reader is joined: closing it early either corrupts
+            // the heap on Windows (0xC0000374) or lets the fd be reused and
+            // a stale reader poll reads another session's output on Unix.
+            self.platform.terminate_io();
         }
         if let Some(reader) = self.reader.take() {
             let _ = reader.join();
         }
-        if let Some(handle) = self.read_handle.take() {
-            unsafe {
-                let _ = CloseHandle(handle.0);
-            }
-        }
+        // Teardown phase 2: the reader is gone; close the read side.
+        self.platform.close_read();
     }
 
     fn report(&self) -> PtyReport {
@@ -355,11 +299,7 @@ impl PtyRegistry {
         if !(MIN_COLS..=MAX_COLS).contains(&cols) || !(MIN_ROWS..=MAX_ROWS).contains(&rows) {
             return Err(PtyError::InvalidGeometry);
         }
-        let shell_path = match shell.unwrap_or("default") {
-            "default" | "cmd" => "%COMSPEC%".to_string(),
-            "powershell" => "powershell.exe".to_string(),
-            _ => return Err(PtyError::InvalidShell),
-        };
+        let shell_path = platform::resolve_shell(shell)?;
         let id = format!(
             "pty-{}-{}",
             unix_ms(),
@@ -372,8 +312,27 @@ impl PtyRegistry {
             .map_err(|_| PtyError::StateUnavailable)?
             .clone()
             .ok_or(PtyError::StateUnavailable)?;
-        let session = spawn_conpty(&id, &shell_path, cols, rows, now, cwd, event_tx)?;
-        let session = Arc::new(Mutex::new(session));
+        let platform_session = PlatformSession::spawn(&shell_path, cols, rows, cwd)
+            .map_err(|_| PtyError::SpawnUnavailable)?;
+        let reader_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let reader = PlatformSession::spawn_reader(
+            id.clone(),
+            platform_session.reader_token(),
+            event_tx,
+            Arc::clone(&reader_stop),
+        );
+        let session = Arc::new(Mutex::new(Session {
+            id: id.clone(),
+            cols,
+            rows,
+            created_at_unix_ms: now,
+            last_activity_unix_ms: None,
+            closed: false,
+            error: None,
+            reader: Some(reader),
+            reader_stop,
+            platform: platform_session,
+        }));
         self.sessions
             .lock()
             .map_err(|_| PtyError::StateUnavailable)?
@@ -389,237 +348,6 @@ fn unix_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Size in bytes of a thread attribute list with one attribute.
-fn attribute_size() -> usize {
-    let mut size = 0usize;
-    unsafe {
-        // First call with a null list only returns the required size.
-        let _ = InitializeProcThreadAttributeList(std::ptr::null_mut(), 1, 0, &mut size);
-    }
-    size
-}
-
-/// Zeroed allocation large enough for the attribute list.
-fn allocate_zeroed(size_bytes: usize) -> *mut u8 {
-    let layout = std::alloc::Layout::from_size_align(size_bytes.max(1), 8).expect("layout");
-    unsafe { std::alloc::alloc_zeroed(layout) }
-}
-
-/// Read the ConPTY output pipe and forward chunks as events.
-///
-/// The bridge drains the bounded event channel; when it is gone, reading
-/// stops and the thread exits (the session is being torn down anyway).
-fn spawn_output_reader(
-    session_id: String,
-    handle: usize,
-    event_tx: std::sync::mpsc::SyncSender<OutputEvent>,
-    started_at_unix_ms: u64,
-    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
-) -> JoinHandle<()> {
-    // HANDLE is a raw pointer; carrying it as usize keeps the closure
-    // Send (the handle stays valid for the session lifetime).
-    std::thread::spawn(move || {
-        let mut buffer = [0u8; 4096];
-        let mut seq = 0u64;
-        loop {
-            if stop.load(std::sync::atomic::Ordering::SeqCst) {
-                break;
-            }
-            // Poll instead of blocking on ReadFile: a synchronous ReadFile
-            // with no data in flight cannot be cancelled, and CloseHandle on
-            // a handle with pending I/O blocks indefinitely (M6-C1
-            // deadlock). PeekNamedPipe tells us whether a ReadFile would
-            // return immediately.
-            let mut available = 0u32;
-            let peek_ok = unsafe {
-                windows_sys::Win32::System::Pipes::PeekNamedPipe(
-                    handle as *mut core::ffi::c_void,
-                    std::ptr::null_mut(),
-                    0,
-                    std::ptr::null_mut(),
-                    &mut available,
-                    std::ptr::null_mut(),
-                )
-            };
-            if peek_ok == 0 {
-                // Pipe error / broken: the session is being torn down.
-                break;
-            }
-            if available == 0 {
-                std::thread::sleep(std::time::Duration::from_millis(5));
-                continue;
-            }
-            let mut read = 0u32;
-            let result = unsafe {
-                ReadFile(
-                    handle as *mut core::ffi::c_void,
-                    buffer.as_mut_ptr(),
-                    buffer.len() as u32,
-                    &mut read,
-                    std::ptr::null_mut(),
-                )
-            };
-            if result == 0 || read == 0 {
-                break;
-            }
-            seq += 1;
-            if event_tx
-                .try_send(OutputEvent {
-                    session_id: session_id.clone(),
-                    seq,
-                    data: String::from_utf8_lossy(&buffer[..read as usize]).into_owned(),
-                })
-                .is_err()
-            {
-                // Queue full or bridge gone: drop the chunk rather than stall
-                // the reader (bounded event queue, AC-IPC-002 pattern).
-                break;
-            }
-            let _ = started_at_unix_ms;
-        }
-    })
-}
-
-/// Spawn a shell under a fresh ConPTY and return the owned session.
-///
-/// # Errors
-///
-/// Returns `PtyError::SpawnUnavailable` when pipe/console/process creation
-/// fails; all acquired handles are released on the error path.
-fn spawn_conpty(
-    id: &str,
-    shell_path: &str,
-    cols: u16,
-    rows: u16,
-    created_at_unix_ms: u64,
-    cwd: Option<&str>,
-    event_tx: std::sync::mpsc::SyncSender<OutputEvent>,
-) -> Result<Session, PtyError> {
-    unsafe {
-        let mut input_read: HANDLE = std::ptr::null_mut();
-        let mut input_write: HANDLE = std::ptr::null_mut();
-        let mut output_read: HANDLE = std::ptr::null_mut();
-        let mut output_write: HANDLE = std::ptr::null_mut();
-        if CreatePipe(&mut input_read, &mut input_write, std::ptr::null(), 0) == 0 {
-            return Err(PtyError::SpawnUnavailable);
-        }
-        if CreatePipe(&mut output_read, &mut output_write, std::ptr::null(), 0) == 0 {
-            let _ = CloseHandle(input_read);
-            let _ = CloseHandle(input_write);
-            return Err(PtyError::SpawnUnavailable);
-        }
-        let mut pseudo_console: HPCON = 0;
-        let size = COORD {
-            X: cols as i16,
-            Y: rows as i16,
-        };
-        let created = CreatePseudoConsole(size, input_read, output_write, 0, &mut pseudo_console);
-        if created != 0 {
-            let _ = CloseHandle(input_read);
-            let _ = CloseHandle(input_write);
-            let _ = CloseHandle(output_read);
-            let _ = CloseHandle(output_write);
-            return Err(PtyError::SpawnUnavailable);
-        }
-
-        // Extended startup info with the pseudoconsole attribute list.
-        let mut startup_info: STARTUPINFOEXW = std::mem::zeroed();
-        startup_info.StartupInfo.cb = std::mem::size_of::<STARTUPINFOEXW>() as u32;
-        startup_info.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-
-        let mut size_bytes = attribute_size();
-        let attribute_list = allocate_zeroed(size_bytes);
-        let init =
-            InitializeProcThreadAttributeList(attribute_list as *mut _, 1, 0, &mut size_bytes);
-        if init == 0 {
-            ClosePseudoConsole(pseudo_console);
-            let _ = CloseHandle(output_read);
-            let _ = CloseHandle(input_write);
-            return Err(PtyError::SpawnUnavailable);
-        }
-        let updated = UpdateProcThreadAttribute(
-            attribute_list as *mut _,
-            0,
-            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE as usize,
-            pseudo_console as *const _,
-            std::mem::size_of::<HPCON>(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-        );
-        if updated == 0 {
-            DeleteProcThreadAttributeList(attribute_list as *mut _);
-            ClosePseudoConsole(pseudo_console);
-            let _ = CloseHandle(output_read);
-            let _ = CloseHandle(input_write);
-            return Err(PtyError::SpawnUnavailable);
-        }
-        startup_info.lpAttributeList = attribute_list as *mut _;
-
-        // Resolve the shell command line (cmd via %COMSPEC%, or powershell).
-        let command_line = if shell_path == "%COMSPEC%" {
-            std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
-        } else {
-            shell_path.to_string()
-        };
-        let mut command_line_utf16: Vec<u16> = command_line.encode_utf16().collect();
-        command_line_utf16.push(0);
-
-        let mut cwd_utf16: Option<Vec<u16>> = cwd.map(|value| {
-            let mut encoded: Vec<u16> = value.encode_utf16().collect();
-            encoded.push(0);
-            encoded
-        });
-
-        let mut process_info: PROCESS_INFORMATION = std::mem::zeroed();
-        let created_process = CreateProcessW(
-            std::ptr::null(),
-            command_line_utf16.as_mut_ptr(),
-            std::ptr::null(),
-            std::ptr::null(),
-            0,
-            EXTENDED_STARTUPINFO_PRESENT,
-            std::ptr::null(),
-            cwd_utf16
-                .as_mut()
-                .map(|cwd| cwd.as_mut_ptr())
-                .unwrap_or(std::ptr::null_mut()),
-            &startup_info.StartupInfo,
-            &mut process_info,
-        );
-        DeleteProcThreadAttributeList(attribute_list as *mut _);
-        if created_process == 0 {
-            ClosePseudoConsole(pseudo_console);
-            let _ = CloseHandle(output_read);
-            let _ = CloseHandle(input_write);
-            return Err(PtyError::SpawnUnavailable);
-        }
-
-        let reader_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let reader = spawn_output_reader(
-            id.to_string(),
-            output_read as usize,
-            event_tx,
-            unix_ms(),
-            reader_stop.clone(),
-        );
-
-        Ok(Session {
-            id: id.to_string(),
-            pseudo_console: RawHandle(pseudo_console as *mut core::ffi::c_void),
-            process: RawHandle(process_info.hProcess),
-            cols,
-            rows,
-            created_at_unix_ms,
-            last_activity_unix_ms: None,
-            closed: false,
-            error: None,
-            read_handle: Some(RawHandle(output_read)),
-            write_handle: Some(RawHandle(input_write)),
-            reader: Some(reader),
-            reader_stop,
-        })
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -661,8 +389,10 @@ mod tests {
             PtyError::InvalidGeometry
         );
         assert_eq!(
+            // "bash" is a valid shell on unix; use a platform-neutral
+            // unknown name for the unsupported-shell assertion.
             registry
-                .create(Some("bash"), 120, 30, None)
+                .create(Some("not-a-shell"), 120, 30, None)
                 .expect_err("unsupported shell"),
             PtyError::InvalidShell
         );

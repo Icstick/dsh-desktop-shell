@@ -555,9 +555,14 @@ mod tests {
     }
 
     fn valid_wake(wake_id: &str) -> serde_json::Value {
+        // Relative timestamp: a fixed date goes stale and the worker then
+        // fires immediately, removing the entry before a duplicate check
+        // (observed as duplicate_wake_id_is_conflict failing once the
+        // fixed date passed).
+        let requested = SystemTime::now() + Duration::from_secs(3600);
         serde_json::json!({
             "wakeId": wake_id,
-            "requestedAt": "2026-08-31T00:00:00.000Z",
+            "requestedAt": now_timestamp_like(requested),
             "reason": "scheduled_due",
         })
     }

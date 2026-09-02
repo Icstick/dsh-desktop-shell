@@ -55,6 +55,10 @@
         "null"
       ],
       "maxLength": 256
+    },
+    "degraded": {
+      "description": "ADR-0017 M8: true on non-Windows where the wry default webview degrades permission interception (deny hooks are WebView2-only). Optional: the daemon wire report omits it; the Shell local report sets it.",
+      "type": "boolean"
     }
   }
 }

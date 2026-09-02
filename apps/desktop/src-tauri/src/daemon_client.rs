@@ -347,10 +347,18 @@ impl DaemonClient {
         transport
             .send_json(&hello)
             .map_err(DaemonStartupError::from)?;
-        let reply = transport
-            .recv_json::<Envelope>()
-            .map_err(DaemonStartupError::from)?
-            .ok_or(DaemonStartupError::Transport(TransportError::Closed))?;
+        // Async daemon Events may arrive before the Agreement (the writer
+        // thread pushes them independently; ordering differs by platform).
+        // Drain them instead of failing the negotiation.
+        let reply = loop {
+            let envelope = transport
+                .recv_json::<Envelope>()
+                .map_err(DaemonStartupError::from)?
+                .ok_or(DaemonStartupError::Transport(TransportError::Closed))?;
+            if envelope.kind != EnvelopeKind::Event {
+                break envelope;
+            }
+        };
         if reply.kind != EnvelopeKind::Agreement {
             return Err(DaemonStartupError::Negotiation(format!(
                 "expected Agreement, got {:?}",

@@ -599,6 +599,8 @@ export interface BrowserReport {
   createdAtUnixMs: number;
   lastActivityUnixMs: number | null;
   error: string | null;
+  /** ADR-0017 M8: true on non-Windows (wry default webview, no deny-hook permission interception). */
+  degraded?: boolean;
 }
 
 export interface BrowserSnapshotReport extends BrowserReport {

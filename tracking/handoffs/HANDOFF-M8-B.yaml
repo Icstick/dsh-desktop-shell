@@ -1,0 +1,29 @@
+schema_version: 1
+id: HANDOFF-M8-B
+work_item: WI-M8-STABLE
+from: dsh-agent-primary
+to: maintainer
+status: in_review
+completed:
+  - "M8-B 三平台 CI 矩阵闭环（run 33404398168 全绿）：test ×3（windows/ubuntu/macos：fmt、clippy -D warnings、workspace 串行测试、pnpm check/test、validate-acl 38、validate-specs、tauri debug build）+ live-qa-windows（Daemon envelope QA + M7 CDP QA）。"
+  - "排查文档 docs/investigations/m8-ci-terminal-integration.md 记录 10 个真实问题 + 2 个 live-qa 附带修复（完整根因链）。"
+  - "macOS 双根因修复：① poll(2) 假阳性 POLLIN + 阻塞 read 挂死 reader（master 设 O_NONBLOCK + EAGAIN 重试）；② SIGKILL 后阻塞 waitpid 不返回（全部 waitpid 改 WNOHANG + 有界等待，SIGKILL 后 200ms 循环 reap 超时放弃）。"
+  - "live-qa 首跑修复：tauri build 只编 app bin，显式 cargo build -p dsh-daemon --bin dsh-desktop-daemon；live-m7-qa.mjs 硬编码本机路径改为从脚本位置推导 ROOT。"
+  - "调试痕迹全清（DSH_PTY_DEBUG 门控日志移除，commit b23c247，-85 行）；focused CI job 已删。"
+  - "M8-C/D 已完成：cargo-deny 实跑全绿 + CI ubuntu 门禁；sbom.mjs 验证通过（10 crate cdx + pnpm 167 组件）；Windows 自签验证（PowerShell 路径，docs/release/signing-and-distribution.md）。"
+  - "M8-B browser 降级已完成（4be10b3 + 871a7f9）：非 Windows wry 默认 webview、deny hooks cfg(windows) 跳过、report 带 degraded 字段（schema/TS 同步）；三平台 CI 全绿（run 33518082535）。"
+  - "REVIEW-M8 完成（standards + spec 双轴，均 approve-with-comments）：shell 契约枚举扩展 + EAGAIN 写入有界重试已修；CHANGELOG/ADR 增补进行中。"
+remaining:
+  - "REVIEW-M8 minor 收尾：CHANGELOG M8 条目、ADR-0015 增补（PTY 平台扩展决策）、ADR-0019 补 Events-before-Agreement 一行、signing doc 补 --bundles 说明。"
+  - "M8-E：真实 DSH token 验证（独立清单）、v0.1.0 发布（tag + release notes + SBOM artifacts + attestation 接入）。"
+  - "验收 → 合并 main（squash；release 分支已建，含 M0-M7）。"
+verification:
+  - "CI run 33404398168：test (ubuntu/windows/macos) + live-qa-windows 全 success（最终干净状态）"
+  - "cargo fmt --all -- --check 干净；cargo check -p dsh-daemon -p dsh-terminal-provider 通过"
+  - "排查过程 evidence：run 33398074104（首绿）、33400153305（DSH_PTY_DEBUG 取证）、33400541277（有界 reap 修复验证）"
+risks:
+  - "macOS 阻塞 waitpid 不返回的底层机制未完全定性（有界 reap 是防御性修复，行为正确但 root cause 存疑——若复现需查 SIGCHLD 处理/daemon 信号掩码）。"
+  - "非 Windows browser 降级仅编译 + Windows 运行时验证：Linux/macOS 的 eval 双重 JSON 解码无运行时证据（CI 无非 Windows live browser QA），残余风险待真实平台验证（REVIEW-M8 spec 轴 minor）。"
+  - "macOS 无开发者账号：CI 构建先行，签名留待账号就绪。"
+next_action: "REVIEW-M8 minor 收尾（CHANGELOG/ADR-0015/ADR-0019/signing doc）→ 验收合并 main → M8-E（真实 DSH token 验证清单 + v0.1.0 发布 + attestation）。分支 codex/wi-m8-stable @ 871a7f9+。"
+created_at: "2026-08-31T14:40:00Z"

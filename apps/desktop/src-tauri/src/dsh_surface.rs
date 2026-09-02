@@ -1,3 +1,7 @@
+//! Native DSH surface (WebView2). On non-Windows builds the surface fails
+//! closed and the Windows-only helpers stay compiled-but-unused (M8-A).
+#![cfg_attr(not(windows), allow(dead_code))]
+
 use std::sync::{Arc, Mutex, MutexGuard};
 
 #[cfg(windows)]
@@ -454,11 +458,11 @@ pub(crate) fn mount_surface(
     #[cfg(not(windows))]
     {
         let _ = app;
-        return state.replace(unsupported_platform_record(
+        state.replace(unsupported_platform_record(
             &request.environment_id,
             request.expected_generation,
             binding.port(),
-        ));
+        ))
     }
 
     #[cfg(windows)]

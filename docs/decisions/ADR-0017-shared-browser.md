@@ -58,3 +58,15 @@ M4 之前没有任何 browser 能力：`specs/protocol/browser-capability.schema
 - validate-specs 门禁覆盖新 schema/fixtures；validate-acl 在 M4-C 扩展命令时同步。
 - RISK-BROWSER 在 M4-C 实现与隔离矩阵验证后由 mitigating 评估为 mitigated（PoC 前保持 mitigating）。
 - M5 需要为 browser mutation 建立 broker lease 授权链（AC-BRW-002）与 interact/take_over 实现。
+## M8 增补：非 Windows 平台降级策略（2026-08-30，maintainer 拍板）
+
+- **决策**：非 Windows 构建使用 **tauri/wry 默认 webview**（wkwebview/webkitgtk）创建
+  browser 窗口，**无 WebView2 增强**（deny hooks、permission 拦截、ExecuteScript
+  快照/交互均为 webview2-com 直调，Windows-only）。
+- **能力标注**：降级平台的 browser 能力标记为 degraded——navigate/snapshot/
+  interact 走 tauri eval 等价路径（wry 跨平台 API），权限拦截不可用（页面权限
+  由 webview 默认策略决定）。
+- **过渡**：当前实现为 fail-closed（非 Windows 返回 unsupported_platform，
+  browser.rs 631-639）；降级实现排 M8-B（依赖 CI 验证，无本机 mac/linux 环境）。
+- **安全影响**：AC-BRW-001（无 privileged IPC）不依赖 WebView2 直调——wry 默认
+  webview 同样无 native bridge；降级仅失去 deny-hook 级权限控制（记录在案）。

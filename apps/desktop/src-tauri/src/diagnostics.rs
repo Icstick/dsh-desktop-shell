@@ -342,13 +342,21 @@ mod tests {
 
     const SECRET_COOKIE: &str = "sessionCookie=super-secret-cookie-42";
 
+    fn dsh_home() -> String {
+        if cfg!(windows) {
+            "C:/Users/example/.dsh".to_string()
+        } else {
+            "/home/example/.dsh".to_string()
+        }
+    }
+
     fn managed_environment() -> DshEnvironment {
         serde_json::from_value(serde_json::json!({
             "schemaVersion": 1,
             "id": "managed-local",
             "label": "Managed DSH",
             "harness": { "mode": "executable", "path": "dsh" },
-            "dshHome": "C:/Users/example/.dsh",
+            "dshHome": dsh_home(),
             "profile": "default",
             "endpoint": { "host": "127.0.0.1", "port": "auto" },
             "ownership": "managed"
@@ -357,16 +365,21 @@ mod tests {
     }
 
     fn catalog_with(environment: DshEnvironment) -> EnvironmentCatalog {
-        let path = std::env::temp_dir().join(format!(
-            "dsh-diag-catalog-{}-{}-{}",
+        // A self-created sub-directory: the store chmods the catalog parent
+        // to 0700 (unix) and fsyncs it; a bare shared temp_dir (/tmp is
+        // root-owned) makes that fail with Unavailable on CI runners.
+        let dir = std::env::temp_dir().join(format!(
+            "dsh-diag-{}-{}-{}",
             std::process::id(),
             environment.id(),
             CATALOG_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create catalog dir");
+        let path = dir.join("environment-catalog-v1.json");
         let catalog =
             environment_store::save_environment(&path, environment).expect("persist catalog");
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
         catalog
     }
 

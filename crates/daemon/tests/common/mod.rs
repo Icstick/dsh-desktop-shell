@@ -151,7 +151,19 @@ impl TestClient {
         .expect("hello serializes");
         let hello = self.outgoing(EnvelopeKind::Hello, None, None, Some(payload));
         self.transport.send_json(&hello).expect("send hello");
-        let reply = self.recv_expect("Agreement");
+        // Events are pushed asynchronously by the daemon writer thread and
+        // may arrive before the Agreement (PTY output ordering differs by
+        // platform); buffer them and keep reading until the Agreement.
+        let reply = loop {
+            match self.transport.recv_json::<Envelope>() {
+                Ok(Some(envelope)) if envelope.kind == EnvelopeKind::Event => {
+                    self.events.push(envelope);
+                }
+                Ok(Some(envelope)) => break envelope,
+                Ok(None) => panic!("Agreement: connection closed"),
+                Err(error) => panic!("Agreement: recv error {error}"),
+            }
+        };
         assert_eq!(reply.kind, EnvelopeKind::Agreement, "expected Agreement");
         validate_envelope(&reply).expect("Agreement must be frame-valid");
         assert_eq!(

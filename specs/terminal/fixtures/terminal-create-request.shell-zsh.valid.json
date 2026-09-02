@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "mode": "human_surface",
+  "cols": 120,
+  "rows": 32,
+  "shell": "zsh"
+}

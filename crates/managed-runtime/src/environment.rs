@@ -333,6 +333,14 @@ mod tests {
         .expect("environment fixture")
     }
 
+    fn test_node_path() -> String {
+        if cfg!(windows) {
+            "C:/Program Files/nodejs/node.exe".to_string()
+        } else {
+            "/usr/bin/node".to_string()
+        }
+    }
+
     #[test]
     fn validation_accepts_the_m1_managed_shapes() {
         assert!(environment("managed-local").is_valid());
@@ -358,7 +366,7 @@ mod tests {
             "harness": { "mode": "repository", "path": "D:/dsh/apps/web/dist/main.js", "cwd": "D:/dsh" },
             "dshHome": "C:/Users/example/.dsh",
             "profile": "default",
-            "nodePath": "C:/Program Files/nodejs/node.exe",
+            "nodePath": test_node_path(),
             "endpoint": { "host": "127.0.0.1", "port": "auto" },
             "ownership": "managed"
         }))

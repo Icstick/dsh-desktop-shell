@@ -1,4 +1,12 @@
+#![cfg_attr(not(windows), allow(dead_code))]
 //! Desktop browser bridge (MOD-BROWSER boundary, ADR-0017).
+//!
+//! Most of this module is Windows/WebView2-specific (deny hooks, native
+//! permission interception); on non-Windows builds the browser surface
+//! degrades to the wry default webview (ADR-0017 M8): navigation policy
+//! stays enforced via the Tauri on_navigation gate, snapshot/interact keep
+//! working through the cross-platform eval path, and the report carries
+//! `degraded: true` (deny-hook permission interception unavailable).
 //!
 //! Owns the browser [`SessionRegistry`] (crates/browser-provider) and the
 //! runtime [`WebviewWindow`] handles for every browser session. Sessions are
@@ -29,23 +37,23 @@
 //! (navigation_changed / load_failed / closed), mirroring terminal://output.
 
 use std::collections::{HashMap, HashSet};
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 use std::path::PathBuf;
 #[cfg(all(windows, not(test)))]
 use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 use tauri::Manager;
 use tauri::{AppHandle, Emitter, Url};
 
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 use tauri::WebviewUrl;
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 use tauri::webview::{NewWindowResponse, PageLoadEvent, WebviewWindowBuilder};
 #[cfg(all(windows, not(test)))]
 use webview2_com::{
@@ -74,20 +82,20 @@ const EVENT_NAME: &str = "browser://event";
 /// session id is `brw-<ms>-<seq>`, so `browser-<session_id>` stays valid.
 const BROWSER_WINDOW_LABEL_PREFIX: &str = "browser-";
 /// Initial page loaded right after the deny hooks are installed.
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 const INITIAL_URL: &str = "https://example.com/";
 /// URL length bound mirrored from specs/browser (navigate request maxLength).
 const MAX_URL_LEN: usize = 2048;
 /// Output event drain interval while a browser surface is mounted.
 const EVENT_DRAIN_INTERVAL: Duration = Duration::from_millis(30);
 /// Bounded wait for WebView2 native hook installation.
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 const NATIVE_HOOK_TIMEOUT: Duration = Duration::from_secs(2);
 /// Bounded wait for an ExecuteScript snapshot result.
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(2);
 /// Bounded wait for an ExecuteScript interact result (M5-E3).
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 const INTERACT_TIMEOUT: Duration = Duration::from_secs(2);
 /// Browser capability coordinate: the coordinate the IF-NEGOTIATION
 /// Agreement grants (cf. specs/protocol/fixtures/envelope.agreement.valid.json
@@ -462,6 +470,16 @@ pub struct BrowserReport {
     created_at_unix_ms: u64,
     last_activity_unix_ms: Option<u64>,
     error: Option<String>,
+    /// ADR-0017 M8: true on non-Windows where the wry default webview
+    /// degrades permission interception (deny hooks are WebView2-only).
+    /// Serialized only when true so Windows output matches the schema
+    /// fixture exactly; missing on the wire deserializes as false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    degraded: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 impl BrowserReport {
@@ -503,6 +521,7 @@ fn public_report(session: BrowserSession) -> BrowserReport {
         created_at_unix_ms: session.created_at_unix_ms,
         last_activity_unix_ms: session.last_activity_unix_ms,
         error: session.error,
+        degraded: !cfg!(windows),
     }
 }
 
@@ -513,9 +532,9 @@ fn public_report(session: BrowserSession) -> BrowserReport {
 /// the app exe, so a test exe importing comctl32 v6 functions would abort at
 /// load with STATUS_ENTRYPOINT_NOT_FOUND (no SxS activation context). The
 /// erased map stays empty in tests; every runtime path is Windows-only.
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 type WindowHandle = tauri::WebviewWindow;
-#[cfg(any(not(windows), test))]
+#[cfg(test)]
 type WindowHandle = ();
 
 /// App-managed browser state: one registry + the live window handles,
@@ -625,10 +644,10 @@ pub(crate) async fn create_browser(
     let report = invoke_browser_create(connector, request)?;
     let session = attach_daemon_session(state, &report)?;
 
-    #[cfg(all(windows, not(test)))]
+    #[cfg(not(test))]
     return spawn_browser_window(app, state, session);
 
-    #[cfg(any(not(windows), test))]
+    #[cfg(test)]
     {
         let _ = app;
         // Fail closed: native WebView2 surfaces are Windows-only, and the
@@ -723,7 +742,7 @@ pub(crate) async fn navigate_browser(
     }
     // Resolve the live window BEFORE mutating registry state so a desynced
     // session never leaves a dangling "loading" transition behind.
-    #[cfg(all(windows, not(test)))]
+    #[cfg(not(test))]
     let window = {
         let bridge = state
             .inner
@@ -735,7 +754,7 @@ pub(crate) async fn navigate_browser(
             .cloned()
             .ok_or_else(BrowserCommandError::session_unavailable)?
     };
-    #[cfg(any(not(windows), test))]
+    #[cfg(test)]
     {
         // Erased window map (the unit-test binary never links the GUI
         // chain): the lookup can never succeed; mirror the production miss.
@@ -750,7 +769,7 @@ pub(crate) async fn navigate_browser(
             .ok_or_else(BrowserCommandError::session_unavailable)?;
     }
     let report = navigate_session(state, request)?;
-    #[cfg(all(windows, not(test)))]
+    #[cfg(not(test))]
     {
         let url = Url::parse(request.url()).map_err(|_| BrowserCommandError::malformed())?;
         window.navigate(url).map_err(|_| {
@@ -776,7 +795,7 @@ pub(crate) async fn snapshot_browser(
         }
         return Err(BrowserCommandError::malformed());
     }
-    #[cfg(all(windows, not(test)))]
+    #[cfg(not(test))]
     {
         let window = {
             let bridge = state
@@ -817,7 +836,7 @@ pub(crate) async fn snapshot_browser(
         let _ = app;
         Ok(BrowserSnapshotReport { report, text })
     }
-    #[cfg(any(not(windows), test))]
+    #[cfg(test)]
     {
         // The unit-test binary never links the GUI chain (WindowHandle is
         // erased), so no window can exist here; fail closed like the
@@ -874,7 +893,7 @@ pub(crate) async fn close_browser(
     let closed = invoke_browser_close(connector, request)?;
     // Local mirror close (state machine + local closed event; idempotent).
     close_session(state, request)?;
-    #[cfg(all(windows, not(test)))]
+    #[cfg(not(test))]
     {
         let window = {
             let mut bridge = state
@@ -890,7 +909,7 @@ pub(crate) async fn close_browser(
             let _ = window.close();
         }
     }
-    #[cfg(any(not(windows), test))]
+    #[cfg(test)]
     {
         let mut bridge = state
             .inner
@@ -1035,7 +1054,7 @@ pub(crate) async fn interact_browser<C: dsh_supervisor::Clock>(
     request: &BrowserInteractRequest,
 ) -> Result<BrowserReport, BrowserCommandError> {
     authorize_interact(state, request)?;
-    #[cfg(all(windows, not(test)))]
+    #[cfg(not(test))]
     {
         let window = {
             let bridge = state
@@ -1077,7 +1096,7 @@ pub(crate) async fn interact_browser<C: dsh_supervisor::Clock>(
         let _ = app;
         Ok(report)
     }
-    #[cfg(any(not(windows), test))]
+    #[cfg(test)]
     {
         // The unit-test binary never links the GUI chain (WindowHandle is
         // erased), so no window can exist here; fail closed like the
@@ -1221,10 +1240,10 @@ fn decode_interact_outcome(encoded: &str) -> Result<InteractOutcome, BrowserComm
     })
 }
 
-/// Run one interact script in the live browser page (Windows only;
-/// ExecuteScript callback runs on the UI thread — callers wait off the
-/// async runtime).
-#[cfg(all(windows, not(test)))]
+/// Run one interact script in the live browser page (cross-platform
+/// tauri eval; ExecuteScript callback runs on the UI thread — callers
+/// wait off the async runtime).
+#[cfg(not(test))]
 fn execute_interact(
     webview: &tauri::WebviewWindow,
     script: &str,
@@ -1280,7 +1299,7 @@ pub(crate) fn mark_browser_load_failed(
 /// 2.11 (WebviewWindowBuilder::data_directory -> wry -> WebView2
 /// CreateCoreWebView2EnvironmentWithOptions user_data_folder), so every
 /// browser session gets an isolated profile (ADR-0017 decision 3).
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 fn spawn_browser_window(
     app: &AppHandle,
     state: &BrowserState,
@@ -1291,7 +1310,9 @@ fn spawn_browser_window(
     let profile_dir = browser_profile_dir(app, &session_id)?;
     let page_state = state.clone();
     let page_session_id = session_id.clone();
+    #[cfg(windows)]
     let blocked_navigation = Arc::new(AtomicBool::new(false));
+    #[cfg(windows)]
     let navigation_gate = blocked_navigation.clone();
 
     let builder = WebviewWindowBuilder::new(
@@ -1309,7 +1330,11 @@ fn spawn_browser_window(
     .on_navigation(move |url| {
         // Browser navigation policy (ADR-0017 decision 3): http(s) only, no
         // userinfo, bounded length; about:blank stays the bootstrap target.
+        // The deny-hook navigation gate is WebView2-only (ADR-0017 M8:
+        // non-Windows degrades to the wry default webview, so the Tauri
+        // on_navigation gate is the only navigation policy there).
         let allowed = is_allowed_navigation_url(url);
+        #[cfg(windows)]
         navigation_gate.store(!allowed, Ordering::SeqCst);
         allowed
     })
@@ -1327,6 +1352,11 @@ fn spawn_browser_window(
         BrowserCommandError::unavailable("Browser window creation failed.", false)
     })?;
 
+    // WebView2 deny hooks (permission/password/autofill interception) are
+    // Windows-only; non-Windows builds degrade to the wry default webview
+    // with the on_navigation gate as the only permission policy (ADR-0017
+    // M8 supplement; the degraded capability is surfaced in the report).
+    #[cfg(windows)]
     install_windows_deny_hooks(
         &webview,
         state.clone(),
@@ -1373,7 +1403,7 @@ fn spawn_browser_window(
 }
 
 /// Remove the window handle and close the registry session (idempotent).
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 fn cleanup_browser(state: &BrowserState, session_id: &str) {
     {
         let Ok(mut bridge) = state.inner.lock() else {
@@ -1467,7 +1497,7 @@ fn install_windows_deny_hooks(
         })
 }
 
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 fn browser_profile_dir(app: &AppHandle, session_id: &str) -> Result<PathBuf, BrowserCommandError> {
     app.path()
         .app_data_dir()
@@ -1530,7 +1560,7 @@ pub(crate) fn start_event_drain(app: AppHandle, state: BrowserState) {
 /// Extract the visible page text via ExecuteScript. WebView2 returns the JS
 /// result as a JSON-encoded string, so `document.body.innerText` arrives as
 /// `"...text..."` — the double encoding must be decoded once (POC-M4B).
-#[cfg(all(windows, not(test)))]
+#[cfg(not(test))]
 fn snapshot_text(webview: &tauri::WebviewWindow) -> Result<String, BrowserCommandError> {
     let (sender, receiver) = mpsc::sync_channel(1);
     webview
@@ -1871,6 +1901,7 @@ mod tests {
             created_at_unix_ms: 1787000000000,
             last_activity_unix_ms: Some(1787000001000),
             error: None,
+            degraded: false,
         };
         let actual = serde_json::to_value(&report).expect("serialize");
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
@@ -1909,6 +1940,7 @@ mod tests {
                 created_at_unix_ms: 1787000000000,
                 last_activity_unix_ms: Some(1787000001000),
                 error: None,
+                degraded: false,
             },
             text: "Example Domain".to_string(),
         };
@@ -1996,6 +2028,7 @@ mod tests {
             created_at_unix_ms: 1787000000000,
             last_activity_unix_ms: None,
             error: None,
+            degraded: false,
         };
         let serialized = serde_json::to_string(&report).expect("serialize");
         assert!(!serialized.contains("browser-profiles"));

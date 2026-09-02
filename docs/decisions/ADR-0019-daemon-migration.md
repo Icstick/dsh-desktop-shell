@@ -36,14 +36,20 @@ ADR-0008 冻结了演进路径：P0 Supervisor 在 Tauri 进程内，M6 拆为�
   **claim 端口 37771 所有权 + 数据目录 lockfile**（`crates/daemon/src/singleton.rs`，
   exit codes 3/4，陈旧锁接管 + 外部进程占端口检测，split_brain 5 tests 覆盖），
   **named mutex 未实现**。功能等效（端口所有权为权威信号，lockfile 为协作锁；
-  硬杀后陈旧锁由端口权威恢复）。named mutex 作为三平台加固候选留 M8（Stable
-  Candidate）评估（跨平台等价物为 Unix domain socket 锁）。
+  硬杀后陈旧锁由端口权威恢复）。
+- **M8 评估结论（2026-08-30，M8-A 决策关闭）**：**维持 claim 端口 + lockfile 为
+  最终方案，不补 named mutex**。理由：①端口所有权是权威信号（named mutex 仅防
+  同用户重复启动，端口锁已覆盖）②split_brain 5 tests 实证③跨平台一致性
+  （Unix 无 named mutex，端口锁平台无关）。无新风险记录。
 
 ### 决策 5：统一外源 API 服务端（M5-B2 升级）
 - daemon 内 local-transport bind（固定 loopback 端口）+ envelope 服务端（external-api-example 的 serve_connection/handle_envelope + GrantPolicy→broker 驱动——M5-E1 授权桥）。
 - 能力面：system.ping、browser.*（list/status）、terminal.*（status）、runtime.*（managed 状态）、notification.*（M5-C 事件流转发）。
 - 认证：local-transport 一次性 credential（daemon 签发）+ broker grant/lease（agent 协商沿用 M5 链路）。
 - Event 路由：daemon 内订阅路由（external-api-example 缺的 Event 订阅补上）。
+- **顺序语义（M8-B 确认）**：daemon writer 线程独立推送 Event，输出事件可能先于
+  Agreement/Result 到达客户端；协商与 invoke 的客户端必须缓冲 Event 直到目标
+  消息到达（TestClient 与真实 Shell 客户端 connect_transport 均按此实现）。
 
 ### 决策 6：Scheduler wake（IF-SCHEDULE-WAKE）
 - 最小语义：daemon 内 scheduler 注册唤醒操作（按 ScheduleWake schema：wake 请求 → daemon 执行预定动作）。

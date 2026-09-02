@@ -1485,16 +1485,24 @@ mod tests {
         assert!(result.launch_preview.expect("preview").arguments.is_empty());
     }
 
+    fn absolute_path() -> String {
+        if cfg!(windows) {
+            "C:/Program Files/nodejs/node.exe".to_string()
+        } else {
+            "/usr/bin/node".to_string()
+        }
+    }
+
     #[test]
     fn node_path_is_limited_to_managed_repository_recipe() {
         let mut repository = environment();
         repository.harness.mode = HarnessMode::Repository;
-        repository.harness.path = "C:/src/deepseek-harness/apps/cli/lib/bin.js".into();
-        repository.node_path = Some("C:/Program Files/nodejs/node.exe".into());
+        repository.harness.path = format!("{}/apps/cli/lib/bin.js", absolute_path());
+        repository.node_path = Some(absolute_path());
         let result = validate_environment_value(repository.clone());
         assert!(result.valid);
         let preview = result.launch_preview.expect("preview");
-        assert_eq!(preview.executable, "C:/Program Files/nodejs/node.exe");
+        assert_eq!(preview.executable, absolute_path());
         assert_eq!(preview.arguments[0].display, "[prebuilt-entry]");
 
         repository.harness.mode = HarnessMode::Executable;

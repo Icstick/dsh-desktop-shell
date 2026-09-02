@@ -31,3 +31,26 @@ M3 需要 Workbench 终端（AC-PTY-001：DSH restart 不终止 Desktop-owned PT
 - MOD-TERMINAL-PROVIDER（crates/terminal-provider）
 - MOD-TERMINAL-UI
 - MOD-SHELL-UI / IF-TERMINAL
+
+## M8 增补：Unix 平台扩展（2026-08-31）
+
+M8-A 将终端会话实现拆为平台分派（platform.rs → platform_unix.rs / platform_windows.rs），
+Windows ConPTY 语义保持不变，Unix 新增 openpty 路径。本增补记录 Unix 侧的决策与取舍
+（完整排查过程见 docs/investigations/m8-ci-terminal-integration.md）：
+
+1. **进程模型**：fork + setsid + TIOCSCTTY + dup2 stdio + execvp（fork 后仅
+   async-signal-safe 调用、无堆分配）；$SHELL 缺省 /bin/sh。
+2. **reader 永不阻塞**（M6-C1 死锁结论的 Unix 对应）：poll(2) 100ms tick +
+   stop flag；master 设 **O_NONBLOCK**——macOS poll 假阳性 POLLIN（kqueue 模拟）
+   在数据耗尽后仍报可读，阻塞 read 会永久挂起并卡死 close 的 join；EAGAIN
+   有界重试（5ms 退避）而非忙循环。
+3. **write 背压**：master 非阻塞导致子进程不读 stdin 时 write 返回 EAGAIN——
+   有界重试（5s deadline，EINTR 不计时）对齐 Windows 阻塞排队语义，超时才失败。
+4. **teardown 顺序**：stop → terminate_io（SIGTERM → 500ms WNOHANG → SIGKILL →
+   200ms WNOHANG 有界 reap，超时交 init；交互 shell 忽略 SIGTERM 是设计行为）
+   → join reader → close_read（关 master；过早关闭会 fd 重用竞态）。
+5. **shell 契约跨平台化**：schema 枚举 [default,cmd,powershell,pwsh,sh,bash,zsh]；
+   Windows 接受 default/cmd/powershell/pwsh，Unix 接受 default/sh/bash/zsh/pwsh，
+   各自拒绝对方的平台值（InvalidShell）。
+6. **geometry/CLI 语义**：resize 吞 ioctl 失败返回 Ok（与 Windows Err 的分歧为
+   已知取舍，best-effort 对齐）；子进程 dup2/chdir/setsid 返回值 best-effort。

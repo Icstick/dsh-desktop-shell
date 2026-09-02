@@ -368,12 +368,13 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
     match perform_handshake(&state, &mut stream) {
         HandshakeResult::Authenticated => {}
         HandshakeResult::Rejected(auth_error) => {
-            // Count before replying: the client observes the ack and may
-            // assert stats immediately; the reply must never outrun the
-            // counter (observed as a flaky `rejected_auth` read in tests).
+            // Count and release before replying: the client observes the
+            // ack and may assert stats immediately; the reply must never
+            // outrun the counter or the slot release (flaky stat reads in
+            // tests on both Windows CI and local runs).
             state.stats.lock().unwrap().rejected_auth += 1;
-            let _ = write_handshake_reply(&mut stream, false, Some(reason_str(auth_error)));
             state.limiter.release();
+            let _ = write_handshake_reply(&mut stream, false, Some(reason_str(auth_error)));
             return;
         }
         HandshakeResult::Closed => {
@@ -388,8 +389,8 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
         }
         HandshakeResult::Protocol => {
             state.stats.lock().unwrap().closed_protocol += 1;
-            let _ = write_handshake_reply(&mut stream, false, Some("malformed"));
             state.limiter.release();
+            let _ = write_handshake_reply(&mut stream, false, Some("malformed"));
             return;
         }
         HandshakeResult::Io => {

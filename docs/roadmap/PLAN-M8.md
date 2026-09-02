@@ -59,13 +59,16 @@ M1-M7 全部在 Windows 验证（本机 + 单平台门禁）。Stable Candidate 
 - v0.1.0 发布：tag + release notes（中文）+ 证据账本（门禁/QA/评审/测试矩阵）
 - CURRENT.md/project.yaml 收尾
 
-## 决策点（需 maintainer 确认）
+## 决策点（maintainer 2026-08-30 拍板）
 
-1. **Windows 签名**：A（购买证书）还是 B（自签 + 说明）？——影响费用与分发体验
-2. **macOS**：是否有开发者账号？无则 CI 构建先行，签名/公证留待账号就绪
-3. **非 Windows browser**：降级（wry 默认，标注能力差异）还是禁用（编译关闭）？
-   ——建议降级
-4. **Linux 发行包**：deb + rpm + AppImage 全做，还是先 deb + AppImage？
+1. **Windows 签名**：**自签（DV 级）**——免费，SmartScreen 首次运行说明；
+   签名工具（signtool / osslsigncode）与说明文档进发布流程。EV/OV 留待
+   分发需求出现时再评估。
+2. **macOS**：**无开发者账号**——CI 构建先行（无签名构建），Developer ID +
+   notarization 留待账号就绪。
+3. **非 Windows browser**：**降级**（wry 默认 webview，能力标注 degraded：
+   permission-intercept 与 capture 增强在非 Windows 不可用）。
+4. **Linux 发行包**：**先做 deb**（AppImage 暂不做，后续按需评估）。
 
 ## 依赖与顺序
 

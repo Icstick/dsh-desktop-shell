@@ -3,7 +3,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-const ROOT = 'D:/DSH_workspace/development/dsh-desktop-shell';
+// Derive the repo root from this file's location so the QA also runs on
+// CI runners (the old hard-coded local path made it fail with ENOENT).
+const ROOT = new URL('../..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const EVIDENCE = join(ROOT, 'scripts/qa/evidence/live-m7-qa');
 mkdirSync(EVIDENCE, { recursive: true });
 const PORT = 9333;
