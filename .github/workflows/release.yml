@@ -133,8 +133,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/**/* \
+          # Create the draft without assets first, then upload file by file
+          # (artifact dirs contain directories; gh rejects them as assets).
+          gh release create "${{ github.ref_name }}" \
             --repo "${{ github.repository }}" \
             --title "${{ github.ref_name }} — DSH Desktop Shell" \
             --generate-notes \
             --draft
+          find dist -type f -print0 | while IFS= read -r -d '' file; do
+            gh release upload "${{ github.ref_name }}" "$file" \
+              --repo "${{ github.repository }}" --clobber
+          done
