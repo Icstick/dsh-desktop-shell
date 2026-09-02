@@ -1,0 +1,20 @@
+schema_version: 1
+id: BLOCK-M8E-BOOTSTRAP-STUCK
+title: "Shell GUI bootstrap 偶发卡死（daemon 协商）——v0.1.0 发布硬门"
+status: open
+owner_role: milestone-owner
+blocked_items:
+  - WI-M8-RELEASE
+details: >-
+  Shell GUI 启动后永远停在 "Shell bootstrap / Reading canonical runtime state"
+  （HarnessSurface snapshot null）。daemon 功能完好（live-daemon-qa 25/25 PASS）；
+  手动裸 socket 协商两次中一次通过一次卡（偶发）；诊断卡住时 daemon 线程全 Wait =
+  死锁/阻塞等待非死循环；release 与 debug 同现。4 个未验证假设：A spawn 后立即
+  connect 竞态（daemon broker/registry 未就绪）/ B 双连接并发协商（single-owner
+  grant Conflict 路径死锁）/ C AppData credential 残留错位 / D snapshot UI 无错误
+  分支永挂。调查文档：docs/investigations/m8e-shell-bootstrap-stuck.md（暂停于
+  2026-09-02，调试步骤见 PLAN-DEBUG-OPTIMIZATION §2.1）。发布前必须解决——安装包
+  用户会遇到。附带 0xC0000409 fastfail 一次（疑似与手动杀进程撞车，非稳定复现）。
+resolution: null
+created_at: "2026-09-02T15:00:00Z"
+updated_at: "2026-09-02T15:00:00Z"

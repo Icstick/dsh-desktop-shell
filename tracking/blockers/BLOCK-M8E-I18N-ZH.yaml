@@ -1,0 +1,16 @@
+schema_version: 1
+id: BLOCK-M8E-I18N-ZH
+title: "i18n 中文模式界面仍英文——v0.1.0 发布质量门"
+status: open
+owner_role: milestone-owner
+blocked_items:
+  - WI-M8-RELEASE
+details: >-
+  用户报告（2026-09-02）：界面切换中文后文字仍英文。M6 的 i18n（WI-M6-I18N）未完全
+  生效——待查 ShellApp 语言切换链路：切换事件 → 持久化 → t() 文案表（zh 文案缺失?）
+  → 重渲染，定位断点后修复。解除条件：切中文后关键页面（环境列表/设置/向导）文案生效。
+  注：若修复成本高于预期，可降级为「v0.1.0 标注已知问题」——需 maintainer 另行拍板，
+  默认按 D1（修复先于 release）执行。
+resolution: null
+created_at: "2026-09-02T15:00:00Z"
+updated_at: "2026-09-02T15:00:00Z"

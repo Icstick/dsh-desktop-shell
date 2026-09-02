@@ -39,9 +39,15 @@
 - [Threat Model](security/THREAT_MODEL.md)
 - [Compatibility Ladder](compatibility/LADDER.md)
 - [Test Strategy](testing/STRATEGY.md)
-- [Milestones](roadmap/MILESTONES.md)
 - [Development Workflow](development/WORKFLOW.md)
 - [Diagnostics](operations/DIAGNOSTICS.md)
 - [Clean-room Policy](compliance/CLEAN_ROOM.md)
 - [Research Synthesis](research/SYNTHESIS.md)
 - [External Baseline](research/EXTERNAL_BASELINE.md)
+
+## 路线图与计划
+
+- [Milestones](roadmap/MILESTONES.md)
+- [v0.1.0 发布门与稳定优化计划](roadmap/PLAN-DEBUG-OPTIMIZATION.md)
+- [B2 并发多 profile 草案（远期 feature）](roadmap/PLAN-B2-MULTI-PROFILE-CONCURRENT.md)
+- [Multi-Profile 现场证据 → 行动建议](multi-profile-field-evidence.md)

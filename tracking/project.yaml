@@ -1,10 +1,10 @@
 schema_version: 1
 project: dsh-desktop-shell
 phase: shell-mvp
-current_milestone: M6
-status: ready
+current_milestone: M8
+status: in_progress
 implementation_authorized: true
 start_date: "2026-08-25"
 verified_external_baseline: "2026-08-25"
-updated_at: "2026-08-30T07:30:00Z"
-next_action: "M5 Interop 完成并验收（HANDOFF-M5-INTEROP）待合并 main；M6 Daemon 规划：统一外源 API 真实服务端接线、daemon 化（UI/Supervisor 生命周期隔离）、scheduler wake、known flaky 根治。"
+updated_at: "2026-09-02T15:00:00Z"
+next_action: "M8-E 发布门（决策 D1：修复先于 release）：解除 BLOCK-M8E-BOOTSTRAP-STUCK（GUI bootstrap 偶发卡）与 BLOCK-M8E-I18N-ZH（i18n 中文）→ externalBin 本地重建验证 → publish v0.1.0 → 收尾文档（CURRENT/project/ROADMAP）。B2 并发多 profile 已记录（决策 D2：v0.1.0 发布后作为 feature 立项）——见 docs/roadmap/PLAN-DEBUG-OPTIMIZATION.md。"
