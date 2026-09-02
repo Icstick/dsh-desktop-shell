@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { useI18n } from "../../../src/i18n";
+
 import type {
   DshEnvironment,
   DshSurfaceBounds,
@@ -39,6 +41,7 @@ export function HarnessSurface({
   snapshot,
   validation,
 }: HarnessSurfaceProps) {
+  const { t } = useI18n();
   const nativeSlotRef = useRef<HTMLDivElement | null>(null);
   const [slotHasUsableBounds, setSlotHasUsableBounds] = useState(true);
   const nativeBindingKey =
@@ -95,8 +98,8 @@ export function HarnessSurface({
     return (
       <section className="surface-state" aria-live="polite">
         <div className="surface-state__pulse" aria-hidden="true" />
-        <p className="eyebrow">Shell bootstrap</p>
-        <h2>Reading canonical runtime state…</h2>
+        <p className="eyebrow">{t("harness.bootstrap.eyebrow")}</p>
+        <h2>{t("harness.bootstrap.reading")}</h2>
       </section>
     );
   }
@@ -105,13 +108,13 @@ export function HarnessSurface({
     return (
       <section className="surface-state" aria-labelledby="surface-empty-heading">
         <span className="surface-state__mark" aria-hidden="true">DS</span>
-        <p className="eyebrow">Unprivileged DSH surface</p>
-        <h2 id="surface-empty-heading">Choose an existing DSH environment</h2>
+        <p className="eyebrow">{t("harness.empty.eyebrow")}</p>
+        <h2 id="surface-empty-heading">{t("harness.empty.title")}</h2>
         <p>
-          The Shell hosts upstream DSH without DOM injection or a native bridge. Validate an environment before a native Surface can be considered.
+          {t("harness.empty.body")}
         </p>
         <button className="primary-button" onClick={onOpenSettings} type="button">
-          Open Environment Settings
+          {t("harness.empty.openSettings")}
         </button>
       </section>
     );
@@ -146,73 +149,73 @@ export function HarnessSurface({
             {(state === "mounting" || state === "loading" || state === "hidden") && (
               <>
                 <div className="surface-state__pulse" aria-hidden="true" />
-                <p className="eyebrow">Native lifecycle</p>
+                <p className="eyebrow">{t("harness.native.eyebrow")}</p>
                 <h2 id="surface-native-heading">
-                  {state === "hidden" ? "Restoring native DSH Surface…" : "Loading native DSH Surface…"}
+                  {state === "hidden" ? t("harness.native.restoring") : t("harness.native.loading")}
                 </h2>
               </>
             )}
             {state === "ready" && (
               <p id="surface-native-heading" className="sr-only">
-                Native DSH Surface ready
+                {t("harness.native.ready")}
               </p>
             )}
             {state === "unsupported_platform" && (
               <>
-                <p className="eyebrow">Platform gate</p>
-                <h2 id="surface-native-heading">Native DSH Surface is not enabled on {nativeSurface?.platform ?? "this platform"}</h2>
-                <p>The platform-specific permission-denial hooks have not passed their implementation gate.</p>
+                <p className="eyebrow">{t("harness.platformGate.eyebrow")}</p>
+                <h2 id="surface-native-heading">{t("harness.platformGate.title", { platform: nativeSurface?.platform ?? "this platform" })}</h2>
+                <p>{t("harness.platformGate.body")}</p>
               </>
             )}
             {state === "stale" && (
               <>
-                <p className="eyebrow">Generation gate</p>
-                <h2 id="surface-native-heading">The native Surface binding is stale</h2>
-                <p>Restart or refresh the Managed runtime before mounting another generation.</p>
+                <p className="eyebrow">{t("harness.generationGate.eyebrow")}</p>
+                <h2 id="surface-native-heading">{t("harness.generationGate.title")}</h2>
+                <p>{t("harness.generationGate.body")}</p>
               </>
             )}
             {state === "unmounted" && (
               <>
-                <p className="eyebrow">Native lifecycle</p>
-                <h2 id="surface-native-heading">The native DSH Surface is unmounted</h2>
+                <p className="eyebrow">{t("harness.native.eyebrow")}</p>
+                <h2 id="surface-native-heading">{t("harness.unmounted.title")}</h2>
               </>
             )}
             {state === "viewport_too_small" && (
               <>
-                <p className="eyebrow">Layout gate</p>
-                <h2 id="surface-native-heading">Expand the window to show native DSH</h2>
-                <p>The native Surface requires at least 320 × 240 visible CSS pixels.</p>
+                <p className="eyebrow">{t("harness.layoutGate.eyebrow")}</p>
+                <h2 id="surface-native-heading">{t("harness.layoutGate.title")}</h2>
+                <p>{t("harness.layoutGate.body")}</p>
               </>
             )}
             {state === "error" && (
               <>
-                <p className="eyebrow">Native lifecycle</p>
-                <h2 id="surface-native-heading">Native DSH Surface needs attention</h2>
-                <p>{nativeSurfaceError ?? nativeSurface?.error?.message ?? "The native Surface operation failed."}</p>
+                <p className="eyebrow">{t("harness.native.eyebrow")}</p>
+                <h2 id="surface-native-heading">{t("harness.error.title")}</h2>
+                <p>{nativeSurfaceError ?? nativeSurface?.error?.message ?? t("harness.error.operationFailed")}</p>
                 {canRetry && (
                   <button className="primary-button" disabled={retryingSurface} onClick={onRetry} type="button">
-                    {retryingSurface ? "Retrying…" : "Retry native Surface"}
+                    {retryingSurface ? t("harness.error.retrying") : t("harness.error.retry")}
                   </button>
                 )}
               </>
             )}
           </div>
         </div>
-        <footer className="surface-native__policy" aria-label="Native Surface policy">
-          <span>Native IPC denied</span>
-          <span>Page permissions denied</span>
-          <span>Exact-origin navigation only</span>
+        <footer className="surface-native__policy" aria-label={t("harness.footer.aria")}>
+          <span>{t("harness.footer.ipcDenied")}</span>
+          <span>{t("harness.footer.permissionsDenied")}</span>
+          <span>{t("harness.footer.exactOrigin")}</span>
         </footer>
       </section>
     );
   }
 
   const surfaceHeading = environment.ownership === "attached"
-    ? "Attached DSH remains read-only"
-    : "DSH launch remains intentionally idle";
+    ? t("harness.attached.title")
+    : t("harness.idle.title");
   const surfaceDescription = environment.ownership === "attached"
-    ? "Attached health can report bounded reachability, but it never grants process ownership or lifecycle mutation."
-    : "Use the Runtime surface for explicit Managed start. No process is launched automatically when an Environment is restored or saved.";
+    ? t("harness.attached.body")
+    : t("harness.idle.body");
 
   return (
     <section className="surface-frame" aria-labelledby="surface-ready-heading">
@@ -224,37 +227,37 @@ export function HarnessSurface({
         <code>{validation.launchPreview?.endpoint}</code>
       </div>
       <div className="surface-frame__body">
-        <p className="eyebrow">Environment validated</p>
+        <p className="eyebrow">{t("harness.validated.eyebrow")}</p>
         <h2 id="surface-ready-heading">{surfaceHeading}</h2>
         <p>{surfaceDescription}</p>
         {policy ? (
           <section className="surface-policy" aria-labelledby="surface-policy-heading">
             <div>
-              <p className="eyebrow">Fail-closed policy</p>
-              <h3 id="surface-policy-heading">DSH Surface policy ready</h3>
-              <p>A native Surface requires a verified, owned Managed generation.</p>
+              <p className="eyebrow">{t("harness.policy.eyebrow")}</p>
+              <h3 id="surface-policy-heading">{t("harness.policy.title")}</h3>
+              <p>{t("harness.policy.body")}</p>
             </div>
             <dl className="definition-grid definition-grid--policy">
               <div>
-                <dt>Exact origin</dt>
+                <dt>{t("harness.policy.exactOrigin")}</dt>
                 <dd>{policy.allowedOrigin.scheme}://{policy.allowedOrigin.host}:{policy.allowedOrigin.port}</dd>
               </div>
-              <div><dt>Native IPC</dt><dd>{policy.privilegedIpc}</dd></div>
-              <div><dt>External links</dt><dd>user action</dd></div>
-              <div><dt>Automatic open</dt><dd>{policy.automaticExternalOpen ? "allowed" : "denied"}</dd></div>
+              <div><dt>{t("harness.policy.nativeIpc")}</dt><dd>{policy.privilegedIpc}</dd></div>
+              <div><dt>{t("harness.policy.externalLinks")}</dt><dd>{t("harness.policy.userAction")}</dd></div>
+              <div><dt>{t("harness.policy.automaticOpen")}</dt><dd>{policy.automaticExternalOpen ? t("harness.policy.allowed") : t("harness.policy.denied")}</dd></div>
             </dl>
           </section>
         ) : (
           <div className="callout callout--warning" role="status">
-            <strong>DSH Surface policy pending.</strong>{" "}
-            {policyError ?? "Waiting for a persisted fixed loopback endpoint."}
+            <strong>{t("harness.policy.pendingTitle")}</strong>{" "}
+            {policyError ?? t("harness.policy.pendingBody")}
           </div>
         )}
         <dl className="definition-grid definition-grid--compact">
-          <div><dt>Ownership</dt><dd>{environment.ownership}</dd></div>
-          <div><dt>Profile</dt><dd>{environment.profile}</dd></div>
-          <div><dt>Runtime</dt><dd>{snapshot.runtimeState}</dd></div>
-          <div><dt>Generation</dt><dd>{snapshot.generation}</dd></div>
+          <div><dt>{t("harness.meta.ownership")}</dt><dd>{environment.ownership}</dd></div>
+          <div><dt>{t("harness.meta.profile")}</dt><dd>{environment.profile}</dd></div>
+          <div><dt>{t("harness.meta.runtime")}</dt><dd>{snapshot.runtimeState}</dd></div>
+          <div><dt>{t("harness.meta.generation")}</dt><dd>{snapshot.generation}</dd></div>
         </dl>
       </div>
     </section>

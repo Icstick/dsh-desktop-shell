@@ -25,10 +25,10 @@ describe("i18n", () => {
   });
 
   it("resolves keys from the default zh locale", () => {
-    expect(translate("zh", "rail.browser")).toBe("Browser");
-    expect(translate("zh", "rail.timer")).toBe("Timer（M3）");
-    expect(translate("zh", "common.close")).toBe("Close");
-    expect(translate("zh", "browser.urlLabel")).toBe("Browser URL");
+    expect(translate("zh", "rail.browser")).toBe("浏览器");
+    expect(translate("zh", "rail.timer")).toBe("计时器（M3）");
+    expect(translate("zh", "common.close")).toBe("关闭");
+    expect(translate("zh", "browser.urlLabel")).toBe("浏览器 URL");
   });
 
   it("resolves keys from the en locale", () => {
@@ -39,15 +39,15 @@ describe("i18n", () => {
   it("interpolates {name} placeholders", () => {
     expect(
       translate("zh", "usage.inOut", { input: "1200", output: "300" }),
-    ).toBe("1200 in · 300 out");
+    ).toBe("1200 进 · 300 出");
     expect(
       translate("zh", "runtime.confirmStop.action", { generation: "1" }),
-    ).toBe("Confirm stop generation 1");
+    ).toBe("确认停止代次 1");
     expect(
       translate("zh", "runtime.verifiedEndpoint", {
         endpoint: "http://127.0.0.1:4317",
       }),
-    ).toBe("Verified endpoint: http://127.0.0.1:4317");
+    ).toBe("已验证端点：http://127.0.0.1:4317");
   });
 
   it("falls back to the zh table when a key is missing from the active locale", () => {
@@ -90,7 +90,7 @@ describe("i18n", () => {
     const { result } = renderHook(() => useI18n(), { wrapper });
 
     expect(result.current.lang).toBe("zh");
-    expect(result.current.t("rail.timer")).toBe("Timer（M3）");
+    expect(result.current.t("rail.timer")).toBe("计时器（M3）");
 
     act(() => result.current.setLang("en"));
 
@@ -108,7 +108,7 @@ describe("i18n", () => {
   it("falls back to the default locale outside a provider", () => {
     const { result } = renderHook(() => useI18n());
     expect(result.current.lang).toBe(defaultLang);
-    expect(result.current.t("rail.browser")).toBe("Browser");
+    expect(result.current.t("rail.browser")).toBe("浏览器");
     expect(() => result.current.setLang("en" as Lang)).not.toThrow();
     expect(result.current.lang).toBe("zh");
   });

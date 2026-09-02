@@ -5,6 +5,8 @@
 
 import { useState } from "react";
 
+import { useI18n } from "../../../src/i18n";
+
 import type { DshEnvironment, EnvironmentCatalog } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
 
@@ -24,6 +26,7 @@ export function EnvironmentList({
   transitioning,
   onActivated,
 }: EnvironmentListProps) {
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
 
@@ -37,7 +40,7 @@ export function EnvironmentList({
       });
       onActivated(next, environment);
     } catch {
-      setError("The environment could not be activated.");
+      setError(t("envlist.errorActivate"));
     } finally {
       setActivatingId(null);
     }
@@ -46,7 +49,7 @@ export function EnvironmentList({
   if (catalog.environments.length === 0) {
     return (
       <section className="environment-list" data-testid="environment-list">
-        <h2>Environments</h2>
+        <h2>{t("envlist.title")}</h2>
         <p className="environment-list__empty">No environments saved yet — use the wizard above.</p>
       </section>
     );
@@ -54,7 +57,7 @@ export function EnvironmentList({
 
   return (
     <section className="environment-list" data-testid="environment-list">
-      <h2>Environments</h2>
+      <h2>{t("envlist.title")}</h2>
       {error && (
         <p className="environment-list__error" role="alert">
           {error}
@@ -88,7 +91,7 @@ export function EnvironmentList({
                   disabled={disabled}
                   data-testid={"activate-" + environment.id}
                 >
-                  {activatingId === environment.id ? "Switching…" : "Activate"}
+                  {activatingId === environment.id ? t("envlist.switching") : t("envlist.activate")}
                 </button>
               )}
             </li>

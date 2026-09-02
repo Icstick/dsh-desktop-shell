@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BrowserEvent, BrowserReport } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
+import { I18nProvider, persistLang } from "../../../src/i18n";
 import { BrowserPanel } from "./BrowserPanel";
 
 const { listenMock, eventHandlerRef } = vi.hoisted(() => {
@@ -24,6 +25,17 @@ vi.mock("@tauri-apps/api/event", () => ({
     },
   ),
 }));
+
+// BrowserPanel renders through useI18n (default zh); assertions are
+// written in English, so the default render helper pins English.
+function renderPanel(api: DesktopApi) {
+  persistLang("en");
+  return render(
+    <I18nProvider>
+      <BrowserPanel api={api} />
+    </I18nProvider>,
+  );
+}
 
 function report(overrides: Partial<BrowserReport> = {}): BrowserReport {
   return {
@@ -85,7 +97,7 @@ describe("BrowserPanel", () => {
   it("creates a session and navigates when Open is submitted", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     await user.type(screen.getByRole("textbox", { name: "Browser URL" }), "example.com");
     await user.click(screen.getByRole("button", { name: "Open" }));
@@ -111,7 +123,7 @@ describe("BrowserPanel", () => {
   it("submits on Enter for keyboard-only operation", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     await user.type(
       screen.getByRole("textbox", { name: "Browser URL" }),
@@ -135,7 +147,7 @@ describe("BrowserPanel", () => {
       report({ state: "ready", currentUrl: "https://example.com/" }),
     ]);
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     const input = await screen.findByRole("textbox", { name: "Browser URL" });
     expect(await sessionLabel()).toBeInTheDocument();
@@ -157,7 +169,7 @@ describe("BrowserPanel", () => {
       report({ currentUrl: "https://example.com/" }),
     ]);
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Reload" }));
@@ -174,7 +186,7 @@ describe("BrowserPanel", () => {
     vi.mocked(api.listBrowsers).mockResolvedValue([
       report({ state: "created", currentUrl: null }),
     ]);
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeDisabled();
@@ -186,7 +198,7 @@ describe("BrowserPanel", () => {
       report({ currentUrl: "https://example.com/" }),
     ]);
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close" }));
@@ -203,7 +215,7 @@ describe("BrowserPanel", () => {
     vi.mocked(api.listBrowsers).mockResolvedValue([
       report({ state: "loading", currentUrl: "https://old.example/" }),
     ]);
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     emit({
@@ -228,7 +240,7 @@ describe("BrowserPanel", () => {
     vi.mocked(api.listBrowsers).mockResolvedValue([
       report({ currentUrl: "https://example.com/" }),
     ]);
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     emit({
@@ -249,7 +261,7 @@ describe("BrowserPanel", () => {
     vi.mocked(api.listBrowsers).mockResolvedValue([
       report({ currentUrl: "https://broken.example/" }),
     ]);
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     emit({
@@ -271,7 +283,7 @@ describe("BrowserPanel", () => {
     vi.mocked(api.listBrowsers).mockResolvedValue([
       report({ currentUrl: "https://example.com/" }),
     ]);
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     expect(await sessionLabel()).toBeInTheDocument();
     emit({
@@ -291,7 +303,7 @@ describe("BrowserPanel", () => {
       report({ currentUrl: "https://example.com/" }),
     ]);
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     const input = await screen.findByRole("textbox", { name: "Browser URL" });
     await user.click(input);
@@ -315,7 +327,7 @@ describe("BrowserPanel", () => {
       correlationId: "desktop-browser-test",
     });
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     await user.type(screen.getByRole("textbox", { name: "Browser URL" }), "example.com");
     await user.click(screen.getByRole("button", { name: "Open" }));
@@ -327,7 +339,7 @@ describe("BrowserPanel", () => {
     listenMock.mockRejectedValueOnce(new Error("no tauri bridge"));
     const api = createApi();
     const user = userEvent.setup();
-    render(<BrowserPanel api={api} />);
+    renderPanel(api);
 
     await user.type(screen.getByRole("textbox", { name: "Browser URL" }), "example.com");
     await user.click(screen.getByRole("button", { name: "Open" }));

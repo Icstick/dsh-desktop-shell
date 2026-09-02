@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DshEnvironment } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
-import { I18nProvider } from "../../../src/i18n";
+import { I18nProvider, persistLang } from "../../../src/i18n";
 import { ShellApp } from "./ShellApp";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -14,6 +14,18 @@ vi.mock("@tauri-apps/api/event", () => ({
 beforeEach(() => {
   window.localStorage.clear();
 });
+
+// ShellApp reads the active language from I18nProvider (no provider means
+// the default zh locale). Most assertions in this file are written in
+// English, so the default render helper pins the English locale.
+function renderShellApp(api: DesktopApi) {
+  persistLang("en");
+  return render(
+    <I18nProvider>
+      <ShellApp api={api} />
+    </I18nProvider>,
+  );
+}
 
 function createApi(): DesktopApi {
   return {
@@ -406,7 +418,7 @@ describe("ShellApp", () => {
   });
 
   it("renders the unconfigured DSH boundary from backend state", async () => {
-    render(<ShellApp api={createApi()} />);
+    renderShellApp(createApi());
     expect(await screen.findByText("Choose an existing DSH environment")).toBeInTheDocument();
     expect(screen.getByText("unconfigured")).toBeInTheDocument();
   });
@@ -414,7 +426,7 @@ describe("ShellApp", () => {
   it("validates a setup draft through the wizard without launching DSH", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
@@ -440,7 +452,7 @@ describe("ShellApp", () => {
   it("persists a validated environment through the wizard without starting DSH", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
@@ -482,7 +494,7 @@ describe("ShellApp", () => {
       ],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
@@ -512,7 +524,7 @@ describe("ShellApp", () => {
       environments: [environment],
     });
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("DSH launch remains intentionally idle")).toBeInTheDocument();
     expect(screen.getByText("Restored DSH")).toBeInTheDocument();
@@ -529,7 +541,7 @@ describe("ShellApp", () => {
       environments: [environment],
     });
 
-    const { container } = render(<ShellApp api={api} />);
+    const { container } = renderShellApp(api);
 
     expect(await screen.findByText("DSH Surface policy ready")).toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:4317")).toBeInTheDocument();
@@ -562,7 +574,7 @@ describe("ShellApp", () => {
       correlationId: "desktop-test-policy",
     });
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("DSH Surface policy pending.")).toBeInTheDocument();
     expect(
@@ -581,7 +593,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("attached", { selector: ".runtime-badge" })).toBeInTheDocument();
     expect(api.probeAttachedEnvironment).toHaveBeenCalledWith({
@@ -606,7 +618,7 @@ describe("ShellApp", () => {
       environments: [environment],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("attached", { selector: ".runtime-badge" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Runtime" }));
@@ -625,7 +637,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("stopped", { selector: ".runtime-badge" })).toBeInTheDocument();
     expect(api.getManagedRuntimeStatus).toHaveBeenCalledWith({
@@ -677,7 +689,7 @@ describe("ShellApp", () => {
     } as DOMRect);
     const user = userEvent.setup();
 
-    const { container } = render(<ShellApp api={api} />);
+    const { container } = renderShellApp(api);
 
     expect(await screen.findByText("Native DSH Surface ready")).toBeInTheDocument();
     expect(api.mountDshSurface).toHaveBeenCalledWith({
@@ -725,7 +737,7 @@ describe("ShellApp", () => {
       toJSON: () => ({}),
     } as DOMRect);
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("Expand the window to show native DSH")).toBeInTheDocument();
     expect(screen.getByText("The native Surface requires at least 320 × 240 visible CSS pixels.")).toBeInTheDocument();
@@ -765,7 +777,7 @@ describe("ShellApp", () => {
     } as DOMRect);
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("Native DSH Surface operation failed.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry native Surface" }));
@@ -793,7 +805,7 @@ describe("ShellApp", () => {
       correlationId: "desktop-test-1",
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("unavailable", { selector: ".runtime-badge" });
     await user.click(screen.getByRole("button", { name: "Runtime" }));
@@ -838,7 +850,7 @@ describe("ShellApp", () => {
         },
       ],
     });
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
     await screen.findByText("stopped", { selector: ".runtime-badge" });
     await userEvent.click(screen.getByRole("button", { name: "Runtime" }));
     await screen.findByText("Start Managed DSH");
@@ -874,7 +886,7 @@ describe("ShellApp", () => {
       environments: [envA, envB],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await screen.findByTestId("setup-wizard");
@@ -924,7 +936,7 @@ describe("ShellApp", () => {
       environments: [envAttached, envManaged],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await screen.findByTestId("setup-wizard");
@@ -984,7 +996,7 @@ describe("ShellApp", () => {
       environmentId: "managed-local",
       generation: 3,
     });
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
     await screen.findByText("safe_stop", { selector: ".runtime-badge" });
     await userEvent.click(screen.getByRole("button", { name: "Runtime" }));
     expect(await screen.findByText("Start Managed DSH")).toBeInTheDocument();
@@ -1035,7 +1047,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("stopped", { selector: ".runtime-badge" });
     await user.click(screen.getByRole("button", { name: "Runtime" }));
@@ -1085,7 +1097,7 @@ describe("ShellApp", () => {
     ]);
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(await screen.findByText("Turn completed")).toBeInTheDocument();
@@ -1120,7 +1132,7 @@ describe("ShellApp", () => {
     ]);
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(await screen.findByText("Schedule job finished")).toBeInTheDocument();
@@ -1138,7 +1150,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Usage" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
@@ -1178,7 +1190,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Usage" }));
     expect(await screen.findByText("runtime")).toBeInTheDocument();
@@ -1192,7 +1204,7 @@ describe("ShellApp", () => {
   it("opens the Browser surface from the rail", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Browser" }));
     expect(await screen.findByRole("heading", { name: "Browser" })).toBeInTheDocument();
@@ -1203,6 +1215,7 @@ describe("ShellApp", () => {
 
 describe("language switching", () => {
   it("switches the rail copy to English and persists the choice", async () => {
+    persistLang("zh");
     const api = createApi();
     const user = userEvent.setup();
     render(
@@ -1211,15 +1224,15 @@ describe("language switching", () => {
       </I18nProvider>,
     );
 
-    const select = screen.getByRole("combobox", { name: "Language" });
+    const select = screen.getByRole("combobox", { name: "语言" });
     expect(select).toHaveValue("zh");
-    expect(screen.getByTitle("Timer（M3）")).toBeInTheDocument();
+    expect(screen.getByTitle("计时器（M3）")).toBeInTheDocument();
 
     await user.selectOptions(select, "en");
 
     expect(select).toHaveValue("en");
     expect(screen.getByTitle("Timer (M3)")).toBeInTheDocument();
-    expect(screen.queryByTitle("Timer（M3）")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("计时器（M3）")).not.toBeInTheDocument();
     expect(window.localStorage.getItem("dsh-lang")).toBe("en");
   });
 
@@ -1250,7 +1263,7 @@ describe("language switching", () => {
         environmentId: null,
         generation: 0,
       });
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     // First attempt fails: the bootstrap state is visible and the retry
     // timer is armed.
