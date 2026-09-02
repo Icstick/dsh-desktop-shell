@@ -98,7 +98,8 @@ jobs:
       - name: Compute SHA-256 checksums
         working-directory: artifacts
         run: |
-          find . -type f | sort | xargs sha256sum > checksums.txt
+          # -print0/-0: bundle file names contain spaces (DSH Desktop Shell_*).
+          find . -type f -print0 | sort -z | xargs -0 sha256sum > checksums.txt
           cat checksums.txt
 
       - name: Upload checksums
