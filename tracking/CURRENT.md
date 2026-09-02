@@ -21,7 +21,10 @@
 - **BLOCK-M8E-BOOTSTRAP-STUCK**：Shell GUI 停在 "Reading canonical runtime state"（daemon 协商偶发卡）。
   调查：`docs/investigations/m8e-shell-bootstrap-stuck.md`；调试 4 步见 `docs/roadmap/PLAN-DEBUG-OPTIMIZATION.md` §2.1。
 - **BLOCK-M8E-I18N-ZH**：✅ **resolved（2026-09-02）**——zh 字典 123 key 全量翻译 + HarnessSurface/EnvironmentList 硬编码文案 i18n 化（fix/m8e-i18n-zh）；GUI 实机验收通过。遗留：zh 措辞润色、SetupWizard 文案 i18n 化（随向导问题一起）。
-- 已知观察（未调查，用户 2026-09-02）：SetupWizard 环境配置向导有问题——待用户详述后立项。
+- **SetupWizard 重做（决策 D5，2026-09-02 定稿）**：wizard DSH 来源 = 源码仓库单形态（exe 移除、npx 后置）；
+  Managed 启动渐进恢复（先拉起 → 失败自动 pnpm install+build → 无 repo 引导 clone 位置）。
+  设计见 docs/roadmap/PLAN-WIZARD-REPO-SOURCE.md（WI-A..D 拆分），待独立工作项实施；
+  顺带 SetupWizard 文案 i18n 化与用户报告的向导问题（原话待补）。
 
 ## remaining
 
