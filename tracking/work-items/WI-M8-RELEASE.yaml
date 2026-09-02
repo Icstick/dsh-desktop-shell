@@ -1,0 +1,26 @@
+schema_version: 1
+id: WI-M8-RELEASE
+title: "M8-E: v0.1.0 release - token verification, tag, SBOM artifacts, attestation"
+status: in_progress
+milestone: M8
+module: MOD-RELEASE
+owner_role: milestone-owner
+claimed_by: dsh-agent-primary
+session: SESSION-M8E-RELEASE
+branch_or_worktree: main (release 分支同步)
+dependencies:
+  - WI-M8-STABLE
+acceptance_criteria:
+  - "真实 DSH token 验证记录（docs/verification/M8E-REAL-DSH-TOKEN.md）"
+  - "v0.1.0 tag + 中文 release notes + 证据账本"
+  - "SBOM artifacts（scripts/release/sbom.mjs 产出）+ --bundles 安装包"
+  - "Windows 自签签名产物；attestation 接入（GitHub Actions）"
+  - "CURRENT.md / project.yaml 收尾"
+security_impact: "Release provenance; signing"
+compatibility_impact: "v0.1.0 首个公开版本"
+evidence:
+  - "token 验证：DSH authenticated root（401 无凭据）+ launchToken 43 位契约匹配 + 手工 cookie 实测 200（docs/verification/M8E-REAL-DSH-TOKEN.md）"
+blocked_by: []
+next_action: "v0.1.0 发布：release notes 草稿 → tag v0.1.0 → SBOM 生成 → --bundles 构建 + 签名 → release 发布 → attestation → 收尾文档。"
+handoff: null
+updated_at: "2026-09-01T22:30:00Z"
