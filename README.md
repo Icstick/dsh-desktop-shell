@@ -1,4 +1,6 @@
-# DSH Desktop Shell
+# DSH Desktop Shell (Under Developing...)
+
+因为通过pnpm/npm方式启动，需要一直挂着pwsh，而且在插件开发过程中，经常会默默搞崩dsh。于是想要做一个这样的shell外壳，不仅可以通过shell启动本机的dsh实例，也可以先启动dsh实例，再通过shell完成接管。这样也免去了安装社区desktop版，需要费事转移各种外周配置和数据。
 
 DSH Desktop Shell 是面向用户自有 DeepSeek Harness 的跨平台桌面工作台与本地能力宿主。它不分发、不升级、不修改用户的 DSH Core 或 `DSH_HOME`，而是在外层提供稳定的桌面窗口、进程监督、原生能力、兼容适配与恢复体验。
 
