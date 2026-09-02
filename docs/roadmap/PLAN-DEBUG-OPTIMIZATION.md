@@ -11,6 +11,7 @@
 | D1 | **修复先于 release**：卡点 A（Shell GUI bootstrap 偶发卡）与卡点 B（i18n 中文不生效）**必须先修复并验证，才能 publish v0.1.0** | M8-E 的 publish 动作被两个 BLOCK 门控（见 §2）；draft v0.1.0 保持 draft |
 | D2 | **B2 先记录不立项**：并发多 profile（PLAN-B2 草案，M9/M10）只更新状态与范围记录；**触发条件 = 首个可用版本（v0.1.0）发布后，作为 feature 正式立项** | 不新建 WI-M9-*；不扩 tracking 认领；PLAN-B2 状态段更新 |
 | D3 | **方案落成可跟踪文档**：本文（roadmap PLAN）+ tracking/blockers/BLOCK-M8E-* ×2 + PLAN-B2 状态更新 + project.yaml / CURRENT.md / WI-M8-RELEASE 同步 | 文档链见 §5 |
+| D4 | **形态分工确认（2026-09-02，用户场景澄清）**：主形态 = 本地 Desktop Shell（多 profile 集中管理 + 崩溃重启/回滚 + 本地能力宿主）；**不是 remote-first 过渡**。云端 dsh（A 形态：反代/隧道）独立跑已满足远程/长任务托管，两形态并存。B2 范围 = 本机多 profile 并发优先；daemon remote 化（管理面接管云端后端）降级为远期可选 | §6 场景映射 |
 
 ## 1. 现状快照（2026-09-02，真源 tracking/ + HANDOFF-M8E-RELEASE）
 
@@ -61,6 +62,7 @@ C AppData credential 残留 / D snapshot UI 永挂分支）。调试路径（按
 ## 4. 阶段 2：B2 并发多 profile（远期，作为 feature——D2）
 
 - **触发条件**：v0.1.0 发布后，以 feature 立项（届时按 tracking 规则建 WI-M9-* / 走 ADR）。
+- **范围优先级（D4）**：① 本机多 profile 并发 + 管理可视性（状态/日志/端口/崩溃诊断）为第一优先；② daemon remote 化（管理云端后端）远期可选，**不做** remote-first 过渡。
 - **输入链**：`docs/multi-profile-field-evidence.md`（A/B/C/D/R 建议 + ROI 排序）←
   `multi-profile-reference.md`（现场证据）← open-questions §4 三条设计点。
 - **范围（草案，来自 PLAN-B2 + field-evidence）**：
@@ -70,6 +72,17 @@ C AppData credential 残留 / D snapshot UI 永挂分支）。调试路径（按
   - 红线：R1 不配 per-profile IM Bot；R2 模板只放实测在用的资产；R3 无「警告后继续」路径。
 - **风险修正**：PLAN-B2 风险表「多 DSH 磁盘/资源竞争=低（profile 天然隔离）」需拆出
   「配置级隔离失效=高」——reference §2.3 证明目录隔离是假象。
+
+## 6. 用户场景 → 需求映射（2026-09-02 用户原话提炼，决策 D4 依据）
+
+| 用户场景（原话归纳） | 对应 shell 能力 | 状态 |
+|---|---|---|
+| 插件开发常需重启 dsh、配置导致崩溃 | supervisor 崩溃自动重启 + 回滚（policy.autoRestartOnCrash，M2 已有） | 已有，需崩溃/启动诊断增强（godsh diagnoseStartFailure 模式：读日志识别 YAML 损坏/端口占用等给可操作文案） |
+| profile 开发环境「没法直接看到」 | 集中管理 UI：环境列表/状态徽标/实时日志/端口视图（M7 B1 → B2 增强） | B1 已有；B2 补并发与日志面板 |
+| 多设备多后端集中管理 | 本机 = 多 profile 并发（B2）；云端 = A 形态独立跑（**不要求本机 shell 管理云端**） | 云端已跑通 |
+| 本地依赖重（skill/知识库/文件） | 本地形态不可替代 → Desktop 主形态成立 | 决策依据 |
+| 长任务托管、本机关机也能干活 | 云端/常开机器独立 dsh（A 形态）；跨会话任务分拆属 ACP work-continuity 项目范围（shell 提供并行 profile 承载） | 云端已跑通 |
+| 跨会话需求（长期任务分拆多会话） | 不属 shell 范围（ACP 项目）；shell 侧支撑 = 多 profile 并行环境 | 记录边界 |
 
 ## 5. 文档引用链
 
