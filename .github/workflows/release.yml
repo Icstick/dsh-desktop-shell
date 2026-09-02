@@ -90,10 +90,22 @@ jobs:
         with:
           path: artifacts
 
-      - name: Attest build provenance (SLSA)
-        uses: actions/attest-build-provenance@v2
+      # GitHub attestation (SLSA build provenance) is unavailable on
+      # user-owned private repositories (2026-09-02, error: Feature not
+      # available for user-owned private repositories). Provide SHA-256
+      # checksums instead; re-enable attest-build-provenance when the
+      # repository is public.
+      - name: Compute SHA-256 checksums
+        working-directory: artifacts
+        run: |
+          find . -type f | sort | xargs sha256sum > checksums.txt
+          cat checksums.txt
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
         with:
-          subject-path: artifacts/**/*
+          name: checksums
+          path: artifacts/checksums.txt
 
   publish:
     needs: [build, provenance]
@@ -108,12 +120,10 @@ jobs:
         with:
           node-version: 24
 
-      - name: Generate SBOMs
-        run: |
-          mkdir -p sbom
-          node scripts/release/sbom.mjs sbom 2>/dev/null || true
-          ls -la sbom/ || true
-
+      # SBOM artifacts and the locally signed Windows installer are
+      # uploaded from the maintainer machine after the draft is created
+      # (cargo-cyclonedx is not installed on runners; signing stays
+      # local per docs/release/signing-and-distribution.md).
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -122,7 +132,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/**/* sbom/**/* \
+          gh release create "${{ github.ref_name }}" dist/**/* \
             --repo "${{ github.repository }}" \
             --title "${{ github.ref_name }} — DSH Desktop Shell" \
             --generate-notes \
