@@ -54,6 +54,17 @@ jobs:
         working-directory: apps/desktop
         run: pnpm install --frozen-lockfile
 
+      # The standalone daemon is a tauri externalBin: build it first and
+      # stage it where tauri looks for sidecars (src-tauri/binaries).
+      - name: Build daemon (release)
+        run: cargo build -p dsh-daemon --bin dsh-desktop-daemon --release
+
+      - name: Stage daemon binary
+        shell: bash
+        run: |
+          mkdir -p apps/desktop/src-tauri/binaries
+          cp target/release/dsh-desktop-daemon apps/desktop/src-tauri/binaries/dsh-desktop-daemon
+
       # Platform bundle sets (Windows signing is applied locally per
       # docs/release/signing-and-distribution.md before upload; macOS
       # stays unsigned until a Developer ID account exists).
