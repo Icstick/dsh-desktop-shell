@@ -21,6 +21,23 @@
           "message": "The explicit path does not exist."
         }
       ]
+    },
+    {
+      "id": "candidate-0002",
+      "source": "explicit",
+      "mode": "repository",
+      "requestedPath": "C:/src/deepseek-harness",
+      "canonicalPath": "C:/src/deepseek-harness",
+      "status": "available",
+      "launchable": true,
+      "version": "0.2.0",
+      "evidence": [
+        {
+          "code": "REPO_RECOGNIZED",
+          "severity": "info",
+          "message": "Directory is a recognized DeepSeek Harness source repository."
+        }
+      ]
     }
   ]
 }

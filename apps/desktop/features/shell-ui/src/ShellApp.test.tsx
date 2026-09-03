@@ -125,6 +125,7 @@ function createApi(): DesktopApi {
       port: 8080,
       inUse: false,
     }),
+    pickDirectory: vi.fn().mockResolvedValue(null),
     setActiveEnvironment: vi.fn().mockImplementation(async (request) => ({
       schemaVersion: 1,
       revision: 2,
@@ -431,8 +432,9 @@ describe("ShellApp", () => {
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
     await screen.findByTestId("setup-wizard");
-    // Wizard: mode (next) → harness (prefilled "dsh", next) → profile
+    // Wizard: mode (next) → harness (type repo dir, next) → profile
     await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("harness-path"), "C:/src/deepseek-harness");
     await user.click(screen.getByTestId("wizard-next"));
     await user.type(screen.getByTestId("dsh-home"), "C:/Users/example/.dsh");
     await user.click(screen.getByTestId("wizard-next"));
@@ -458,6 +460,7 @@ describe("ShellApp", () => {
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
     await screen.findByTestId("setup-wizard");
     await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("harness-path"), "C:/src/deepseek-harness");
     await user.click(screen.getByTestId("wizard-next"));
     await user.type(screen.getByTestId("dsh-home"), "C:/Users/example/.dsh");
     await user.click(screen.getByTestId("wizard-next"));
@@ -480,15 +483,26 @@ describe("ShellApp", () => {
       candidates: [
         {
           id: "candidate-0001",
-          source: "path",
-          mode: "executable",
-          requestedPath: "C:/tools/dsh.exe",
-          canonicalPath: "C:/tools/dsh.exe",
+          source: "explicit",
+          mode: "repository",
+          requestedPath: "C:/src/deepseek-harness",
+          canonicalPath: "C:/src/deepseek-harness",
           status: "available",
           launchable: true,
-          version: null,
+          version: "0.2.0",
+          repository: {
+            repoRoot: "C:/src/deepseek-harness",
+            entry: "apps/cli/src/bin.ts",
+            loader: "scripts/register-tsx-esm.mjs",
+            needsInstall: false,
+            needsBuild: false,
+          },
           evidence: [
-            { code: "FILE_CANDIDATE", severity: "info", message: "Candidate was not executed." },
+            {
+              code: "REPO_RECOGNIZED",
+              severity: "info",
+              message: "Directory is a recognized DeepSeek Harness source repository.",
+            },
           ],
         },
       ],
@@ -500,9 +514,10 @@ describe("ShellApp", () => {
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
     await screen.findByTestId("setup-wizard");
     await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("harness-path"), "C:/src/deepseek-harness");
     await user.click(screen.getByTestId("discover-button"));
-    expect(await screen.findByText("C:/tools/dsh.exe")).toBeInTheDocument();
-    expect(screen.getByTestId("harness-path")).toHaveValue("C:/tools/dsh.exe");
+    expect(await screen.findByText("C:/src/deepseek-harness")).toBeInTheDocument();
+    expect(screen.getByTestId("harness-path")).toHaveValue("C:/src/deepseek-harness");
   });
 
   it("restores and validates the active persisted environment on startup", async () => {
@@ -789,7 +804,7 @@ describe("ShellApp", () => {
     expect(await screen.findByText("Native DSH Surface ready")).toBeInTheDocument();
   });
 
-  it("renders a safe error when Attached has no fixed endpoint", async () => {
+  it("degrades gracefully when Attached has no fixed port instead of probing", async () => {
     const environment = { ...attachedEnvironment(), endpoint: { host: "127.0.0.1", port: "auto" } } satisfies DshEnvironment;
     const api = createApi();
     vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
@@ -798,20 +813,13 @@ describe("ShellApp", () => {
       activeEnvironmentId: environment.id,
       environments: [environment],
     });
-    vi.mocked(api.probeAttachedEnvironment).mockRejectedValue({
-      code: "UNAVAILABLE",
-      message: "Attached health requires a fixed loopback port.",
-      retryable: false,
-      correlationId: "desktop-test-1",
-    });
     const user = userEvent.setup();
     renderShellApp(api);
 
-    await screen.findByText("unavailable", { selector: ".runtime-badge" });
+    await screen.findByText("degraded", { selector: ".runtime-badge" });
+    expect(api.probeAttachedEnvironment).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Runtime" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Attached health requires a fixed loopback port.",
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent("no concrete port (auto)");
   });
 
   it("restarts a healthy Managed runtime into a new generation", async () => {

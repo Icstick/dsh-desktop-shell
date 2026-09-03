@@ -1,0 +1,18 @@
+schema_version: 1
+id: SESSION-20260902-M8E-WIZARD-REPO-SOURCE
+status: in_progress
+agent_or_human: dsh-agent-primary
+work_items:
+  - WI-M8E-WIZARD-B
+  - WI-M8E-WIZARD-A
+branch_or_worktree: feat/wizard-repo-source
+started_at: "2026-09-02T16:00:00Z"
+summary: "D5 实施：wizard 源码仓库单形态（决策 D5 落档 PLAN-WIZARD-REPO-SOURCE @ f715035）。本会话串行 WI-B（discovery repo 识别 + 契约扩展）→ WI-A（SetupWizard 重做 + i18n）。本地实证 D:\deepseek-harness：name=@deepseek-ai/dsh-root、entry apps/cli/src/bin.ts、loader scripts/register-tsx-esm.mjs、node_modules/.pnpm 与 apps/web/dist/index.html 存在（判据定稿）。"
+artifacts:
+  - "docs/decisions/ADR-0020-managed-repository-source.md"
+  - "specs/config/harness-discovery-report.schema.json（+fixtures）"
+  - "apps/desktop/src-tauri/src/discovery.rs（repo 探测）"
+  - "apps/desktop/features/environment-settings/src/SetupWizard.tsx（来源步重做）"
+  - "apps/desktop/src/i18n.tsx（wizard.* zh/en）"
+  - "tracking/work-items/WI-M8E-WIZARD-B.yaml / WI-M8E-WIZARD-A.yaml"
+next_action: "WI-B 完成 → 门禁 → squash 提交后继续 WI-A"

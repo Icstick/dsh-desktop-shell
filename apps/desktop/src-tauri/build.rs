@@ -16,6 +16,7 @@ const COMMANDS: &[&str] = &[
     "get_usage_snapshot",
     "interact_browser",
     "mount_dsh_surface",
+    "pick_directory",
     "probe_attached_environment",
     "probe_port",
     "reload_dsh_surface",

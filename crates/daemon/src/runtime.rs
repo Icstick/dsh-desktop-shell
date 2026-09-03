@@ -272,12 +272,12 @@ fn managed_error(error: ManagedRuntimeError) -> DaemonMethodError {
         ),
         ManagedRuntimeError::UnsupportedSource => failed(
             ErrorCode::MalformedMessage,
-            "Managed start requires an existing executable or a prebuilt source recipe",
+            "Managed start source is missing or is not a deepseek-harness checkout (entry or TS loader not found)",
             false,
         ),
         ManagedRuntimeError::NodeOverrideUnsupported => failed(
             ErrorCode::MalformedMessage,
-            "Managed source start requires an absolute existing Node executable",
+            "Managed start needs an absolute existing Node executable (set nodePath or add node to PATH)",
             false,
         ),
         ManagedRuntimeError::Conflict => failed(

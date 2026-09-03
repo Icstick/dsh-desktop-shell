@@ -1,6 +1,9 @@
 # PLAN-WIZARD-REPO-SOURCE: Managed DSH 源码仓库形态 + 渐进启动（决策 D5）
 
-> 2026-09-02 maintainer 拍板（本会话）。状态：**设计定稿，待实施**（契约+执行层+UI 改动面广，独立工作项实施）。
+> 2026-09-02 maintainer 拍板（本会话）。状态：**WI-A/WI-B 已完成、待验收**（分支 feat/wizard-repo-source：
+> 9d92f3e WI-B / 2c7e9b9 WI-A / ad0062b+80f4d15 review 两轮）；**WI-C 最小 recipe 已随 review round 2 落地**
+> （repository 目录 → node --import loader+entry，80f4d15，ADR-0020 实现记录），WI-C 渐进恢复（install/build）
+> 与 WI-D 启动阶段 UI 仍未实施。契约+执行层+UI 改动面广，验收后按仓库流程合并。
 > 背景：wizard 现状只支持 executable 路径+Search；DSH 官方分发无 exe 形态（Node/TS 项目），
 > 真实拉起方式只有两种：npm（npx @deepseek-ai/dsh）与源码（clone + pnpm install/build + pnpm dsh web）。
 > 已查证：pnpm dsh = root script = `node --import scripts/register-tsx-esm.mjs apps/cli/src/bin.ts`；

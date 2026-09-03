@@ -39,6 +39,7 @@ function makeApi(): DesktopApi {
     discoverHarnesses: vi.fn(),
     discoverProfiles: vi.fn(),
     probePort: vi.fn(),
+    pickDirectory: vi.fn(),
     dismissNotification: vi.fn(),
     listBrowsers: vi.fn(),
     listNotifications: vi.fn(),

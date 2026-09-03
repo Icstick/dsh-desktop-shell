@@ -114,7 +114,13 @@ export function convertEnvironmentDraft(draft: EnvironmentDraft): DraftConversio
       harness: {
         mode: draft.harnessMode,
         path: draft.harnessPath.trim(),
-        ...(draft.cwd.trim() ? { cwd: draft.cwd.trim() } : {}),
+        // Repository environments run with the repository root as the working
+        // directory when the user left cwd empty (ADR-0020 decision 4).
+        ...(draft.cwd.trim()
+          ? { cwd: draft.cwd.trim() }
+          : draft.harnessMode === "repository" && draft.harnessPath.trim()
+            ? { cwd: draft.harnessPath.trim() }
+            : {}),
         ...(extraArguments.length ? { args: extraArguments } : {}),
       },
       dshHome: draft.dshHome.trim(),

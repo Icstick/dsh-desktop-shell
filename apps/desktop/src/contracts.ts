@@ -98,6 +98,14 @@ export interface DiscoveryEvidence {
   message: string;
 }
 
+export interface RepositoryInfo {
+  repoRoot: string;
+  entry: string;
+  loader: string | null;
+  needsInstall: boolean;
+  needsBuild: boolean;
+}
+
 export interface HarnessCandidate {
   id: string;
   source: DiscoverySource;
@@ -107,6 +115,7 @@ export interface HarnessCandidate {
   status: DiscoveryCandidateStatus;
   launchable: boolean;
   version: string | null;
+  repository?: RepositoryInfo;
   evidence: DiscoveryEvidence[];
 }
 

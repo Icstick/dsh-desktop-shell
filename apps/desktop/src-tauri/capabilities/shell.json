@@ -23,6 +23,7 @@
     "allow-get-usage-snapshot",
     "allow-interact-browser",
     "allow-mount-dsh-surface",
+    "allow-pick-directory",
     "allow-probe-attached-environment",
     "allow-reload-dsh-surface",
     "allow-save-environment",

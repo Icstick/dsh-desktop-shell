@@ -26,12 +26,13 @@
 //! Shell share it); the unsafe Windows Job Object code is confined to
 //! the process-tree section below.
 
+use std::env;
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -270,7 +271,7 @@ impl VerifiedSurfaceBinding {
 #[derive(Debug)]
 struct ParsedCandidate {
     endpoint: ManagedEndpoint,
-    bootstrap_url: Url,
+    bootstrap_url: Option<Url>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -684,13 +685,19 @@ pub fn start_with_spec(
                 ManagedRuntimeError::ProcessExited,
             );
         }
-        match receiver.try_recv() {
-            Ok(value) => {
-                break parse_candidate(&value, expected_port).inspect_err(|error| {
-                    let _ = fail_start(state, environment_id, generation, *error);
-                })?;
+        if let Some(port) = expected_port {
+            // Configured fixed port: probe it directly. Modern DSH builds
+            // (>= 0.1.2-alpha) print no readiness marker, so marker-waiting
+            // would always time out on them.
+            if http_status_line_probe(loopback_address(port)) {
+                break fixed_port_candidate(port);
             }
-            Err(TryRecvError::Disconnected) | Err(TryRecvError::Empty) => {}
+        } else if let Ok(value) = receiver.try_recv() {
+            // Auto port: the owned generation must publish its exact
+            // loopback endpoint marker.
+            break parse_candidate(&value, None).inspect_err(|error| {
+                let _ = fail_start(state, environment_id, generation, *error);
+            })?;
         }
         if Instant::now() >= deadline {
             return fail_start(
@@ -703,6 +710,8 @@ pub fn start_with_spec(
         thread::sleep(Duration::from_millis(20));
     };
 
+    // Bounded HTTP-level confirmation for marker-derived candidates
+    // (fixed-port candidates already passed the probe above).
     loop {
         if !generation_is_alive(state, environment_id, generation)? {
             return fail_start(
@@ -712,11 +721,7 @@ pub fn start_with_spec(
                 ManagedRuntimeError::ProcessExited,
             );
         }
-        let address = SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::LOCALHOST,
-            candidate.endpoint.port,
-        ));
-        if http_status_line_probe(address) {
+        if http_status_line_probe(loopback_address(candidate.endpoint.port)) {
             break;
         }
         if Instant::now() >= deadline {
@@ -739,13 +744,21 @@ pub fn start_with_spec(
         return Err(ManagedRuntimeError::StaleGeneration);
     }
     supervisor.state = Some(ManagedState::Healthy);
-    supervisor.endpoint = Some(candidate.endpoint);
-    supervisor.bootstrap_url = Some(candidate.bootstrap_url);
-    supervisor.evidence = vec![evidence(
-        "MANAGED_ENDPOINT_VERIFIED",
-        "info",
-        "The owned generation emitted an exact loopback endpoint and accepted a bounded TCP connection.",
-    )];
+    supervisor.endpoint = Some(candidate.endpoint.clone());
+    supervisor.bootstrap_url = candidate.bootstrap_url.clone();
+    supervisor.evidence = vec![if candidate.bootstrap_url.is_some() {
+        evidence(
+            "MANAGED_ENDPOINT_VERIFIED",
+            "info",
+            "The owned generation emitted an exact loopback endpoint and accepted a bounded TCP connection.",
+        )
+    } else {
+        evidence(
+            "MANAGED_ENDPOINT_TCP_VERIFIED",
+            "info",
+            "The owned generation answered the bounded HTTP probe on the configured loopback endpoint (no token-bearing marker).",
+        )
+    }];
     supervisor.report(environment_id)
 }
 
@@ -839,6 +852,12 @@ fn generation_is_alive(
         && supervisor.process.is_some())
 }
 
+/// Relative CLI entry of a deepseek-harness checkout (ADR-0020 decision 2).
+const REPO_CLI_ENTRY_REL: &str = "apps/cli/src/bin.ts";
+/// Relative TypeScript loader of a deepseek-harness checkout (root script
+/// `dsh` = `node --import <loader> <entry> ...`).
+const REPO_TS_LOADER_REL: &str = "scripts/register-tsx-esm.mjs";
+
 fn build_launch_spec(environment: &ManagedEnvironment) -> Result<LaunchSpec, ManagedRuntimeError> {
     if !environment.is_managed() {
         return Err(ManagedRuntimeError::NotManaged);
@@ -847,71 +866,152 @@ fn build_launch_spec(environment: &ManagedEnvironment) -> Result<LaunchSpec, Man
         return Err(ManagedRuntimeError::InvalidEnvironment);
     }
     let harness_path = PathBuf::from(environment.harness_path());
-    if environment.harness_mode() == HarnessMode::Repository
-        && (!harness_path.is_absolute() || !harness_path.is_file())
-    {
-        return Err(ManagedRuntimeError::UnsupportedSource);
-    }
-    if environment.harness_mode() != HarnessMode::Repository
-        && environment
-            .node_path()
-            .is_some_and(|value| !value.is_empty())
-    {
-        return Err(ManagedRuntimeError::NodeOverrideUnsupported);
-    }
-
     let node_path = environment
         .node_path()
         .filter(|value| !value.is_empty())
         .map(PathBuf::from);
+    // nodePath only makes sense for repository sources and must point at an
+    // existing absolute executable.
+    if environment.harness_mode() != HarnessMode::Repository && node_path.is_some() {
+        return Err(ManagedRuntimeError::NodeOverrideUnsupported);
+    }
     if let Some(path) = &node_path
         && (!path.is_absolute() || !path.is_file())
     {
         return Err(ManagedRuntimeError::NodeOverrideUnsupported);
     }
-    #[cfg(windows)]
-    if environment.harness_mode() == HarnessMode::Repository && node_path.is_none() {
-        return Err(ManagedRuntimeError::NodeOverrideUnsupported);
-    }
-
-    let mut args = Vec::new();
-    let executable = if let Some(path) = node_path {
-        if environment.harness_mode() != HarnessMode::Repository {
-            return Err(ManagedRuntimeError::NodeOverrideUnsupported);
-        }
-        args.push(harness_path.into_os_string());
-        path.into_os_string()
-    } else {
-        if environment.harness_mode() == HarnessMode::Repository && !harness_path.is_file() {
-            return Err(ManagedRuntimeError::UnsupportedSource);
-        }
-        OsString::from(environment.harness_path())
-    };
 
     let port = environment.managed_expected_port();
     let port_argument = port.unwrap_or(0).to_string();
-    if environment.profile() != "default" {
-        args.push(OsString::from("--profile"));
-        args.push(OsString::from(environment.profile()));
+
+    if environment.harness_mode() == HarnessMode::Repository {
+        // D5 / ADR-0020: a repository source is a source-checkout DIRECTORY.
+        // The recipe runs the TypeScript CLI entry through the repo TS
+        // loader, with the repository root (or the configured cwd) as the
+        // working directory:
+        //   node --import <repo>/scripts/register-tsx-esm.mjs \
+        //        <repo>/apps/cli/src/bin.ts web --host ... --port N --no-open
+        let repo = harness_path;
+        let entry = repo.join(REPO_CLI_ENTRY_REL);
+        let loader = repo.join(REPO_TS_LOADER_REL);
+        if !repo.is_dir() || !entry.is_file() || !loader.is_file() {
+            return Err(ManagedRuntimeError::UnsupportedSource);
+        }
+        let executable = resolve_node(node_path)?;
+        // Windows node rejects a bare absolute path for --import (the path
+        // is treated as a URL and fails with ERR_UNSUPPORTED_ESM_URL_SCHEME
+        // "protocol d:"); the official recipe uses a relative specifier from
+        // the repo cwd. A file:// URL is cwd-independent and works on every
+        // platform, so the loader is always passed that way.
+        let loader_url = Url::from_file_path(&loader)
+            .map_err(|_| ManagedRuntimeError::UnsupportedSource)?;
+        let mut args = vec![
+            OsString::from("--import"),
+            OsString::from(loader_url.as_str()),
+            entry.into_os_string(),
+        ];
+        push_dsh_arguments(&mut args, environment, &port_argument);
+        let cwd = environment
+            .harness_cwd()
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| repo.clone());
+        return Ok(LaunchSpec {
+            executable,
+            args,
+            cwd: Some(cwd),
+            environment: dsh_home_environment(environment),
+            expected_port: port,
+        });
     }
-    args.push(OsString::from("web"));
+
+    // Executable / command sources run the harness path or command directly.
+    let mut args = Vec::new();
+    push_dsh_arguments(&mut args, environment, &port_argument);
+    Ok(LaunchSpec {
+        executable: harness_path.into_os_string(),
+        args,
+        cwd: environment.harness_cwd().map(PathBuf::from),
+        environment: dsh_home_environment(environment),
+        expected_port: port,
+    })
+}
+
+/// Appends the Supervisor-owned dsh web invocation arguments
+/// (profile/web/loopback/port/no-open) after any source-specific prefix.
+fn push_dsh_arguments(
+    args: &mut Vec<OsString>,
+    environment: &ManagedEnvironment,
+    port_argument: &str,
+) {
+    // DSH CLI shape (verified 2026-09-02): `dsh web` is an alias of
+    // `dsh --profile web`; other profiles boot with `dsh --profile <name> <app flags>`
+    // (the legacy `--profile <name> web` form is rejected with "unknown
+    // option --profile"). The legacy "default" profile maps to the web command.
+    let profile = environment.profile();
+    if profile == "default" {
+        args.push(OsString::from("web"));
+    } else {
+        args.push(OsString::from("--profile"));
+        args.push(OsString::from(profile));
+    }
     args.push(OsString::from("--host"));
     args.push(OsString::from("127.0.0.1"));
     args.push(OsString::from("--port"));
     args.push(OsString::from(port_argument));
     args.push(OsString::from("--no-open"));
     args.extend(environment.harness_args().iter().map(OsString::from));
+}
 
-    Ok(LaunchSpec {
-        executable,
-        args,
-        cwd: environment.harness_cwd().map(PathBuf::from),
-        environment: vec![(
-            OsString::from("DSH_HOME"),
-            OsString::from(environment.dsh_home()),
-        )],
-        expected_port: port,
-    })
+fn dsh_home_environment(environment: &ManagedEnvironment) -> Vec<(OsString, OsString)> {
+    vec![(
+        OsString::from("DSH_HOME"),
+        OsString::from(environment.dsh_home()),
+    )]
+}
+
+/// Node executable for a repository recipe: the configured nodePath wins;
+/// otherwise PATH is probed on Windows (spawn does not search PATH there),
+/// while Unix spawns the bare `node` name and lets the OS resolve it.
+fn resolve_node(node_path: Option<PathBuf>) -> Result<OsString, ManagedRuntimeError> {
+    if let Some(path) = node_path {
+        return Ok(path.into_os_string());
+    }
+    // Probe PATH on every platform so a missing node reports the same clear
+    // error instead of an opaque spawn failure (Unix spawn would otherwise
+    // resolve "node" lazily through PATH).
+    let name = if cfg!(windows) { "node.exe" } else { "node" };
+    find_on_path(name)
+        .map(PathBuf::into_os_string)
+        .ok_or(ManagedRuntimeError::NodeOverrideUnsupported)
+}
+
+fn find_on_path(name: &str) -> Option<PathBuf> {
+    let path = env::var_os("PATH")?;
+    env::split_paths(&path)
+        .map(|directory| directory.join(name))
+        .find(|candidate| candidate.is_file())
+}
+
+/// A candidate for a configured fixed port: modern DSH builds print no
+/// readiness marker, so the supervisor probes the configured loopback
+/// endpoint directly. No token-bearing URL exists on this path, which keeps
+/// the authenticated Surface binding unavailable (fail-closed).
+fn fixed_port_candidate(port: u16) -> ParsedCandidate {
+    ParsedCandidate {
+        endpoint: ManagedEndpoint {
+            scheme: "http",
+            host: "127.0.0.1",
+            port,
+            source: "managed_config",
+            verification: "owned_generation_tcp",
+        },
+        bootstrap_url: None,
+    }
+}
+
+fn loopback_address(port: u16) -> SocketAddr {
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port))
 }
 
 fn parse_candidate(
@@ -958,7 +1058,7 @@ fn parse_candidate(
             source: "managed_process_output",
             verification: "owned_generation_output_and_tcp",
         },
-        bootstrap_url: url,
+        bootstrap_url: Some(url),
     })
 }
 
@@ -1267,8 +1367,13 @@ fn maybe_send_candidate(line: &[u8], sender: &SyncSender<String>) {
 #[cfg(windows)]
 fn configure_process_group(command: &mut Command) {
     use std::os::windows::process::CommandExt;
-    use windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
-    command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+    use windows_sys::Win32::System::Threading::{
+        CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW,
+    };
+    // CREATE_NEW_PROCESS_GROUP keeps the child in its own process group;
+    // CREATE_NO_WINDOW stops the console subsystem child (node) from popping
+    // up its own console window next to the Shell.
+    command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
 }
 
 #[cfg(unix)]
@@ -1396,6 +1501,7 @@ fn wait_for_exit(child: &mut Child, timeout: Duration) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
 
@@ -1460,47 +1566,109 @@ mod tests {
         assert_eq!(spec.expected_port, None);
     }
 
+    struct TestRepo(PathBuf);
+
+    impl TestRepo {
+        fn new() -> Self {
+            let id = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "dsh-managed-repo-test-{}-{id}",
+                std::process::id()
+            ));
+            fs::create_dir_all(path.join("apps/cli/src")).expect("repo entry dirs");
+            fs::create_dir_all(path.join("scripts")).expect("repo scripts dir");
+            fs::write(path.join("apps/cli/src/bin.ts"), b"console.log('dsh')
+")
+                .expect("entry stub");
+            fs::write(path.join("scripts/register-tsx-esm.mjs"), b"export {};
+")
+                .expect("loader stub");
+            Self(path)
+        }
+    }
+
+    impl Drop for TestRepo {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
     #[test]
-    fn repository_node_recipe_is_structured_without_shell_or_package_manager() {
-        let executable = std::env::current_exe().expect("test executable");
+    fn repository_directory_recipe_runs_entry_through_ts_loader() {
+        let repo = TestRepo::new();
+        let node = std::env::current_exe().expect("test executable");
+        let repo_root = repo.0.to_string_lossy().into_owned();
         let value: ManagedEnvironment = serde_json::from_value(serde_json::json!({
             "schemaVersion": 1,
             "id": "managed-local",
             "label": "Managed source DSH",
             "harness": {
                 "mode": "repository",
-                "path": executable,
-                "cwd": executable.parent().expect("executable parent")
+                "path": repo_root,
+                "cwd": repo_root
             },
             "dshHome": "C:/Users/example/.dsh",
             "profile": "work",
-            "nodePath": executable,
+            "nodePath": node,
             "endpoint": { "host": "127.0.0.1", "port": 4317 },
             "ownership": "managed"
         }))
         .expect("repository environment");
         let spec = build_launch_spec(&value).expect("repository launch spec");
-        assert_eq!(PathBuf::from(&spec.executable), executable);
-        let args: Vec<_> = spec.args.iter().map(PathBuf::from).collect();
-        assert_eq!(args[0], executable);
+        assert_eq!(PathBuf::from(&spec.executable), node);
+        assert_eq!(spec.cwd.as_deref(), Some(repo.0.as_path()));
+        let loader = repo.0.join("scripts/register-tsx-esm.mjs");
+        let entry = repo.0.join("apps/cli/src/bin.ts");
+        let loader_url = Url::from_file_path(&loader).expect("loader file url");
         let displays: Vec<_> = spec
             .args
             .iter()
-            .skip(1)
-            .map(|value| value.to_string_lossy())
+            .map(|value| value.to_string_lossy().into_owned())
             .collect();
         assert_eq!(
             displays,
-            [
-                "--profile",
-                "work",
-                "web",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "4317",
-                "--no-open"
+            vec![
+                "--import".to_string(),
+                loader_url.to_string(),
+                entry.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                "work".to_string(),
+                "--host".to_string(),
+                "127.0.0.1".to_string(),
+                "--port".to_string(),
+                "4317".to_string(),
+                "--no-open".to_string()
             ]
+        );
+    }
+
+    #[test]
+    fn repository_directory_without_entry_or_loader_is_rejected() {
+        let repo = TestRepo::new();
+        fs::remove_file(repo.0.join("apps/cli/src/bin.ts")).expect("remove entry");
+        let node = std::env::current_exe().expect("test executable");
+        let value: ManagedEnvironment = serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1,
+            "id": "managed-local",
+            "label": "Managed source DSH",
+            "harness": {
+                "mode": "repository",
+                "path": repo.0,
+                "cwd": repo.0
+            },
+            "dshHome": "C:/Users/example/.dsh",
+            "profile": "default",
+            "nodePath": node,
+            "endpoint": { "host": "127.0.0.1", "port": 4317 },
+            "ownership": "managed"
+        }))
+        .expect("repository environment");
+        assert_eq!(
+            build_launch_spec(&value).expect_err("missing entry reject"),
+            ManagedRuntimeError::UnsupportedSource
         );
     }
 
@@ -1570,7 +1738,7 @@ mod tests {
                 .expect("authenticated candidate");
         assert_eq!(authenticated.endpoint.port, 4317);
         assert_eq!(
-            authenticated.bootstrap_url.as_str(),
+            authenticated.bootstrap_url.expect("marker bootstrap url").as_str(),
             format!("http://127.0.0.1:4317/?token={token}")
         );
         for invalid in [
@@ -1602,7 +1770,7 @@ mod tests {
             generation: 7,
             instance_id: Some("managed-7-1787792400000".into()),
             endpoint: Some(candidate.endpoint),
-            bootstrap_url: Some(candidate.bootstrap_url),
+            bootstrap_url: candidate.bootstrap_url.clone(),
             stop_disposition: Some(StopDisposition::NotRequested),
             evidence: Vec::new(),
             process: None,

@@ -118,6 +118,19 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       return;
     }
 
+    // An Attached environment without a concrete port cannot be probed at
+    // all. Probe attempts would only fail with a fixed-port error and pin
+    // the badge to unavailable — surface the configuration problem instead.
+    if (validatedEnvironment.endpoint.port === "auto") {
+      setAttachedHealth(null);
+      setAttachedHealthError(tRef.current("runtime.attached.autoPortNeeded"));
+      setProbingAttached(false);
+      setSnapshot((snapshot) =>
+        snapshot ? { ...snapshot, runtimeState: "degraded" } : snapshot,
+      );
+      return;
+    }
+
     let current = true;
     setProbingAttached(true);
     setAttachedHealthError(null);

@@ -32,14 +32,38 @@
       "mode": "repository",
       "requestedPath": "C:/src/deepseek-harness",
       "canonicalPath": "C:/src/deepseek-harness",
+      "status": "available",
+      "launchable": true,
+      "version": "0.2.0",
+      "repository": {
+        "repoRoot": "C:/src/deepseek-harness",
+        "entry": "apps/cli/src/bin.ts",
+        "loader": "scripts/register-tsx-esm.mjs",
+        "needsInstall": false,
+        "needsBuild": false
+      },
+      "evidence": [
+        {
+          "code": "REPO_RECOGNIZED",
+          "severity": "info",
+          "message": "Directory is a recognized DeepSeek Harness source repository."
+        }
+      ]
+    },
+    {
+      "id": "candidate-0003",
+      "source": "explicit",
+      "mode": "repository",
+      "requestedPath": "C:/src/not-a-harness",
+      "canonicalPath": "C:/src/not-a-harness",
       "status": "requires_recipe",
       "launchable": false,
       "version": null,
       "evidence": [
         {
-          "code": "DIRECTORY_REQUIRES_RECIPE",
-          "severity": "warning",
-          "message": "A source directory requires a user-provided prebuilt launch recipe."
+          "code": "NOT_A_DSH_REPO",
+          "severity": "error",
+          "message": "The directory is not a recognized DeepSeek Harness source repository."
         }
       ]
     }

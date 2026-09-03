@@ -348,11 +348,11 @@ impl CommandError {
             },
             ManagedRuntimeError::InvalidEnvironment => Self::invalid_environment(Vec::new()),
             ManagedRuntimeError::UnsupportedSource => Self::unavailable(
-                "Managed start requires an existing executable or a prebuilt source recipe.",
+                "Managed start source is missing or is not a deepseek-harness checkout (entry or TS loader not found).",
                 false,
             ),
             ManagedRuntimeError::NodeOverrideUnsupported => Self::unavailable(
-                "Managed source start requires an absolute existing Node executable.",
+                "Managed start needs an absolute existing Node executable (set nodePath or add node to PATH).",
                 false,
             ),
             ManagedRuntimeError::Conflict => Self {
@@ -586,6 +586,25 @@ pub fn save_environment(
 
     environment_store::save_environment(&catalog_path(&app)?, environment)
         .map_err(CommandError::from_store)
+}
+
+/// Open a native folder picker for the wizard browse buttons. Returns
+/// null when the user cancels. Pure UI affordance: no filesystem access
+/// happens in the Shell (the picked path is only stored into the draft).
+/// Runs on a blocking worker so the native dialog never stalls the main
+/// thread (repository convention: blocking commands are async + spawn_blocking).
+#[tauri::command]
+pub async fn pick_directory(app: AppHandle) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri_plugin_dialog::DialogExt;
+        app.dialog()
+            .file()
+            .blocking_pick_folder()
+            .map(|folder| folder.to_string())
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 #[tauri::command]

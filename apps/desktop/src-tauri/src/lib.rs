@@ -25,6 +25,7 @@ pub fn run() {
     let broker_inner = broker_state.inner();
     let browser_state = browser::BrowserState::new(broker_inner);
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(broker_state)
         .manage(daemon_client::DaemonClientState::new())
         .manage(dsh_surface::DshSurfaceState::default())
@@ -61,6 +62,7 @@ pub fn run() {
             commands::get_shell_snapshot,
             commands::get_usage_snapshot,
             commands::mount_dsh_surface,
+            commands::pick_directory,
             commands::probe_attached_environment,
             commands::close_browser,
             commands::close_terminal,

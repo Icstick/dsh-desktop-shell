@@ -3,6 +3,17 @@
 本文件记录仓库级公开契约、治理与发布变化。模块级协议变化还必须更新对应 Schema、ADR 和 compatibility 记录。
 
 ## Unreleased
+### Added
+
+- Managed DSH 源码仓库来源（决策 D5，ADR-0020）：discovery 对目录做 deepseek-harness checkout 识别（@deepseek-ai/dsh-root 或结构 fallback）→ HarnessCandidate 新增可选 repository 详情（repoRoot/entry/loader/needsInstall/needsBuild，向后兼容）；requires_recipe 语义收窄为"非 DSH 目录/结构损坏"。
+- SetupWizard 重做为源码仓库单形态（来源目录 + 原生文件夹浏览 + 仓库有效性检测 + clone 引导 + 探测详情徽章）；Profile-ID 由 Profile 名称自动生成（编辑已有环境时保持原 ID）；advanced 暴露 nodePath/cwd/extraArguments（cwd 留空自动 = 仓库根）；finish 错误细分（保存/启动/验证分离并透出后端消息）+ 重复 ID 覆盖防护 + 仓库未就绪不自动启动。
+- 执行层 repository recipe（WI-C 最小核心）：目录语义启动 node --import loader+entry（loader 以 file:// URL 传入，规避 Windows 下 --import 绝对路径的 ERR_UNSUPPORTED_ESM_URL_SCHEME 缺陷）；nodePath 留空自动 PATH 探测（Windows node.exe / Unix node）。
+- SetupWizard 全量 i18n（wizard.* zh/en）；activity rail SVG 图标（替换首字母缩写）；setup-wizard 样式接入；shell 主程序 Windows GUI subsystem（不再弹出控制台窗口）。
+
+### Changed
+
+- repository 模式语义从"nodePath + 脚本/构建产物文件"改为"源码目录 + 固定 entry/loader"：旧 catalog 中指向文件的 repository 条目需改为指向 checkout 目录（启动时给出明确 UnsupportedSource 错误）。
+- SetupWizard 文案如实说明依赖安装与 Web 构建需在仓库内手动完成（渐进恢复未实现，勿承诺自动安装）。
 
 ### Fixed
 
