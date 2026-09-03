@@ -47,7 +47,7 @@ describe("i18n", () => {
       translate("zh", "runtime.verifiedEndpoint", {
         endpoint: "http://127.0.0.1:4317",
       }),
-    ).toBe("已验证端点：http://127.0.0.1:4317");
+    ).toBe("已确认的实例访问地址：http://127.0.0.1:4317");
   });
 
   it("falls back to the zh table when a key is missing from the active locale", () => {

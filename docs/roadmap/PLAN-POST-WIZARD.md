@@ -1,6 +1,6 @@
 # PLAN-POST-WIZARD: 盲审修复 + 环境配置持久化（v0.1.0 路径）
 
-> 2026-09-02 定稿。跟踪：work-continuity checkpoint（user-global 桶）；执行分批，可与云端 workbox 委托并行。
+> 2026-09-02 定稿；2026-09-03 更新：阶段 0 完成（main 23c5027）；1.1/1.2/1.4/1.7 完成（feat/ux-polish）；1.3 已满足；1.5/1.6 待人工验证；2.1 设计稿就绪待拍板。跟踪：work-continuity checkpoint（user-global 桶）；执行分批，可与云端 workbox 委托并行。
 > 前置状态：feat/wizard-repo-source 分支 9 commits（Managed repository 已实机 healthy、Attached 可达）；
 > 盲审（零背景子代理，OCR+色采样取证）输出 P1-P7 问题与 8 项待人工验证。
 

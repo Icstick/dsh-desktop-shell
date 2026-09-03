@@ -79,6 +79,10 @@ pub const RUNTIME_START_METHOD: &str = "runtime.start";
 pub const RUNTIME_STATUS_METHOD: &str = "runtime.status";
 pub const RUNTIME_STOP_METHOD: &str = "runtime.stop";
 pub const RUNTIME_RESTART_METHOD: &str = "runtime.restart";
+/// `runtime.binding` - the verified Surface binding of the exact
+/// generation, carrying its private bootstrap URL (never part of the
+/// public status report; see the redaction tests in managed-runtime).
+pub const RUNTIME_BINDING_METHOD: &str = "runtime.binding";
 
 /// `scheduler` capability (methods `wake`/`cancel`) — IF-SCHEDULE-WAKE
 /// TimerHost (ADR-0019 decision 6, M6-D); constants live in
@@ -258,6 +262,7 @@ pub fn dispatch(
             RUNTIME_STATUS_METHOD => runtime::handle_status(context, payload),
             RUNTIME_STOP_METHOD => runtime::handle_stop(context, payload),
             RUNTIME_RESTART_METHOD => runtime::handle_restart(context, payload),
+            RUNTIME_BINDING_METHOD => runtime::handle_binding(context, payload),
             _ => Err(DaemonMethodError::MethodNotFound {
                 capability: capability.clone(),
                 method: method.to_string(),

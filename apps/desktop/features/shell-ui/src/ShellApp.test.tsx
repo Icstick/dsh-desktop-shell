@@ -155,8 +155,8 @@ function createApi(): DesktopApi {
       downloads: "deny",
       permissions: "deny",
       privilegedIpc: "denied",
-      domInjection: "denied",
-      rendererPatch: "denied",
+      domInjection: "no",
+      rendererPatch: "no",
       automaticExternalOpen: false,
     })),
     getDshSurfaceStatus: vi.fn().mockImplementation(async (request) =>
@@ -541,7 +541,7 @@ describe("ShellApp", () => {
 
     renderShellApp(api);
 
-    expect(await screen.findByText("DSH launch remains intentionally idle")).toBeInTheDocument();
+    expect(await screen.findByText("DSH won't start automatically")).toBeInTheDocument();
     expect(screen.getByText("Restored DSH")).toBeInTheDocument();
     expect(api.validateEnvironment).toHaveBeenCalledWith(environment);
   });
@@ -558,10 +558,10 @@ describe("ShellApp", () => {
 
     const { container } = renderShellApp(api);
 
-    expect(await screen.findByText("DSH Surface policy ready")).toBeInTheDocument();
+    expect(await screen.findByText("DSH view permissions")).toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:4317")).toBeInTheDocument();
     expect(
-      screen.getByText("A native Surface requires a verified, owned Managed generation."),
+      screen.getByText("Only a DSH instance started by this app (Managed) and verified may show its view here."),
     ).toBeInTheDocument();
     expect(api.getDshSurfacePolicy).toHaveBeenCalledWith({
       schemaVersion: 1,
@@ -591,7 +591,7 @@ describe("ShellApp", () => {
 
     renderShellApp(api);
 
-    expect(await screen.findByText("DSH Surface policy pending.")).toBeInTheDocument();
+    expect(await screen.findByText("Permission rules are not ready yet.")).toBeInTheDocument();
     expect(
       await screen.findByText("DSH Surface policy requires a fixed loopback endpoint."),
     ).toBeInTheDocument();
@@ -665,7 +665,7 @@ describe("ShellApp", () => {
       schemaVersion: 1,
       environmentId: "managed-local",
     });
-    expect(await screen.findByText("Verified endpoint: http://127.0.0.1:4317")).toBeInTheDocument();
+    expect(await screen.findByText("Confirmed address of this instance: http://127.0.0.1:4317")).toBeInTheDocument();
     expect(screen.getByText("owned")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Review managed stop" }));
@@ -706,7 +706,7 @@ describe("ShellApp", () => {
 
     const { container } = renderShellApp(api);
 
-    expect(await screen.findByText("Native DSH Surface ready")).toBeInTheDocument();
+    expect(await screen.findByText("DSH view is ready")).toBeInTheDocument();
     expect(api.mountDshSurface).toHaveBeenCalledWith({
       schemaVersion: 1,
       environmentId: "managed-local",
@@ -715,8 +715,8 @@ describe("ShellApp", () => {
       visible: true,
     });
     expect(container.querySelector("iframe, webview, script")).not.toBeInTheDocument();
-    expect(screen.getByText("Native IPC denied")).toBeInTheDocument();
-    expect(screen.getByText("Page permissions denied")).toBeInTheDocument();
+    expect(screen.getByText("The page cannot use native app features")).toBeInTheDocument();
+    expect(screen.getByText("Page permission requests are denied")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Runtime" }));
     await waitFor(() => {
@@ -755,7 +755,7 @@ describe("ShellApp", () => {
     renderShellApp(api);
 
     expect(await screen.findByText("Expand the window to show native DSH")).toBeInTheDocument();
-    expect(screen.getByText("The native Surface requires at least 320 × 240 visible CSS pixels.")).toBeInTheDocument();
+    expect(screen.getByText("The DSH view needs at least 320 × 240 pixels of space.")).toBeInTheDocument();
     expect(api.mountDshSurface).not.toHaveBeenCalled();
   });
 
@@ -795,13 +795,13 @@ describe("ShellApp", () => {
     renderShellApp(api);
 
     expect(await screen.findByText("Native DSH Surface operation failed.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Retry native Surface" }));
+    await user.click(screen.getByRole("button", { name: "Reload the DSH view" }));
     expect(api.reloadDshSurface).toHaveBeenCalledWith({
       schemaVersion: 1,
       environmentId: "managed-local",
       expectedGeneration: 7,
     });
-    expect(await screen.findByText("Native DSH Surface ready")).toBeInTheDocument();
+    expect(await screen.findByText("DSH view is ready")).toBeInTheDocument();
   });
 
   it("degrades gracefully when Attached has no fixed port instead of probing", async () => {
@@ -873,7 +873,7 @@ describe("ShellApp", () => {
       });
     });
     expect(
-      await screen.findByText("Verified endpoint: http://127.0.0.1:4318"),
+      await screen.findByText("Confirmed address of this instance: http://127.0.0.1:4318"),
     ).toBeInTheDocument();
   });
   it("switches managed environments: stop previous, activate, start target (REVIEW-M7 HIGH-1)", async () => {
@@ -959,6 +959,17 @@ describe("ShellApp", () => {
         environmentId: envManaged.id,
       }),
     );
+    // The activated environment must be re-validated: validation drives the
+    // DSH surface gate, so without it the surface stays on the empty
+    // "choose an environment" state even while the runtime is healthy.
+    await waitFor(() =>
+      expect(api.validateEnvironment).toHaveBeenCalledWith(envManaged),
+    );
+    await user.click(screen.getByRole("button", { name: "DSH" }));
+    expect(await screen.findByText("Managed DSH")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose an existing DSH environment"),
+    ).not.toBeInTheDocument();
   });
 
 
@@ -1275,7 +1286,7 @@ describe("language switching", () => {
 
     // First attempt fails: the bootstrap state is visible and the retry
     // timer is armed.
-    await screen.findByText("Reading canonical runtime state…");
+    await screen.findByText("Reading the latest runtime state…");
     await waitFor(
       () => expect(api.getShellSnapshot).toHaveBeenCalledTimes(2),
       { timeout: 5000 },
@@ -1285,7 +1296,7 @@ describe("language switching", () => {
     await waitFor(
       () =>
         expect(
-          screen.queryByText("Reading canonical runtime state…"),
+          screen.queryByText("Reading the latest runtime state…"),
         ).not.toBeInTheDocument(),
       { timeout: 3000 },
     );

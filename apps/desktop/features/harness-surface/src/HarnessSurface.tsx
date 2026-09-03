@@ -140,7 +140,7 @@ export function HarnessSurface({
           <div>
             <span className="surface-frame__status" data-state={state} aria-hidden="true" />
             <strong>{environment.label}</strong>
-            <span className="surface-native__state">{state}</span>
+            <span className="surface-native__state">{t("enum.surface." + state)}</span>
           </div>
           <code>{origin}</code>
         </div>
@@ -236,16 +236,18 @@ export function HarnessSurface({
               <p className="eyebrow">{t("harness.policy.eyebrow")}</p>
               <h3 id="surface-policy-heading">{t("harness.policy.title")}</h3>
               <p>{t("harness.policy.body")}</p>
+              <p className="surface-policy__note">{t("harness.policy.note.defaults")}</p>
             </div>
             <dl className="definition-grid definition-grid--policy">
               <div>
                 <dt>{t("harness.policy.exactOrigin")}</dt>
                 <dd>{policy.allowedOrigin.scheme}://{policy.allowedOrigin.host}:{policy.allowedOrigin.port}</dd>
               </div>
-              <div><dt>{t("harness.policy.nativeIpc")}</dt><dd>{policy.privilegedIpc}</dd></div>
+              <div><dt>{t("harness.policy.nativeIpc")}</dt><dd>{t("enum.mut." + policy.privilegedIpc)}</dd></div>
               <div><dt>{t("harness.policy.externalLinks")}</dt><dd>{t("harness.policy.userAction")}</dd></div>
               <div><dt>{t("harness.policy.automaticOpen")}</dt><dd>{policy.automaticExternalOpen ? t("harness.policy.allowed") : t("harness.policy.denied")}</dd></div>
             </dl>
+            <p className="surface-policy__note surface-policy__note--origin">{t("harness.policy.note.origin")}</p>
           </section>
         ) : (
           <div className="callout callout--warning" role="status">

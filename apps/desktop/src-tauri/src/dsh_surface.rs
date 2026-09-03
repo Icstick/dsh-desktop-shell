@@ -506,6 +506,11 @@ fn mount_windows_surface(
     .on_new_window(|_, _| NewWindowResponse::Deny)
     .on_download(|_, _| false)
     .on_page_load(move |_, payload| {
+        eprintln!(
+            "[dsh-surface] page_load {:?} url={}",
+            payload.event(),
+            payload.url()
+        );
         if !is_exact_surface_origin(payload.url(), port) {
             return;
         }
@@ -622,6 +627,11 @@ fn install_windows_deny_hooks(
                             let mut succeeded = windows_core::BOOL(0);
                             unsafe { args.IsSuccess(&mut succeeded)? };
                             let policy_denied = blocked_navigation.swap(false, Ordering::SeqCst);
+                            eprintln!(
+                                "[dsh-surface] navigation_completed success={} policy_denied={}",
+                                succeeded.as_bool(),
+                                policy_denied
+                            );
                             if !succeeded.as_bool() && !policy_denied {
                                 state.transition(
                                     &environment_id,

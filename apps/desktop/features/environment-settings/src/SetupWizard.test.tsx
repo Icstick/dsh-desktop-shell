@@ -508,7 +508,7 @@ describe("SetupWizard", () => {
       reachability: "reachable",
       identity: "unverified",
       processOwnership: "external",
-      lifecycleMutation: "denied",
+      lifecycleMutation: "no",
       endpoint: { host: "127.0.0.1", port: 8080 },
       timeoutMs: 750,
       latencyMs: 2,

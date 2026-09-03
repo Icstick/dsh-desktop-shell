@@ -18,6 +18,7 @@ dist/
 target/
 apps/desktop/src-tauri/binaries/
 apps/desktop/src-tauri/gen/
+**/daemon-credential.json
 *.log
 *.tsbuildinfo
 scripts/qa/evidence/qa-data/

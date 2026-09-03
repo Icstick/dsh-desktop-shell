@@ -2,10 +2,10 @@
 
 - Phase：`shell-mvp`
 - Milestone：M8 Stable Candidate（已合并 main @ 4c21489）+ **M8-E v0.1.0 发布（进行中，被两个发布门 blocker 门控）**
-- Status：M1–M8 全部合并 main；本地 main @ 0e25ac8（remote 另有用户 README 提交 5c50ed6，待对齐）
+- Status：M1–M8 全部合并 main；wizard 分支 feat/wizard-repo-source 已 squash 合并 main @ 23c5027；ux-polish 分支进行中
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
-- Last updated：2026-09-02T15:00:00Z
+- Last updated：2026-09-03T09:00:00Z
 
 ## 当前状态
 
@@ -21,17 +21,12 @@
 - **BLOCK-M8E-BOOTSTRAP-STUCK**：Shell GUI 停在 "Reading canonical runtime state"（daemon 协商偶发卡）。
   调查：`docs/investigations/m8e-shell-bootstrap-stuck.md`；调试 4 步见 `docs/roadmap/PLAN-DEBUG-OPTIMIZATION.md` §2.1。
 - **BLOCK-M8E-I18N-ZH**：✅ **resolved（2026-09-02）**——zh 字典 123 key 全量翻译 + HarnessSurface/EnvironmentList 硬编码文案 i18n 化（fix/m8e-i18n-zh）；GUI 实机验收通过。遗留：zh 措辞润色（SetupWizard 文案 i18n 已随 wizard 重做完成）。
-- **SetupWizard 重做（决策 D5，2026-09-02）**：设计 PLAN-WIZARD-REPO-SOURCE.md（WI-A..D）+ ADR-0020；
-  **WI-B 完成**（discovery repo 识别 + HarnessCandidate.repository 契约扩展，specs 126 fixtures ALL PASS）；
-  **WI-A 完成待验收**（来源步源码仓库单形态 + 探测详情 + clone 引导 + id/label 编辑 + advanced
-  nodePath/cwd/extraArguments + wizard 全量 i18n + setup-wizard 样式接入；vitest 74/74、pnpm check、tauri build 门禁）。
-  branch: feat/wizard-repo-source（9d92f3e WI-B / 2c7e9b9 WI-A / de78738 docs / ad0062b+80f4d15 review 两轮）。
-  **review round 2（80f4d15）**：①执行层 repository 目录 recipe 落地（WI-C 最小核心，含 Windows
-  `--import` file URL 坑修复）——Managed 保存后可真正启动 DSH；②Attached auto 端口不再误报保存失败
-  （错误细分：保存/启动/验证分离 + 后端真实消息）；③shell exe 去控制台（windows_subsystem）。
-  门禁：daemon ~109 / managed-runtime 26 / vitest 79 / pnpm check / specs 126 ALL PASS。
-  **遗留**：WI-C 渐进恢复 + WI-D 启动阶段 UI、一键 clone、EnvironmentList 无样式、zh 措辞润色。
-
+- **M8-E 后续计划执行（PLAN-POST-WIZARD，2026-09-02 定稿）**：wizard repo-source 已 squash 合并 main（23c5027，10 commits，
+  ADR-0020；云端独立审计 3 阻塞项均已在合并前修复）。进行中：feat/ux-polish 盲审修复——
+  1.1 P3 3989 调查结论：无硬编码/无换算，策略端口=镜像 catalog active 记录（本机 catalog=3080）；
+  已加来源标注。1.2 文案人话化完成（云端草案落地）。1.3 H1=页面名已满足。1.4/1.7 枚举本地化+状态色完成。
+  待人工验证：P5 布局观感、P6 按钮、8 项视觉清单（PLAN 1.6）；阶段 2 配置持久化（ADR-0022 形态 A 推荐，待用户拍板）。
+  门禁：vitest 83/83、pnpm check 全绿。
 ## remaining
 
 - M8-E：两 blocker 解除 → externalBin 本地重建（tauri build --bundles nsis 含 daemon）→ 更新 draft → publish v0.1.0 → 收尾文档。

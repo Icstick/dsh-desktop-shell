@@ -9,6 +9,7 @@
 - SetupWizard 重做为源码仓库单形态（来源目录 + 原生文件夹浏览 + 仓库有效性检测 + clone 引导 + 探测详情徽章）；Profile-ID 由 Profile 名称自动生成（编辑已有环境时保持原 ID）；advanced 暴露 nodePath/cwd/extraArguments（cwd 留空自动 = 仓库根）；finish 错误细分（保存/启动/验证分离并透出后端消息）+ 重复 ID 覆盖防护 + 仓库未就绪不自动启动。
 - 执行层 repository recipe（WI-C 最小核心）：目录语义启动 node --import loader+entry（loader 以 file:// URL 传入，规避 Windows 下 --import 绝对路径的 ERR_UNSUPPORTED_ESM_URL_SCHEME 缺陷）；nodePath 留空自动 PATH 探测（Windows node.exe / Unix node）。
 - SetupWizard 全量 i18n（wizard.* zh/en）；activity rail SVG 图标（替换首字母缩写）；setup-wizard 样式接入；shell 主程序 Windows GUI subsystem（不再弹出控制台窗口）。
+- 盲审 UX 修复（feat/ux-polish，P1/P3/P4/P7）：harness.*/runtime.*/error.* 说明文案人话化（zh/en 46 key，安全语义保留）；后端枚举值本地化字典 enum.*（39 组 zh/en，覆盖 badge/运行时面板/诊断/Surface 状态，消除 zh 界面英文枚举混排）；策略卡新增「默认拒绝」提示与页面地址来源说明（Attached 只读不挂载 DSH 界面）；运行时徽章状态色体系化（进行中蓝/降级琥珀/崩溃红）；diagnostics/notifications/usage eyebrow 去除内部 AC-/ADR- 编号。
 
 ### Changed
 

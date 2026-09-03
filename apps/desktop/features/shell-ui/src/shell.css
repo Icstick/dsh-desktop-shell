@@ -230,6 +230,25 @@ textarea:focus-visible {
   box-shadow: 0 0 0 3px rgb(240 108 117 / 13%);
 }
 
+/* Transitional states (starting/stopping/loading) read as "in progress": blue. */
+.runtime-badge[data-state="starting"] .runtime-badge__dot,
+.runtime-badge[data-state="stopping"] .runtime-badge__dot,
+.runtime-badge[data-state="loading"] .runtime-badge__dot {
+  background: #5aa2e8;
+  box-shadow: 0 0 0 3px rgb(90 162 232 / 13%);
+}
+
+/* Degraded reads as "reachable but limited": amber. Crashed is an error: red. */
+.runtime-badge[data-state="degraded"] .runtime-badge__dot {
+  background: #e0a95c;
+  box-shadow: 0 0 0 3px rgb(224 169 92 / 13%);
+}
+
+.runtime-badge[data-state="crashed"] .runtime-badge__dot {
+  background: #f06c75;
+  box-shadow: 0 0 0 3px rgb(240 108 117 / 13%);
+}
+
 .shell-content {
   max-width: 1180px;
   margin: 0 auto;
@@ -853,6 +872,19 @@ textarea:focus-visible {
 
 .definition-grid--policy > div {
   background: #0b1713;
+}
+
+.surface-policy__note {
+  margin: 0;
+  color: #83a394;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.surface-policy__note--origin {
+  margin-top: -6px;
+  color: #6f8b7c;
+  font-size: 11px;
 }
 
 .definition-grid {

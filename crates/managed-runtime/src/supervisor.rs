@@ -49,6 +49,9 @@ const START_TIMEOUT: Duration = Duration::from_secs(10);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(250);
 const STOP_TIMEOUT: Duration = Duration::from_secs(2);
 const ENDPOINT_RELEASE_TIMEOUT: Duration = Duration::from_secs(1);
+/// Grace period after the fixed-port HTTP probe during which the stdout
+/// marker channel is drained for the authenticated URL line (token).
+const MARKER_GRACE: Duration = Duration::from_millis(1500);
 const RECOVERY_BUDGET: usize = 3;
 const RECOVERY_WINDOW: Duration = Duration::from_secs(60);
 const RESTART_BACKOFF: Duration = Duration::from_millis(500);
@@ -118,6 +121,30 @@ pub struct ManagedRuntimeStopRequest {
 }
 
 impl ManagedRuntimeStopRequest {
+    pub fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+
+    pub fn environment_id(&self) -> &str {
+        &self.environment_id
+    }
+
+    pub fn expected_generation(&self) -> u64 {
+        self.expected_generation
+    }
+}
+
+/// `runtime.binding` request: the exact generation whose verified
+/// Surface binding (including its private bootstrap URL) is requested.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManagedRuntimeBindingRequest {
+    schema_version: u8,
+    environment_id: String,
+    expected_generation: u64,
+}
+
+impl ManagedRuntimeBindingRequest {
     pub fn schema_version(&self) -> u8 {
         self.schema_version
     }
@@ -686,12 +713,68 @@ pub fn start_with_spec(
             );
         }
         if let Some(port) = expected_port {
-            // Configured fixed port: probe it directly. Modern DSH builds
-            // (>= 0.1.2-alpha) print no readiness marker, so marker-waiting
-            // would always time out on them.
-            if http_status_line_probe(loopback_address(port)) {
-                break fixed_port_candidate(port);
+            // Configured fixed port: probe it directly. DSH >= 0.1.2-alpha
+            // prints no *readiness-only* marker on this path, but web-app
+            // still emits its authenticated URL line ("dsh web:
+            // http://127.0.0.1:<port>/?token=...", printUrl defaults true)
+            // - without that token the DSH surface cannot pass the web
+            // auth exchange (401) and would hang on "mounting".
+            // Consume the marker channel non-blockingly while probing; the
+            // candidate keeps the token when it arrives in time.
+            let mut marker_candidate: Option<ParsedCandidate> = None;
+            while marker_candidate.is_none() {
+                if let Ok(value) = receiver.try_recv() {
+                    marker_candidate = parse_candidate(&value, Some(port)).ok();
+                    break;
+                }
+                if !generation_is_alive(state, environment_id, generation)? {
+                    return fail_start(
+                        state,
+                        environment_id,
+                        generation,
+                        ManagedRuntimeError::ProcessExited,
+                    );
+                }
+                if http_status_line_probe(loopback_address(port)) {
+                    break;
+                }
+                if Instant::now() >= deadline {
+                    return fail_start(
+                        state,
+                        environment_id,
+                        generation,
+                        ManagedRuntimeError::ReadinessTimeout,
+                    );
+                }
+                thread::sleep(Duration::from_millis(20));
             }
+            // The endpoint answers; allow a short marker grace so the
+            // authenticated URL line (emitted right after readiness)
+            // is not missed by a race against the HTTP probe.
+            if marker_candidate.is_none() {
+                let grace = Instant::now() + MARKER_GRACE;
+                while Instant::now() < grace {
+                    if let Ok(value) = receiver.try_recv() {
+                        marker_candidate = parse_candidate(&value, Some(port)).ok();
+                        if marker_candidate.is_some() {
+                            break;
+                        }
+                    }
+                    if !generation_is_alive(state, environment_id, generation)? {
+                        return fail_start(
+                            state,
+                            environment_id,
+                            generation,
+                            ManagedRuntimeError::ProcessExited,
+                        );
+                    }
+                    thread::sleep(Duration::from_millis(20));
+                }
+            }
+            break match marker_candidate {
+                Some(candidate) => candidate,
+                None => fixed_port_candidate(port),
+            };
         } else if let Ok(value) = receiver.try_recv() {
             // Auto port: the owned generation must publish its exact
             // loopback endpoint marker.

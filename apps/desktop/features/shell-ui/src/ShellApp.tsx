@@ -492,6 +492,17 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     setCatalog(nextCatalog);
     setValidatedEnvironment(environment);
     setValidation(null);
+    // Re-validate the activated environment: validation drives the DSH
+    // surface gate, so without it the surface stays on the empty
+    // "choose an environment" state even while the runtime is healthy.
+    api
+      .validateEnvironment(environment)
+      .then((result) => {
+        if (result.valid) setValidation(result);
+      })
+      .catch(() => {
+        // Keep validation null: the surface renders the empty state copy.
+      });
     if (environment.ownership === "attached") {
       setSnapshot((current) =>
         current ? { ...current, environmentId: environment.id } : current,
@@ -759,11 +770,12 @@ function surfaceTitle(surface: SurfaceId, t: (key: string) => string) {
 }
 
 function RuntimeBadge({ snapshot, error }: { snapshot: ShellSnapshot | null; error: string | null }) {
+  const { t } = useI18n();
   const state = error ? "unavailable" : snapshot?.runtimeState ?? "loading";
   return (
     <div className="runtime-badge" data-state={state} aria-live="polite">
       <span className="runtime-badge__dot" aria-hidden="true" />
-      {state}
+      {t("enum.state." + state)}
     </div>
   );
 }
@@ -821,7 +833,7 @@ function RuntimePanel({
       ) : (
         <dl className="definition-grid">
           <div><dt>{t("runtime.phase")}</dt><dd>{snapshot?.phase ?? t("common.loading")}</dd></div>
-          <div><dt>{t("runtime.state")}</dt><dd>{snapshot?.runtimeState ?? t("common.loading")}</dd></div>
+          <div><dt>{t("runtime.state")}</dt><dd>{snapshot ? t("enum.state." + snapshot.runtimeState) : t("common.loading")}</dd></div>
           <div><dt>{t("runtime.environment")}</dt><dd>{snapshot?.environmentId ?? t("common.notSelected")}</dd></div>
           <div><dt>{t("runtime.generation")}</dt><dd>{snapshot?.generation ?? 0}</dd></div>
         </dl>
@@ -848,10 +860,10 @@ function RuntimePanel({
           {attachedHealth && (
             <>
               <dl className="definition-grid definition-grid--health">
-                <div><dt>{t("runtime.reachability")}</dt><dd>{attachedHealth.reachability}</dd></div>
-                <div><dt>{t("runtime.identity")}</dt><dd>{attachedHealth.identity}</dd></div>
-                <div><dt>{t("runtime.processOwnership")}</dt><dd>{attachedHealth.processOwnership}</dd></div>
-                <div><dt>{t("runtime.mutation")}</dt><dd>{attachedHealth.lifecycleMutation}</dd></div>
+                <div><dt>{t("runtime.reachability")}</dt><dd>{t("enum.reach." + attachedHealth.reachability)}</dd></div>
+                <div><dt>{t("runtime.identity")}</dt><dd>{t("enum.ident." + attachedHealth.identity)}</dd></div>
+                <div><dt>{t("runtime.processOwnership")}</dt><dd>{t("enum.own." + attachedHealth.processOwnership)}</dd></div>
+                <div><dt>{t("runtime.mutation")}</dt><dd>{t("enum.mut." + attachedHealth.lifecycleMutation)}</dd></div>
                 <div>
                   <dt>{t("runtime.endpoint")}</dt>
                   <dd>{attachedHealth.endpoint.host}:{attachedHealth.endpoint.port}</dd>
@@ -966,12 +978,12 @@ function ManagedRuntimeSection({
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       <dl className="definition-grid definition-grid--health">
-        <div><dt>{t("runtime.state")}</dt><dd>{state}</dd></div>
+        <div><dt>{t("runtime.state")}</dt><dd>{t("enum.state." + state)}</dd></div>
         <div><dt>{t("runtime.generation")}</dt><dd>{report?.generation ?? 0}</dd></div>
-        <div><dt>{t("runtime.processOwnership")}</dt><dd>{report?.processOwnership ?? "none"}</dd></div>
-        <div><dt>{t("runtime.readiness")}</dt><dd>{report?.readiness ?? t("common.loading")}</dd></div>
+        <div><dt>{t("runtime.processOwnership")}</dt><dd>{report ? t("enum.own." + report.processOwnership) : t("common.loading")}</dd></div>
+        <div><dt>{t("runtime.readiness")}</dt><dd>{report ? t("enum.ready." + report.readiness) : t("common.loading")}</dd></div>
         <div><dt>{t("runtime.instance")}</dt><dd>{report?.instanceId ?? "none"}</dd></div>
-        <div><dt>{t("runtime.stopDisposition")}</dt><dd>{report?.stopDisposition ?? "not_requested"}</dd></div>
+        <div><dt>{t("runtime.stopDisposition")}</dt><dd>{report ? t("enum.stop." + report.stopDisposition) : t("common.loading")}</dd></div>
         {report?.recovery && (
           <>
             <div><dt>{t("runtime.recoveryCrashes")}</dt><dd>{report.recovery.crashCount} / {report.recovery.budget}</dd></div>
@@ -1036,8 +1048,8 @@ function DiagnosticsSection({
         <>
           <dl className="definition-grid definition-grid--health">
             <div><dt>{t("diagnostics.observed")}</dt><dd>{new Date(report.observedAtUnixMs).toISOString()}</dd></div>
-            <div><dt>{t("diagnostics.runtimeState")}</dt><dd>{report.runtime.state}</dd></div>
-            <div><dt>{t("runtime.readiness")}</dt><dd>{report.runtime.readiness}</dd></div>
+            <div><dt>{t("diagnostics.runtimeState")}</dt><dd>{t("enum.state." + report.runtime.state)}</dd></div>
+            <div><dt>{t("runtime.readiness")}</dt><dd>{t("enum.ready." + report.runtime.readiness)}</dd></div>
             <div>
               <dt>{t("runtime.endpoint")}</dt>
               <dd>
@@ -1048,7 +1060,7 @@ function DiagnosticsSection({
             </div>
             <div>
               <dt>{t("diagnostics.surface")}</dt>
-              <dd>{report.surface.state}{report.surface.visible ? t("diagnostics.visible") : ""}</dd>
+              <dd>{t("enum.surface." + report.surface.state)}{report.surface.visible ? t("diagnostics.visible") : ""}</dd>
             </div>
             <div>
               <dt>{t("diagnostics.process")}</dt>
