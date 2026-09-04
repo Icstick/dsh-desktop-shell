@@ -5,7 +5,7 @@
 - Status：M1–M8 全部合并 main；wizard 分支 feat/wizard-repo-source 已 squash 合并 main @ 23c5027；ux-polish 分支进行中
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
-- Last updated：2026-09-03T13:40:00Z
+- Last updated：2026-09-04T13:26:09Z
 
 ## 当前状态
 
@@ -61,6 +61,12 @@
   ③缩放不跟随 ④daemon client 无自动重连缺口 ⑤zh 措辞润色。
   ✅ M8-E v0.1.0 发布完成（2026-09-04）：externalBin 本地重建验证 ✅（nsis 2m16s）→ tag v0.1.0 前移 980906f（含 wizard/ux/env-quick-edit/终端/通知/浏览器修复全量）→ CI 三平台重建成功（run 33846974919；workflow 修复：daemon sidecar 需 target-triple 后缀）→ 本地补传 11 crate SBOM + npm-sbom + 自签 Windows 安装包（证书 1B6A576C，UnknownError=自签预期）→ **published 2026-09-04T07:15Z**（github.com/Icstick/dsh-desktop-shell/releases/tag/v0.1.0；资产：windows nsis/msi + signed、macOS aarch64 dmg、ubuntu deb、checksums、SBOM）。
   → 阶段 0（发布门）完成；阶段 1（稳定期）开始：open items（usage 接入 dsh 对话用量、缩放、daemon 重连缺口、zh 润色、live-daemon-qa 入 CI、M6-C/M6-C4 TODO）。
+  📌 2026-09-04 晚间收尾（阶段 1 首日并行推进，三线全收）：
+  ✅ usage 接入 4e66765：desktop 快照并入 active 环境 cost-meter ledger（source=dsh、per-session、CNY、fail-open）；根因修正=掐断对话不影响记账（cost-meter 按调用记录，当日隔离实例 21 calls 全在录），问题是面板从未读该源；前端同刻 period 单显；Rust 147 全绿。
+  ✅ 缩放修复 768c36a：CSS 弹性链（根因=shell-content max-width 1180px + dsh-surface-slot min-height 540px 钉死 → bounds 不变 → 后端 layout 不更新）；tsc/vitest 104 全绿；实机待 GUI。
+  ✅ zh 润色 2f927c1：云端 worker（t-0043）润色 41 条 → 12 条改进仅落 zh 区。
+  ✅ daemon 自动重连 3c0af85 + 214293e：AutoReconnectConnector（连接类失败→单飞重连+重试+2s×2 退避至 30s；closed_result 错误分类修正）；152 Rust 全绿（含真 daemon e2e）。
+  剩余（阶段 1 续）：①GUI 综合实机验证（usage/缩放/终端/浏览器四项效果）②live-daemon-qa 入 CI（待设计）③M6-C×3（daemon lease 撤销、envelope 固定端口）④M6-C4×2（browser 导航状态上报）⑤release attestation（repo public 后启用）。
 ## remaining
 
 - M8-E：两 blocker 解除 → externalBin 本地重建（tauri build --bundles nsis 含 daemon）→ 更新 draft → publish v0.1.0 → 收尾文档。
