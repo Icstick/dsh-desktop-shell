@@ -35,6 +35,11 @@ const MAX_SOURCE_CHARS: usize = 64;
 pub(crate) const SOURCE_TERMINAL: &str = "terminal";
 pub(crate) const SOURCE_NOTIFICATION: &str = "notification";
 pub(crate) const SOURCE_RUNTIME: &str = "runtime";
+/// DSH dialogue usage imported from the active environment cost-meter
+/// ledger (dshHome/storages/cost-meter/ledger.json). The ledger is the
+/// dsh-side authority: every LLM call is recorded there regardless of how
+/// the turn ended, so interrupted turns still count.
+pub(crate) const SOURCE_DSH: &str = "dsh";
 /// Managed states that close an open runtime session and record it.
 const RUNTIME_END_STATES: [&str; 3] = ["stopped", "crashed", "safe_stop"];
 
@@ -316,10 +321,26 @@ fn snapshot_at(
     since_unix_ms: Option<u64>,
     now_ms: u64,
 ) -> Result<UsageSnapshot, UsageError> {
+    snapshot_at_with(path, since_unix_ms, now_ms, Vec::new())
+}
+
+/// Snapshot over the Desktop ledger plus externally sourced records (dsh
+/// cost-meter import). Externally sourced records are merged before the
+/// single sort/aggregate pass so ordering and totals stay coherent.
+fn snapshot_at_with(
+    path: &Path,
+    since_unix_ms: Option<u64>,
+    now_ms: u64,
+    mut extra: Vec<UsageRecord>,
+) -> Result<UsageSnapshot, UsageError> {
     let mut records: Vec<UsageRecord> = read_records(path)?
         .into_iter()
         .filter(|record| since_unix_ms.is_none_or(|since| record.recorded_at_unix_ms >= since))
         .collect();
+    extra.retain(|record| {
+        since_unix_ms.is_none_or(|since| record.recorded_at_unix_ms >= since)
+    });
+    records.append(&mut extra);
     records.sort_by(|left, right| {
         right
             .recorded_at_unix_ms
@@ -333,6 +354,85 @@ fn snapshot_at(
         totals: aggregate(&records),
         records,
     })
+}
+
+/// Snapshot including the active environment dsh dialogue usage read from
+/// the cost-meter ledger when present. A missing or unreadable ledger fails
+/// open (the Desktop-owned records still come back).
+pub(crate) fn snapshot_with_dsh(
+    path: &Path,
+    dsh_home: Option<&Path>,
+    since_unix_ms: Option<u64>,
+) -> Result<UsageSnapshot, UsageError> {
+    let extra = dsh_home
+        .map(|home| {
+            dsh_records_from_ledger(
+                &home.join("storages").join("cost-meter").join("ledger.json"),
+                since_unix_ms,
+            )
+        })
+        .unwrap_or_default();
+    snapshot_at_with(path, since_unix_ms, unix_ms()?, extra)
+}
+
+/// Parse one cost-meter ledger into dsh usage records: one record per
+/// session entry (days.<date>.sessions[]). The ledger records every LLM
+/// call at call time, so interrupted turns remain counted. Unknown shapes
+/// yield no records (fail open).
+fn dsh_records_from_ledger(ledger: &Path, since_unix_ms: Option<u64>) -> Vec<UsageRecord> {
+    let Ok(text) = std::fs::read_to_string(ledger) else {
+        return Vec::new();
+    };
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return Vec::new();
+    };
+    let currency = root
+        .get("config")
+        .and_then(|config| config.get("currency"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("CNY")
+        .to_string();
+    let Some(days) = root.get("days").and_then(serde_json::Value::as_object) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for day in days.values() {
+        let Some(sessions) = day.get("sessions").and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        for session in sessions {
+            let Some(at) = session.get("at").and_then(serde_json::Value::as_u64) else {
+                continue;
+            };
+            if since_unix_ms.is_some_and(|since| at < since) {
+                continue;
+            }
+            out.push(UsageRecord {
+                schema_version: SCHEMA_VERSION,
+                source: SOURCE_DSH.to_string(),
+                period: UsagePeriod {
+                    start: format_utc(at),
+                    end: format_utc(at),
+                },
+                input_tokens: session
+                    .get("input")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
+                output_tokens: session
+                    .get("output")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
+                cache_read_tokens: session
+                    .get("cacheRead")
+                    .and_then(serde_json::Value::as_u64),
+                cost: session.get("cost").and_then(serde_json::Value::as_f64),
+                currency: Some(currency.clone()),
+                is_estimate: false,
+                recorded_at_unix_ms: at,
+            });
+        }
+    }
+    out
 }
 
 fn aggregate(records: &[UsageRecord]) -> UsageTotals {
@@ -1049,5 +1149,77 @@ mod tests {
         assert_eq!(format_utc(0), "1970-01-01T00:00:00.000Z");
         assert_eq!(format_utc(1_787_792_400_000), "2026-08-27T01:00:00.000Z");
         assert_eq!(format_utc(1_787_911_200_000), "2026-08-28T10:00:00.000Z");
+    }
+
+    const LEDGER_FIXTURE: &str = r#"{"version":1,"config":{"currency":"CNY"},"days":{"2026-09-04":{"date":"2026-09-04","input":22048,"output":10613,"cost":0.028,"sessions":[{"id":"session-a","input":21476,"output":6161,"cacheRead":349824,"calls":19,"cost":0.022,"at":1788485043425},{"id":"session-b","input":572,"output":4452,"cacheRead":384,"calls":2,"cost":0.006,"at":1788485100000}]}}}"#;
+
+    #[test]
+    fn ledger_parser_imports_sessions_as_records() {
+        let dir = TestDirectory::new();
+        let ledger = dir.0.join("ledger.json");
+        std::fs::write(&ledger, LEDGER_FIXTURE).expect("write fixture");
+        let records = dsh_records_from_ledger(&ledger, None);
+        assert_eq!(records.len(), 2);
+        let first = &records[0];
+        assert_eq!(first.source, SOURCE_DSH);
+        assert_eq!(first.input_tokens, 21476);
+        assert_eq!(first.output_tokens, 6161);
+        assert_eq!(first.cache_read_tokens, Some(349824));
+        assert_eq!(first.cost, Some(0.022));
+        assert_eq!(first.currency.as_deref(), Some("CNY"));
+        assert!(!first.is_estimate);
+        assert_eq!(first.recorded_at_unix_ms, 1788485043425);
+    }
+
+    #[test]
+    fn ledger_parser_honours_since_and_fails_open() {
+        let dir = TestDirectory::new();
+        let ledger = dir.0.join("ledger.json");
+        std::fs::write(&ledger, LEDGER_FIXTURE).expect("write fixture");
+        // since after both sessions -> nothing
+        assert!(dsh_records_from_ledger(&ledger, Some(1_788_485_200_000)).is_empty());
+        // missing file -> fail open
+        assert!(dsh_records_from_ledger(&dir.0.join("absent.json"), None).is_empty());
+        // corrupt file -> fail open
+        std::fs::write(&ledger, "{ not json").expect("write corrupt");
+        assert!(dsh_records_from_ledger(&ledger, None).is_empty());
+    }
+
+    #[test]
+    fn snapshot_with_dsh_merges_and_aggregates() {
+        let dir = TestDirectory::new();
+        let path = dir.0.join("usage-records-v1.jsonl");
+        let service = UsageService::default();
+        record(
+            &service,
+            &path,
+            RecordRequest {
+                source: SOURCE_TERMINAL.to_string(),
+                start_unix_ms: 1_788_484_000_000,
+                end_unix_ms: 1_788_484_000_000,
+                input_tokens: 100,
+                output_tokens: 50,
+                is_estimate: true,
+                cost: None,
+                currency: None,
+            },
+        )
+        .expect("record");
+        let ledger_dir = dir.0.join("storages").join("cost-meter");
+        std::fs::create_dir_all(&ledger_dir).expect("create ledger dir");
+        std::fs::write(ledger_dir.join("ledger.json"), LEDGER_FIXTURE).expect("write fixture");
+        let snapshot = snapshot_with_dsh(&path, Some(&dir.0), None).expect("snapshot");
+        assert_eq!(snapshot.records.len(), 3);
+        assert_eq!(
+            snapshot.totals.input_tokens,
+            100 + 21476 + 572
+        );
+        assert_eq!(snapshot.totals.output_tokens, 50 + 6161 + 4452);
+        assert_eq!(snapshot.totals.estimate_count, 1);
+        // cost: the CNY dsh records anchor the total currency (most recent
+        // record first); terminal record has no cost.
+        let cost = snapshot.totals.cost.expect("cost total");
+        assert!((cost - 0.028).abs() < 1e-9, "cost was {cost}");
+        assert_eq!(snapshot.totals.currency.as_deref(), Some("CNY"));
     }
 }

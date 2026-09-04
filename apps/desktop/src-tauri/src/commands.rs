@@ -151,6 +151,10 @@ pub struct CommandError {
 }
 
 impl DshEnvironment {
+    pub(crate) fn dsh_home(&self) -> &str {
+        &self.dsh_home
+    }
+
     pub(crate) fn id(&self) -> &str {
         &self.id
     }
@@ -1501,7 +1505,19 @@ pub fn get_usage_snapshot(
         return Err(CommandError::malformed_usage_request());
     }
     let path = usage::records_path(&app).map_err(CommandError::from_usage)?;
-    usage::snapshot(&path, request.since_unix_ms()).map_err(CommandError::from_usage)
+    let dsh_home = active_environment_dsh_home(&app);
+    usage::snapshot_with_dsh(&path, dsh_home.as_deref(), request.since_unix_ms())
+        .map_err(CommandError::from_usage)
+}
+
+/// dshHome of the currently active environment, if any. The cost-meter
+/// ledger import follows the active environment (its dialogue usage is what
+/// the Shell shows).
+fn active_environment_dsh_home(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let catalog = environment_store::load_catalog(&catalog_path(app).ok()?).ok()?;
+    Some(std::path::PathBuf::from(
+        catalog.active_environment()?.dsh_home(),
+    ))
 }
 
 #[cfg(test)]

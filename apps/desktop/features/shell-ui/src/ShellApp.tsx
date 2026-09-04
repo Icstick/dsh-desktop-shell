@@ -1380,7 +1380,11 @@ function UsagePanel({ api }: { api: DesktopApi }) {
                     {record.isEstimate && <span className="estimate-badge">{t("usage.estimate")}</span>}
                   </div>
                   <p className="usage-item__meta">
-                    {new Date(record.period.start).toLocaleString()} → {new Date(record.period.end).toLocaleString()}
+                    {record.period.start === record.period.end
+                      ? new Date(record.period.start).toLocaleString()
+                      : new Date(record.period.start).toLocaleString() +
+                        " → " +
+                        new Date(record.period.end).toLocaleString()}
                   </p>
                   <p className="usage-item__meta">
                     {t("usage.inOut", {
