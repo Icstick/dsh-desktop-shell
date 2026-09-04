@@ -63,7 +63,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p apps/desktop/src-tauri/binaries
-          cp target/release/dsh-desktop-daemon apps/desktop/src-tauri/binaries/dsh-desktop-daemon
+          # tauri externalBin sidecars must carry the target-triple suffix
+          # (binaries/<name>-<triple>[.exe]); derive it from rustc's host so
+          # the step stays correct across runner architectures.
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then EXT=".exe"; fi
+          cp "target/release/dsh-desktop-daemon$EXT" "apps/desktop/src-tauri/binaries/dsh-desktop-daemon-$TRIPLE$EXT"
 
       # Platform bundle sets (Windows signing is applied locally per
       # docs/release/signing-and-distribution.md before upload; macOS
