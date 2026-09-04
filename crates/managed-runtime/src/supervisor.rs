@@ -308,14 +308,20 @@ struct RuntimeEvidence {
     message: &'static str,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ManagedRuntimeError {
     NotManaged,
     InvalidEnvironment,
     UnsupportedSource,
     NodeOverrideUnsupported,
-    SpawnUnavailable,
-    ProcessTreeUnavailable,
+    /// Process creation failed; carries the underlying io error text so the
+    /// UI can show why a managed launch did not even start.
+    SpawnFailed(String),
+    /// Attaching the Windows job object / Unix process group failed.
+    ProcessTreeFailed(String),
+    /// The daemon reported an unavailable runtime with a diagnostic reason
+    /// (Shell RPC path; the reason text is daemon-side and surfaces here).
+    RuntimeUnavailable(String),
     Conflict,
     StaleGeneration,
     CandidateInvalid,
@@ -779,7 +785,7 @@ pub fn start_with_spec(
             // Auto port: the owned generation must publish its exact
             // loopback endpoint marker.
             break parse_candidate(&value, None).inspect_err(|error| {
-                let _ = fail_start(state, environment_id, generation, *error);
+                let _ = fail_start(state, environment_id, generation, error.clone());
             })?;
         }
         if Instant::now() >= deadline {
@@ -1359,13 +1365,13 @@ impl ManagedProcess {
 
         let mut child = command
             .spawn()
-            .map_err(|_| ManagedRuntimeError::SpawnUnavailable)?;
+            .map_err(|error| ManagedRuntimeError::SpawnFailed(error.to_string()))?;
         let tree = match ProcessTree::attach(&child) {
             Ok(tree) => tree,
-            Err(_) => {
+            Err(error) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(ManagedRuntimeError::ProcessTreeUnavailable);
+                return Err(ManagedRuntimeError::ProcessTreeFailed(error.to_string()));
             }
         };
 

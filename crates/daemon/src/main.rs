@@ -102,7 +102,15 @@ fn main() -> ExitCode {
     };
 
     // --- 2) envelope server ---
-    let server = match DaemonServer::bind(Limits::default(), claim_port) {
+    // The Shell keeps one long-lived connection (event bridge + repeated
+    // invocations); the transport default 30s idle read deadline would drop
+    // it whenever the user pauses longer than that, leaving every later
+    // invoke failing as a closed transport. Raise the idle deadline to 24h:
+    // the Shell restarts daily and the credential-lease maintenance keeps
+    // the file token fresh while the daemon idles (M6 bootstrap fix).
+    let mut limits = Limits::default();
+    limits.read_deadline = std::time::Duration::from_secs(24 * 60 * 60);
+    let server = match DaemonServer::bind(limits, claim_port) {
         Ok(server) => server,
         Err(error) => {
             eprintln!("dsh-desktop-daemon: cannot bind the envelope server: {error}");

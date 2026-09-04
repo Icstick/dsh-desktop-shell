@@ -5,7 +5,7 @@
 - Status：M1–M8 全部合并 main；wizard 分支 feat/wizard-repo-source 已 squash 合并 main @ 23c5027；ux-polish 分支进行中
 - Implementation authorized：`true`
 - External baseline verified：2026-08-25（dsh-std 刷新至 3df0543 / core rc.1）
-- Last updated：2026-09-03T09:00:00Z
+- Last updated：2026-09-03T13:40:00Z
 
 ## 当前状态
 
@@ -27,6 +27,32 @@
   已加来源标注。1.2 文案人话化完成（云端草案落地）。1.3 H1=页面名已满足。1.4/1.7 枚举本地化+状态色完成。
   待人工验证：P5 布局观感、P6 按钮、8 项视觉清单（PLAN 1.6）；阶段 2 配置持久化（ADR-0022 形态 A 推荐，待用户拍板）。
   门禁：vitest 83/83、pnpm check 全绿。
+- **PLAN-ENV-QUICK-EDIT（2026-09-03 拍板 B 方案，分支 feat/env-quick-edit @ dd47129）**：1/5 docs ✅ 7fad4d4；
+  2/5 backend remove_environment ✅ 8f85e4e（store NotFound 变体 + remove fn + 3 测试；commands + lib.rs 注册；cargo test 141/141）；
+  3/5 设置页卡片化 + 向导触发式 + 移除流 ✅ 2ff77ef（i18n zh/en、DesktopApi.removeEnvironment、
+  EnvironmentList 卡片操作+内联确认、SetupWizard onClose、ShellApp 编排 stop→remove→空态；vitest 88/88、tsc 绿）。
+  4/5 EnvironmentEditForm 分区编辑 ✅ 9535d4f（六分区平铺无步骤机、id/policy/ownership/cwd 只读、policy 区仅 managed 显示、nodePath 仅 managed+repository、保存 validate→save→onSaved 关闭并刷新；i18n envEdit.* 28 键双语、12 用例；ShellApp 接线；vitest 102/102、tsc + cargo build --workspace 绿）。
+  5/5 GUI 实机验收（2026-09-03 晚，tauri dev + 真实 catalog rev37→38）：
+  ✅ 设置页卡片+添加按钮、无常驻向导；分区编辑保存链通（rev38，原子写+bak）。
+  ❌ 验收问题 A：编辑 dev-repo 保存后 daemon 全链路不可用（快照无法刷新/Managed 加载中/诊断不可用）——catalog rev38 dshHome 被写成 C:\Users\Administrator\.dsh-isolated（目录不存在；隔离 home 实际在 D:\DSH_workspace\.dsh-isolated）。疑似 daemon 对无效 dshHome 环境的查询全挂。修：改回 D:\ 路径重测。
+  ❌ 验收问题 B：移除 local-dsh 失败且文案显示字面 key「envlist.errorRemove」——zh/en 字典均漏该 key（i18n.test 只验双语平衡、不验 UI 引用完整性——测试盲区）；前端 catch 吞掉真实后端错误。✅ 已修 b3d74af：补 key + 错误显示后端 message + 用例（remove 后端失败原因在 GUI 重测时复现）。
+  🔧 2026-09-04 早继续：A 根因确认=隔离 profile robocopy 复制丢失 16 个 reparse 插件链接+顶层包不全（@memtensor/memos-local-plugin 等）；B 修复提交 b3d74af。
+  ✅ 隔离 home 改用 junction 方案（profiles/web/node_modules、profiles/node_modules、.dsh-module-fallback/node_modules 三处 junction 指向主安装，配置/数据独立、模块只读共享）→ 手工启动 3082 成功：插件全加载、数据全落 .dsh-isolated（memos.db 等）、主 sessions 零接触。
+  ✅ dev-repo 配置修复：dshHome=D:\DSH_workspace\.dsh-isolated、port 3081→3082（3081 被并行 dev 升级线占用）→ catalog rev41。GUI 实机点「启动 Managed DSH」待重测（未完成）。
+  ⬜ 改进 C（用户建议，待做）：启动失败报错细化——commands.rs:397 兜底 "Managed runtime is unavailable."（用户实测所见），daemon 侧 stderr 细节（spawn_output_reader 1351/1376）不透传；建议：失败路径把进程 stderr 尾部摘要放入 ManagedRuntimeReport.evidence（UI 已有 evidence[0] callout 通路 1092）或 CommandError message。
+  ⚠️ 注意：tauri dev 仍在跑（job 保留），GUI 窗口在用户桌面；.dsh-isolated（D:\）已就绪 763MB。
+  ✅ 改进 C 完成 268974f：启动失败原因端到端透传（supervisor spawn/attach 携带 os 原因；ManagedRuntimeError 去 Copy 加 SpawnFailed/ProcessTreeFailed/RuntimeUnavailable(String)；daemon RPC message 保留；CommandError.message static→String + truncate；desktop adapter 不再丢 daemon message）。Rust 测试全绿。
+  ✅ 根因修复 ab264db：GUI managed 启动长期失败 = daemon 侧 local-transport read_deadline 30s idle 即关连接（长连接被当短连接）；GUI 无自动重连（注释明示 known limit）。修：daemon limits.read_deadline=24h。GUI 实测一次成功。
+  ✅ 5/5 实机验收完成（2026-09-04）：GUI 启动 dev-repo → 3082 healthy gen1（endpoint verified）→ .dsh-isolated\sessions\--D-dsh-workspce-shell--\session-f010c5cf（111KB 真实会话）→ 主 GUI sessions 9:03 后零写入。隔离验证通过。
+  ⬜ 遗留（用户报告）：窗口缩放时 DSH 界面（surface WebView）不随窗口缩放、内容偏小——建议排入 v0.1.0 后阶段 1（real-usage 优化，surface resize/视口同步），归属待用户拍板。
+  ⬜ 已知缺口（记录）：GUI daemon client 连接死后无自动重连（start_background 注释 "fail closed until a future reconnect slice"）——建议后续改进（invoke 失败自动重连）。
+  📋 试用反馈批次（2026-09-04 GUI 实测，5 项）：
+    1) 浏览器：独立 WebView 窗口=设计（ADR-0017/AC-BRW-001）；问题=导航百度后 panel 收到 load_failed 置 error（页面实际成功）——疑似误报/事件语义，待复现看 browser://event 负载（browser-provider 侧查 load_failed 判定）。
+    2) 终端切回黑屏 ✅ caccc6a：TerminalPanel 曾随 surface 卸载（xterm dispose 丢 buffer）→ 改 visited 后保持挂载隐藏；切回不再黑。
+    3) 终端关闭后无重开按钮 ✅ caccc6a：session null 时 chrome 显示「打开终端」按钮。
+    4) 通知缺全部关闭 ✅ caccc6a：header dismiss-all（循环 dismiss，测试 31/31 含新用例）。
+    5) 用量：shell 对话中途手动停止后 usage 未见记录——假设：被中断 turn 无 usage 记账事件；待查 daemon usage collector 数据源与 interrupted turn 处理（desktop 侧观察 dsh 用量 vs dsh 内部按请求记账）。
+  ⬜ 缩放问题（前条记录）：窗口缩放 DSH surface 不跟随——排 v0.1.0 后阶段 1。
 ## remaining
 
 - M8-E：两 blocker 解除 → externalBin 本地重建（tauri build --bundles nsis 含 daemon）→ 更新 draft → publish v0.1.0 → 收尾文档。

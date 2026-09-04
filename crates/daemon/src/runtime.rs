@@ -353,9 +353,22 @@ fn managed_error(error: ManagedRuntimeError) -> DaemonMethodError {
             "Managed endpoint is not a verified current-generation binding",
             true,
         ),
-        ManagedRuntimeError::SpawnUnavailable
-        | ManagedRuntimeError::ProcessTreeUnavailable
-        | ManagedRuntimeError::StopFailed
+        ManagedRuntimeError::SpawnFailed(reason) => failed(
+            ErrorCode::Unavailable,
+            format!("Managed process could not be started: {}", reason),
+            true,
+        ),
+        ManagedRuntimeError::ProcessTreeFailed(reason) => failed(
+            ErrorCode::Unavailable,
+            format!("Managed process tree could not be attached: {}", reason),
+            true,
+        ),
+        ManagedRuntimeError::RuntimeUnavailable(reason) => failed(
+            ErrorCode::Unavailable,
+            reason,
+            true,
+        ),
+        ManagedRuntimeError::StopFailed
         | ManagedRuntimeError::StateUnavailable
         | ManagedRuntimeError::ClockUnavailable => failed(
             ErrorCode::Unavailable,
@@ -411,7 +424,7 @@ mod tests {
         );
         // Spawn/readiness failures are retryable; policy rejections are not.
         assert!(retryable_of(managed_error(
-            ManagedRuntimeError::SpawnUnavailable
+            ManagedRuntimeError::SpawnFailed("probe".into())
         )));
         assert!(!retryable_of(managed_error(
             ManagedRuntimeError::InvalidEnvironment

@@ -142,7 +142,9 @@ struct LaunchArgumentPreview {
 #[serde(rename_all = "camelCase")]
 pub struct CommandError {
     code: &'static str,
-    message: &'static str,
+    /// Dynamic-capable message (daemon RPC reasons are surfaced verbatim so
+    /// managed launch failures stay diagnosable from the UI).
+    message: String,
     retryable: bool,
     correlation_id: String,
     issues: Vec<ValidationIssue>,
@@ -189,7 +191,7 @@ impl CommandError {
     fn invalid_environment(issues: Vec<ValidationIssue>) -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Environment validation failed.",
+            message: "Environment validation failed.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues,
@@ -207,7 +209,7 @@ impl CommandError {
     fn malformed_discovery() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Harness discovery request is invalid.",
+            message: "Harness discovery request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -217,7 +219,7 @@ impl CommandError {
     fn malformed_dsh_surface_policy_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "DSH Surface policy request is invalid.",
+            message: "DSH Surface policy request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -227,7 +229,7 @@ impl CommandError {
     fn malformed_dsh_surface_navigation_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "DSH Surface navigation request is invalid.",
+            message: "DSH Surface navigation request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -246,7 +248,7 @@ impl CommandError {
     fn malformed_attached_health_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Attached health request is invalid.",
+            message: "Attached health request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -256,7 +258,7 @@ impl CommandError {
     fn malformed_diagnostics_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Diagnostics request is invalid.",
+            message: "Diagnostics request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -266,7 +268,7 @@ impl CommandError {
     fn malformed_managed_runtime_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Managed runtime request is invalid.",
+            message: "Managed runtime request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -276,7 +278,7 @@ impl CommandError {
     fn malformed_notification_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Notification request is invalid.",
+            message: "Notification request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -295,7 +297,7 @@ impl CommandError {
     fn malformed_usage_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "Usage snapshot request is invalid.",
+            message: "Usage snapshot request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -314,7 +316,7 @@ impl CommandError {
     fn malformed_dsh_surface_lifecycle_request() -> Self {
         Self {
             code: "MALFORMED_MESSAGE",
-            message: "DSH Surface lifecycle request is invalid.",
+            message: "DSH Surface lifecycle request is invalid.".into(),
             retryable: false,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -326,7 +328,7 @@ impl CommandError {
             DshSurfaceError::MalformedRequest => Self::malformed_dsh_surface_lifecycle_request(),
             DshSurfaceError::StaleGeneration => Self {
                 code: "STALE_GENERATION",
-                message: "The DSH Surface request targets a stale generation.",
+                message: "The DSH Surface request targets a stale generation.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
@@ -341,7 +343,7 @@ impl CommandError {
         match error {
             ManagedRuntimeError::NotManaged => Self {
                 code: "NOT_PROCESS_OWNER",
-                message: "Managed lifecycle requires a Managed environment.",
+                message: "Managed lifecycle requires a Managed environment.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
@@ -357,14 +359,14 @@ impl CommandError {
             ),
             ManagedRuntimeError::Conflict => Self {
                 code: "CONFLICT",
-                message: "Another Managed environment or lifecycle transition is active.",
+                message: "Another Managed environment or lifecycle transition is active.".into(),
                 retryable: true,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
             },
             ManagedRuntimeError::StaleGeneration => Self {
                 code: "STALE_GENERATION",
-                message: "The Managed lifecycle request targets a stale generation.",
+                message: "The Managed lifecycle request targets a stale generation.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
@@ -389,9 +391,34 @@ impl CommandError {
                 "Managed endpoint is not a verified current-generation Surface binding.",
                 true,
             ),
-            ManagedRuntimeError::SpawnUnavailable
-            | ManagedRuntimeError::ProcessTreeUnavailable
-            | ManagedRuntimeError::StopFailed
+            ManagedRuntimeError::SpawnFailed(reason) => Self {
+                code: "UNAVAILABLE",
+                message: format!(
+                    "Managed process could not be started: {}",
+                    truncate_error(&reason, 400)
+                ),
+                retryable: true,
+                correlation_id: next_correlation_id(),
+                issues: Vec::new(),
+            },
+            ManagedRuntimeError::ProcessTreeFailed(reason) => Self {
+                code: "UNAVAILABLE",
+                message: format!(
+                    "Managed process tree could not be attached: {}",
+                    truncate_error(&reason, 400)
+                ),
+                retryable: true,
+                correlation_id: next_correlation_id(),
+                issues: Vec::new(),
+            },
+            ManagedRuntimeError::RuntimeUnavailable(reason) => Self {
+                code: "UNAVAILABLE",
+                message: truncate_error(&reason, 400),
+                retryable: true,
+                correlation_id: next_correlation_id(),
+                issues: Vec::new(),
+            },
+            ManagedRuntimeError::StopFailed
             | ManagedRuntimeError::StateUnavailable
             | ManagedRuntimeError::ClockUnavailable => {
                 Self::unavailable("Managed runtime is unavailable.", true)
@@ -407,7 +434,7 @@ impl CommandError {
             }
             DiagnosticsError::NotManaged => Self {
                 code: "NOT_PROCESS_OWNER",
-                message: "Diagnostics requires a Managed environment.",
+                message: "Diagnostics requires a Managed environment.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
@@ -424,14 +451,14 @@ impl CommandError {
         match error {
             AttachedHealthError::NotAttached => Self {
                 code: "NOT_PROCESS_OWNER",
-                message: "Health probe requires an Attached environment.",
+                message: "Health probe requires an Attached environment.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
             },
             AttachedHealthError::FixedPortRequired => Self {
                 code: "UNAVAILABLE",
-                message: "Attached health requires a fixed loopback port.",
+                message: "Attached health requires a fixed loopback port.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
@@ -442,10 +469,10 @@ impl CommandError {
         }
     }
 
-    fn unavailable(message: &'static str, retryable: bool) -> Self {
+    fn unavailable(message: impl Into<String>, retryable: bool) -> Self {
         Self {
             code: "UNAVAILABLE",
-            message,
+            message: message.into(),
             retryable,
             correlation_id: next_correlation_id(),
             issues: Vec::new(),
@@ -459,14 +486,21 @@ impl CommandError {
             }
             StoreError::InvalidEnvironment => Self {
                 code: "MALFORMED_MESSAGE",
-                message: "Environment catalog contains an invalid environment.",
+                message: "Environment catalog contains an invalid environment.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
             },
             StoreError::Capacity => Self {
                 code: "CONFLICT",
-                message: "Environment catalog capacity has been reached.",
+                message: "Environment catalog capacity has been reached.".into(),
+                retryable: false,
+                correlation_id: next_correlation_id(),
+                issues: Vec::new(),
+            },
+            StoreError::NotFound => Self {
+                code: "NOT_FOUND",
+                message: "Environment is not in the catalog.".into(),
                 retryable: false,
                 correlation_id: next_correlation_id(),
                 issues: Vec::new(),
@@ -476,6 +510,17 @@ impl CommandError {
             }
         }
     }
+}
+
+/// Bound a backend error string before it travels into a CommandError
+/// message shown in the UI (spawn/attach errors may carry long os text).
+fn truncate_error(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    let mut truncated: String = text.chars().take(max_chars).collect();
+    truncated.push_str("…");
+    truncated
 }
 
 fn next_correlation_id() -> String {
@@ -637,6 +682,25 @@ pub fn set_active_environment(
 pub struct SetActiveEnvironmentRequest {
     pub schema_version: u8,
     pub environment_id: String,
+}
+
+/// Remove an environment from the catalog (env quick-edit card action).
+/// Removing the active environment clears the active selection; the Shell
+/// returns to the empty surface state. Running managed process trees are
+/// the caller's responsibility (the Shell stops them before removing).
+#[tauri::command]
+pub fn remove_environment(
+    app: AppHandle,
+    environment_id: String,
+) -> Result<EnvironmentCatalog, CommandError> {
+    if !is_valid_id(&environment_id) {
+        return Err(CommandError::unavailable(
+            "Environment removal request is malformed.",
+            false,
+        ));
+    }
+    environment_store::remove_environment(&catalog_path(&app)?, &environment_id)
+        .map_err(CommandError::from_store)
 }
 
 #[tauri::command]

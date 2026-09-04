@@ -43,6 +43,8 @@ interface SetupWizardProps {
     catalog: EnvironmentCatalog,
     result: EnvironmentValidation,
   ): void;
+  /** Dismiss the wizard (env quick-edit D1: trigger-based, no persistent mode). */
+  onClose?: () => void;
 }
 
 const STEPS = ["mode", "harness", "profile", "advanced", "review", "finish"] as const;
@@ -83,7 +85,7 @@ function backendErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function SetupWizard({ api, initialEnvironment, onSaved }: SetupWizardProps) {
+export function SetupWizard({ api, initialEnvironment, onSaved, onClose }: SetupWizardProps) {
   const { t } = useI18n();
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<EnvironmentDraft>(() =>
@@ -400,6 +402,19 @@ export function SetupWizard({ api, initialEnvironment, onSaved }: SetupWizardPro
 
   return (
     <div className="setup-wizard" data-testid="setup-wizard">
+      {onClose && (
+        <div className="setup-wizard__bar">
+          <button
+            type="button"
+            className="setup-wizard__close"
+            onClick={onClose}
+            disabled={busy}
+            data-testid="wizard-close"
+          >
+            {t("common.close")}
+          </button>
+        </div>
+      )}
       <ol className="setup-wizard__steps" aria-label={t("wizard.aria.steps")}>
         {STEPS.map((id, index) => (
           <li

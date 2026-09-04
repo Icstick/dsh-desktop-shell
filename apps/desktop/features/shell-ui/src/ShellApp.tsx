@@ -18,6 +18,7 @@ import type {
 } from "../../../src/contracts";
 import { desktopApi, type DesktopApi } from "../../../src/desktop-api";
 import { useI18n } from "../../../src/i18n";
+import { EnvironmentEditForm } from "../../environment-settings/src/EnvironmentEditForm";
 import { EnvironmentList } from "../../environment-settings/src/EnvironmentList";
 import { SetupWizard } from "../../environment-settings/src/SetupWizard";
 import { BrowserPanel } from "../../browser-ui/src/BrowserPanel";
@@ -49,6 +50,12 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [transitioningManaged, setTransitioningManaged] = useState(false);
   const [confirmingManagedStop, setConfirmingManagedStop] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingEnvironment, setEditingEnvironment] = useState<DshEnvironment | null>(null);
+  // The terminal panel stays mounted once visited (kept hidden) so its
+  // xterm buffer survives surface switches; unmounting would drop every
+  // scrollback line and leave a black screen on return (user report).
+  const [visitedTerminal, setVisitedTerminal] = useState(false);
   const [terminalSession, setTerminalSession] = useState<TerminalReport | null>(null);
   const [surfaceBounds, setSurfaceBounds] = useState<DshSurfaceBounds | null>(null);
   const [nativeSurface, setNativeSurface] = useState<DshSurfaceStatus | null>(null);
@@ -65,6 +72,10 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     if (next) lastSurfaceBoundsRef.current = next;
     setSurfaceBounds((current) => (surfaceBoundsEqual(current, next) ? current : next));
   }, []);
+
+  useEffect(() => {
+    if (activeSurface === "terminal") setVisitedTerminal(true);
+  }, [activeSurface]);
 
   useEffect(() => {
     let current = true;
@@ -469,6 +480,31 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
+  // Wizard is trigger-based (env quick-edit D1): it only exists while the
+  // user is creating an environment, so a successful save closes it first.
+  const handleWizardSaved = (
+    environment: DshEnvironment,
+    catalog: EnvironmentCatalog,
+    result: EnvironmentValidation,
+  ) => {
+    setWizardOpen(false);
+    void handleSaved(environment, catalog, result);
+  };
+
+  const openEditForm = (environment: DshEnvironment) => {
+    setWizardOpen(false);
+    setEditingEnvironment(environment);
+  };
+
+  const handleEditSaved = (
+    environment: DshEnvironment,
+    catalog: EnvironmentCatalog,
+    result: EnvironmentValidation,
+  ) => {
+    setEditingEnvironment(null);
+    void handleSaved(environment, catalog, result);
+  };
+
   const activateEnvironment = async (
     nextCatalog: EnvironmentCatalog,
     environment: DshEnvironment,
@@ -612,6 +648,44 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
+  const handleRemoveEnvironment = async (environment: DshEnvironment) => {
+    // Ordered stop → remove (mirrors the B1 activation sequence): a running
+    // managed DSH must be stopped before its environment can be removed.
+    if (
+      environment.ownership === "managed" &&
+      managedRuntime &&
+      managedRuntime.environmentId === environment.id &&
+      managedRuntime.generation >= 1
+    ) {
+      await stopManaged(environment);
+    }
+    setTransitioningManaged(true);
+    try {
+      const nextCatalog = await api.removeEnvironment(environment.id);
+      setCatalog(nextCatalog);
+      if (validatedEnvironment?.id === environment.id) {
+        // Removed the active environment: return to the empty surface state
+        // (validated environment gone, no runtime, no native surface).
+        setValidatedEnvironment(null);
+        setValidation(null);
+        setManagedRuntime(null);
+        setManagedRuntimeError(null);
+        setNativeSurface(null);
+        setNativeSurfaceError(null);
+        mountedSurfaceRef.current = null;
+        surfaceIntentRef.current = null;
+        surfaceFailureRef.current = null;
+        setSnapshot((current) =>
+          current
+            ? { ...current, environmentId: null, runtimeState: "unconfigured" }
+            : current,
+        );
+      }
+    } finally {
+      setTransitioningManaged(false);
+    }
+  };
+
   const retryNativeSurface = async () => {
     const environment = validatedEnvironment;
     const bounds = lastSurfaceBoundsRef.current;
@@ -703,12 +777,19 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
               onRetry={retryNativeSurface}
             />
           )}
-          {activeSurface === "terminal" && (
-            <TerminalPanel
-              api={api}
-              onSession={setTerminalSession}
-              session={terminalSession}
-            />
+          {visitedTerminal && (
+            <div
+              className={
+                "terminal-surface" +
+                (activeSurface === "terminal" ? "" : " is-hidden")
+              }
+            >
+              <TerminalPanel
+                api={api}
+                onSession={setTerminalSession}
+                session={terminalSession}
+              />
+            </div>
           )}
           {activeSurface === "browser" && <BrowserPanel api={api} />}
           {activeSurface === "notifications" && <NotificationsPanel api={api} />}
@@ -737,18 +818,42 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           )}
           {activeSurface === "settings" && (
             <>
-              <SetupWizard
-                api={api}
-                initialEnvironment={validatedEnvironment}
-                onSaved={handleSaved}
-              />
+              {wizardOpen && (
+                <SetupWizard
+                  api={api}
+                  initialEnvironment={null}
+                  onSaved={handleWizardSaved}
+                  onClose={() => setWizardOpen(false)}
+                />
+              )}
+              {editingEnvironment && catalog && (
+                <EnvironmentEditForm
+                  api={api}
+                  environment={editingEnvironment}
+                  catalog={catalog}
+                  busy={transitioningManaged}
+                  onClose={() => setEditingEnvironment(null)}
+                  onSaved={handleEditSaved}
+                />
+              )}
               {catalog && (
                 <EnvironmentList
                   api={api}
                   catalog={catalog}
                   activeEnvironmentId={catalog.activeEnvironmentId}
                   transitioning={transitioningManaged}
+                  runningEnvironmentId={
+                    managedRuntime && managedRuntime.generation >= 1
+                      ? managedRuntime.environmentId
+                      : null
+                  }
                   onActivated={activateEnvironment}
+                  onAddEnvironment={() => {
+                    setEditingEnvironment(null);
+                    setWizardOpen(true);
+                  }}
+                  onEdit={openEditForm}
+                  onRemove={handleRemoveEnvironment}
                 />
               )}
             </>
@@ -1138,6 +1243,23 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
     }
   };
 
+  const dismissAll = async () => {
+    const pending = notifications ?? [];
+    if (pending.length === 0) return;
+    try {
+      for (const notification of pending) {
+        await api.dismissNotification({
+          schemaVersion: 1,
+          notificationId: notification.id,
+        });
+      }
+      setNotifications([]);
+      setError(null);
+    } catch (cause: unknown) {
+      setError(commandErrorMessage(cause, t("error.notificationDismiss")));
+    }
+  };
+
   return (
     <section className="panel" aria-labelledby="notifications-heading">
       <div className="panel__heading panel__heading--split">
@@ -1145,9 +1267,20 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
           <p className="eyebrow">{t("notifications.eyebrow")}</p>
           <h2 id="notifications-heading">{t("surface.notifications")}</h2>
         </div>
-        <button className="secondary-button" onClick={() => void refresh()} type="button">
-          {t("common.refresh")}
-        </button>
+        <div className="button-row">
+          <button
+            className="secondary-button"
+            disabled={!notifications || notifications.length === 0}
+            onClick={() => void dismissAll()}
+            type="button"
+            data-testid="notifications-dismiss-all"
+          >
+            {t("notifications.dismissAll")}
+          </button>
+          <button className="secondary-button" onClick={() => void refresh()} type="button">
+            {t("common.refresh")}
+          </button>
+        </div>
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       {notifications === null ? (

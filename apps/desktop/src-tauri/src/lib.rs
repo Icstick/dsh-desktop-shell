@@ -79,6 +79,7 @@ pub fn run() {
             commands::notify_application,
             commands::reload_dsh_surface,
             commands::resize_terminal,
+            commands::remove_environment,
             commands::save_environment,
             commands::status_terminal,
             commands::write_terminal,

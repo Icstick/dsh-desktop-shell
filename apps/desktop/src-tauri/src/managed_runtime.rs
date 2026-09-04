@@ -248,12 +248,18 @@ fn invoke_report(
 /// through the code mapping).
 fn map_daemon_error(error: DaemonCommandError) -> ManagedRuntimeError {
     match &error {
-        DaemonCommandError::Remote { code, .. } => match code {
+        DaemonCommandError::Remote {
+            code,
+            message,
+            retryable: _,
+        } => match code {
             ErrorCode::Conflict => ManagedRuntimeError::Conflict,
             ErrorCode::StaleGeneration => ManagedRuntimeError::StaleGeneration,
             ErrorCode::MalformedMessage => ManagedRuntimeError::InvalidEnvironment,
             ErrorCode::NotProcessOwner => ManagedRuntimeError::NotManaged,
-            _ => ManagedRuntimeError::StateUnavailable,
+            // Keep the daemon-side diagnostic text for unavailable codes so
+            // managed launch failures stay diagnosable from the UI.
+            _ => ManagedRuntimeError::RuntimeUnavailable(message.clone()),
         },
         // Connection-level failures: fail closed as an unavailable
         // runtime (retryable in the command mapping).
@@ -390,7 +396,8 @@ mod tests {
         assert!(matches!(error, ManagedRuntimeError::StaleGeneration));
 
         // Daemon cannot produce a binding -> the command contract maps
-        // the remote Unavailable code onto StateUnavailable.
+        // the remote Unavailable code onto RuntimeUnavailable, keeping the
+        // daemon-side diagnostic text for the UI.
         let connector = MockConnector::error(DaemonCommandError::Remote {
             code: ErrorCode::Unavailable,
             message: "Managed endpoint is not a verified current-generation binding".into(),
@@ -398,7 +405,11 @@ mod tests {
         });
         let error =
             verified_surface_binding(&connector, &environment(), 7).expect_err("unavailable");
-        assert!(matches!(error, ManagedRuntimeError::StateUnavailable));
+        assert!(matches!(
+            error,
+            ManagedRuntimeError::RuntimeUnavailable(message)
+                if message == "Managed endpoint is not a verified current-generation binding"
+        ));
 
         // expectedGeneration 0 -> stale, before any invocation.
         let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));

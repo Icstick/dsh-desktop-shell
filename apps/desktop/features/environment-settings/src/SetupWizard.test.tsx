@@ -108,6 +108,7 @@ function makeApi(overrides: Partial<DesktopApi> = {}): DesktopApi {
     getUsageSnapshot: vi.fn(),
     getDiagnostics: vi.fn(),
     probeAttachedEnvironment: vi.fn(),
+    removeEnvironment: vi.fn(),
     saveEnvironment: vi.fn(),
     startManagedEnvironment: vi.fn(),
     stopManagedEnvironment: vi.fn(),
