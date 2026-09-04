@@ -45,7 +45,7 @@
   ✅ 根因修复 ab264db：GUI managed 启动长期失败 = daemon 侧 local-transport read_deadline 30s idle 即关连接（长连接被当短连接）；GUI 无自动重连（注释明示 known limit）。修：daemon limits.read_deadline=24h。GUI 实测一次成功。
   ✅ 5/5 实机验收完成（2026-09-04）：GUI 启动 dev-repo → 3082 healthy gen1（endpoint verified）→ .dsh-isolated\sessions\--D-dsh-workspce-shell--\session-f010c5cf（111KB 真实会话）→ 主 GUI sessions 9:03 后零写入。隔离验证通过。
   ⬜ 遗留（用户报告）：窗口缩放时 DSH 界面（surface WebView）不随窗口缩放、内容偏小——建议排入 v0.1.0 后阶段 1（real-usage 优化，surface resize/视口同步），归属待用户拍板。
-  ⬜ 已知缺口（记录）：GUI daemon client 连接死后无自动重连（start_background 注释 "fail closed until a future reconnect slice"）——建议后续改进（invoke 失败自动重连）。
+  ✅ daemon client 自动重连完成（2026-09-04）：AutoReconnectConnector 包装（daemon_client.rs，lib.rs 零改动）——连接类失败（Transport/Timeout/NotConnected）→ 单飞重连 + 重试一次 + 2s×2 退避至 30s；closed_result 错误分类 Remote→Transport 修正；152 Rust 测试全绿（含真 daemon e2e 断连恢复）。
   📋 试用反馈批次（2026-09-04 GUI 实测，5 项）：
     1) 浏览器：独立 WebView 窗口=设计（ADR-0017/AC-BRW-001）；问题=导航百度后 panel 收到 load_failed 置 error（页面实际成功）——疑似误报/事件语义，待复现看 browser://event 负载（browser-provider 侧查 load_failed 判定）。
     2) 终端切回黑屏 ✅ caccc6a：TerminalPanel 曾随 surface 卸载（xterm dispose 丢 buffer）→ 改 visited 后保持挂载隐藏；切回不再黑。
