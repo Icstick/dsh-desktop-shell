@@ -2412,3 +2412,39 @@ textarea:focus-visible {
 .terminal-surface.is-hidden {
   display: none;
 }
+
+/* DSH surface full-viewport layout (trial feedback: resizing the window did
+   not resize the embedded DSH webview — the 1180px shell-content cap plus
+   the fixed 540px slot min-height kept the reported WebView bounds constant).
+   The native surface branch now stretches to the available workspace height
+   and width; every other surface keeps the centered column look. */
+.shell-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.shell-workspace > .shell-header {
+  flex-shrink: 0;
+}
+.shell-content {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.shell-content--surface {
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+}
+.shell-content--surface .surface-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.shell-content--surface .surface-native .dsh-surface-slot {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+

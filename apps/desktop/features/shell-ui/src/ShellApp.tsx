@@ -760,7 +760,12 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           <RuntimeBadge snapshot={snapshot} error={snapshotError} />
         </header>
 
-        <div className="shell-content">
+        <div
+          className={
+            "shell-content" +
+            (activeSurface === "dsh" ? " shell-content--surface" : "")
+          }
+        >
           {activeSurface === "dsh" && (
             <HarnessSurface
               environment={validatedEnvironment}
