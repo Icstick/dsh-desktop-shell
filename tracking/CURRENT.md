@@ -53,6 +53,11 @@
     4) 通知缺全部关闭 ✅ caccc6a：header dismiss-all（循环 dismiss，测试 31/31 含新用例）。
     5) 用量：shell 对话中途手动停止后 usage 未见记录——假设：被中断 turn 无 usage 记账事件；待查 daemon usage collector 数据源与 interrupted turn 处理（desktop 侧观察 dsh 用量 vs dsh 内部按请求记账）。
   ⬜ 缩放问题（前条记录）：窗口缩放 DSH surface 不跟随——排 v0.1.0 后阶段 1。
+  ✅ 2026-09-04 下午：PLAN-ENV-QUICK-EDIT 全 5/5 完成 → squash 合并 main @ c8ef038（21 files +2338/-136，已推送 origin）。
+  状态更新：Status=env-quick-edit 已合并 main；分支 feat/env-quick-edit 本地保留（未删）。
+  Open items（阶段 1/发布后）：①浏览器 load_failed 误报（试用反馈 1）②用量停止记账待查（反馈 5）
+  ③缩放不跟随 ④daemon client 无自动重连缺口 ⑤zh 措辞润色。
+  M8-E 发布门恢复：externalBin 本地重建（tauri build --bundles nsis）→ 更新 draft → publish v0.1.0 → 收尾文档。
 ## remaining
 
 - M8-E：两 blocker 解除 → externalBin 本地重建（tauri build --bundles nsis 含 daemon）→ 更新 draft → publish v0.1.0 → 收尾文档。
