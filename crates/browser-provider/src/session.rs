@@ -272,8 +272,12 @@ impl SessionRegistry {
     pub fn mark_ready(&self, session_id: &str) -> Result<BrowserSession, BrowserError> {
         let mut guard = self.sessions_guard()?;
         let session = Self::live_session(&mut guard, session_id)?;
-        if session.state == SessionState::Loading {
+        // Loading -> Ready is the regular path; Error -> Ready lets a later
+        // successful load clear an earlier failure report (a transient
+        // WebView2 failure event must not pin the session to error forever).
+        if session.state == SessionState::Loading || session.state == SessionState::Error {
             session.state = SessionState::Ready;
+            session.error = None;
             touch(session);
         }
         Ok(session.report())
@@ -698,6 +702,21 @@ mod tests {
             .unwrap();
         assert_eq!(recovered.state, SessionState::Loading);
         assert_eq!(recovered.error, None);
+    }
+
+    #[test]
+    fn mark_ready_recovers_an_error_session_and_clears_the_message() {
+        let registry = SessionRegistry::new();
+        let created = registry.create().unwrap();
+        registry
+            .navigate(&created.session_id, "https://example.com")
+            .unwrap();
+        registry
+            .mark_load_failed(&created.session_id, "transient failure")
+            .unwrap();
+        let ready = registry.mark_ready(&created.session_id).unwrap();
+        assert_eq!(ready.state, SessionState::Ready);
+        assert_eq!(ready.error, None);
     }
 
     #[test]

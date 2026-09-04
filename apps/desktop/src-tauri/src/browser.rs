@@ -1466,11 +1466,26 @@ fn install_windows_deny_hooks(
                             unsafe { args.IsSuccess(&mut succeeded)? };
                             let policy_denied = blocked_navigation.swap(false, Ordering::SeqCst);
                             if !succeeded.as_bool() && !policy_denied {
-                                let _ = mark_browser_load_failed(
-                                    &state,
-                                    &session_id,
-                                    "navigation failed",
-                                );
+                                // WebView2 reports IsSuccess=false for any
+                                // failed navigation, including ones superseded
+                                // by a redirect or a newer navigation. Only
+                                // genuine web errors (connection/certificate/
+                                // timeout) surface as load_failed; cancelled
+                                // navigations are ignored and the next
+                                // completion decides the session state.
+                                let mut error_status = COREWEBVIEW2_WEB_ERROR_STATUS(0);
+                                let _ = unsafe { args.WebErrorStatus(&mut error_status) };
+                                let cancelled = error_status
+                                    == COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED
+                                    || error_status
+                                        == COREWEBVIEW2_WEB_ERROR_STATUS_REDIRECT_FAILED;
+                                if !cancelled {
+                                    let _ = mark_browser_load_failed(
+                                        &state,
+                                        &session_id,
+                                        "navigation failed",
+                                    );
+                                }
                             }
                         }
                         Ok(())
