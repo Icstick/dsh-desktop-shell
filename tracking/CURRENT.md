@@ -53,6 +53,8 @@
     4) 通知缺全部关闭 ✅ caccc6a：header dismiss-all（循环 dismiss，测试 31/31 含新用例）。
     5) 用量：shell 对话中途手动停止后 usage 未见记录——假设：被中断 turn 无 usage 记账事件；待查 daemon usage collector 数据源与 interrupted turn 处理（desktop 侧观察 dsh 用量 vs dsh 内部按请求记账）。
   ⬜ 缩放问题（前条记录）：窗口缩放 DSH surface 不跟随——排 v0.1.0 后阶段 1。
+  ✅ 浏览器误报修复 82ca72c（试用反馈 1）：双根因=①NavigationCompleted 把取消/重定向导航当失败（IsSuccess=false 未查 WebErrorStatus；OPERATION_CANCELED/REDIRECT_FAILED 现被过滤）②Error 态被成功加载无法恢复（mark_ready 只接受 Loading）→ 现 Error→Ready 恢复并清除 error 消息。browser-provider 34 + desktop 141 测试全绿。
+  ✅ 用量项根因（反馈 5）：desktop usage collector 只记录 Desktop 自身事件（terminal/notification，usage.rs 34 行 Sources 注释）——**从未接入 dsh 对话 token 用量**；面板 totals 仅反映本地记录。停止对话是否加剧取决于 dsh-cost-meter 记账时机（待查插件侧）。接入方案（阶段 1）：读 dsh-cost-meter ledger（DSH_HOME/storages/cost-meter/ledger.json）或订阅 dsh usage 事件——设计待定。
   ✅ 2026-09-04 下午：PLAN-ENV-QUICK-EDIT 全 5/5 完成 → squash 合并 main @ c8ef038（21 files +2338/-136，已推送 origin）。
   状态更新：Status=env-quick-edit 已合并 main；分支 feat/env-quick-edit 本地保留（未删）。
   Open items（阶段 1/发布后）：①浏览器 load_failed 误报（试用反馈 1）②用量停止记账待查（反馈 5）
