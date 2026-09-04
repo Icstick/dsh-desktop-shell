@@ -59,7 +59,8 @@
   状态更新：Status=env-quick-edit 已合并 main；分支 feat/env-quick-edit 本地保留（未删）。
   Open items（阶段 1/发布后）：①浏览器 load_failed 误报（试用反馈 1）②用量停止记账待查（反馈 5）
   ③缩放不跟随 ④daemon client 无自动重连缺口 ⑤zh 措辞润色。
-  M8-E 发布门恢复：externalBin 本地重建（tauri build --bundles nsis）→ 更新 draft → publish v0.1.0 → 收尾文档。
+  ✅ M8-E v0.1.0 发布完成（2026-09-04）：externalBin 本地重建验证 ✅（nsis 2m16s）→ tag v0.1.0 前移 980906f（含 wizard/ux/env-quick-edit/终端/通知/浏览器修复全量）→ CI 三平台重建成功（run 33846974919；workflow 修复：daemon sidecar 需 target-triple 后缀）→ 本地补传 11 crate SBOM + npm-sbom + 自签 Windows 安装包（证书 1B6A576C，UnknownError=自签预期）→ **published 2026-09-04T07:15Z**（github.com/Icstick/dsh-desktop-shell/releases/tag/v0.1.0；资产：windows nsis/msi + signed、macOS aarch64 dmg、ubuntu deb、checksums、SBOM）。
+  → 阶段 0（发布门）完成；阶段 1（稳定期）开始：open items（usage 接入 dsh 对话用量、缩放、daemon 重连缺口、zh 润色、live-daemon-qa 入 CI、M6-C/M6-C4 TODO）。
 ## remaining
 
 - M8-E：两 blocker 解除 → externalBin 本地重建（tauri build --bundles nsis 含 daemon）→ 更新 draft → publish v0.1.0 → 收尾文档。
