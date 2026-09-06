@@ -952,6 +952,10 @@ fn build_launch_spec(environment: &ManagedEnvironment) -> Result<LaunchSpec, Man
         return Err(ManagedRuntimeError::NotManaged);
     }
     if !environment.is_valid() {
+        eprintln!(
+            "[managed-runtime] build_launch_spec rejected environment {:?} (is_valid=false)",
+            environment
+        );
         return Err(ManagedRuntimeError::InvalidEnvironment);
     }
     let harness_path = PathBuf::from(environment.harness_path());

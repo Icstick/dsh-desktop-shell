@@ -278,14 +278,6 @@ pub(crate) fn observe_runtime_state(
     Ok(())
 }
 
-/// Aggregate the ledger into a snapshot: records newest-first (recordedAt
-/// descending), filtered by `since_unix_ms` when given.
-pub(crate) fn snapshot(
-    path: &Path,
-    since_unix_ms: Option<u64>,
-) -> Result<UsageSnapshot, UsageError> {
-    snapshot_at(path, since_unix_ms, unix_ms()?)
-}
 
 fn record_at(
     service: &UsageService,
@@ -316,6 +308,7 @@ fn record_at(
     Ok(id)
 }
 
+#[cfg(test)]
 fn snapshot_at(
     path: &Path,
     since_unix_ms: Option<u64>,

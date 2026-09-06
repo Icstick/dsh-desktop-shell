@@ -1475,6 +1475,10 @@ fn install_windows_deny_hooks(
                                 // completion decides the session state.
                                 let mut error_status = COREWEBVIEW2_WEB_ERROR_STATUS(0);
                                 let _ = unsafe { args.WebErrorStatus(&mut error_status) };
+                                eprintln!(
+                                    "[browser] nav failed session={} web_error_status={}",
+                                    session_id, error_status.0
+                                );
                                 let cancelled = error_status
                                     == COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED
                                     || error_status
