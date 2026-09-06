@@ -237,7 +237,10 @@ fn invoke_report(
 ) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
     let value = connector
         .invoke(runtime_coordinate(), method, payload)
-        .map_err(map_daemon_error)?;
+        .map_err(|error| {
+            eprintln!("[managed-runtime] {method} invoke error: {error:?}");
+            map_daemon_error(error)
+        })?;
     serde_json::from_value(value).map_err(|_| ManagedRuntimeError::StateUnavailable)
 }
 

@@ -1479,10 +1479,18 @@ fn install_windows_deny_hooks(
                                     "[browser] nav failed session={} web_error_status={}",
                                     session_id, error_status.0
                                 );
+                                // CONNECTION_ABORTED / DISCONNECTED accompany
+                                // navigations superseded by a redirect or a
+                                // newer navigation (observed on real sites);
+                                // a later completion decides the state.
                                 let cancelled = error_status
                                     == COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED
                                     || error_status
-                                        == COREWEBVIEW2_WEB_ERROR_STATUS_REDIRECT_FAILED;
+                                        == COREWEBVIEW2_WEB_ERROR_STATUS_REDIRECT_FAILED
+                                    || error_status
+                                        == COREWEBVIEW2_WEB_ERROR_STATUS_CONNECTION_ABORTED
+                                    || error_status
+                                        == COREWEBVIEW2_WEB_ERROR_STATUS_DISCONNECTED;
                                 if !cancelled {
                                     let _ = mark_browser_load_failed(
                                         &state,

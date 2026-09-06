@@ -986,21 +986,30 @@ fn build_launch_spec(environment: &ManagedEnvironment) -> Result<LaunchSpec, Man
         //        <repo>/apps/cli/src/bin.ts web --host ... --port N --no-open
         let repo = harness_path;
         let entry = repo.join(REPO_CLI_ENTRY_REL);
-        let loader = repo.join(REPO_TS_LOADER_REL);
-        if !repo.is_dir() || !entry.is_file() || !loader.is_file() {
+        if !repo.is_dir() || !entry.is_file() {
             return Err(ManagedRuntimeError::UnsupportedSource);
         }
         let executable = resolve_node(node_path)?;
-        // Windows node rejects a bare absolute path for --import (the path
-        // is treated as a URL and fails with ERR_UNSUPPORTED_ESM_URL_SCHEME
-        // "protocol d:"); the official recipe uses a relative specifier from
-        // the repo cwd. A file:// URL is cwd-independent and works on every
-        // platform, so the loader is always passed that way.
-        let loader_url = Url::from_file_path(&loader)
-            .map_err(|_| ManagedRuntimeError::UnsupportedSource)?;
+        // Loader selection across checkout generations (ADR-0020 D5):
+        // A) rc.5-era trees ship scripts/register-tsx-esm.mjs; a file:// URL
+        //    is cwd-independent and works on every platform (Windows node
+        //    rejects a bare absolute --import path as an ESM URL scheme).
+        // B) official 0.1.2 trees resolve tsx from the repository root by
+        //    package specifier; the recipe pins cwd to the repo root below,
+        //    so node resolves "tsx/esm" from <repo>/node_modules.
+        let legacy_loader = repo.join(REPO_TS_LOADER_REL);
+        let loader_arg = if legacy_loader.is_file() {
+            Url::from_file_path(&legacy_loader)
+                .map_err(|_| ManagedRuntimeError::UnsupportedSource)?
+                .to_string()
+        } else if repo.join("node_modules/tsx/package.json").is_file() {
+            "tsx/esm".to_string()
+        } else {
+            return Err(ManagedRuntimeError::UnsupportedSource);
+        };
         let mut args = vec![
             OsString::from("--import"),
-            OsString::from(loader_url.as_str()),
+            OsString::from(loader_arg),
             entry.into_os_string(),
         ];
         push_dsh_arguments(&mut args, environment, &port_argument);
@@ -1763,6 +1772,56 @@ mod tests {
             build_launch_spec(&value).expect_err("missing entry reject"),
             ManagedRuntimeError::UnsupportedSource
         );
+    }
+
+    #[test]
+    fn official_0_1_2_checkout_uses_tsx_specifier_loader() {
+        // Layout B: apps/cli/src/bin.ts + tsx resolved from the repo root
+        // (no legacy scripts/register-tsx-esm.mjs).
+        let id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "dsh-managed-repo-b-test-{}-{id}",
+            std::process::id()
+        ));
+        fs::create_dir_all(path.join("apps/cli/src")).expect("entry dir");
+        fs::create_dir_all(path.join("node_modules/tsx")).expect("tsx dir");
+        fs::write(path.join("apps/cli/src/bin.ts"), b"console.log('dsh')
+").expect("entry");
+        fs::write(
+            path.join("node_modules/tsx/package.json"),
+            b"{}
+",
+        )
+        .expect("tsx stub");
+        let node = std::env::current_exe().expect("test executable");
+        let repo_root = path.to_string_lossy().into_owned();
+        let value: ManagedEnvironment = serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1,
+            "id": "managed-local",
+            "label": "Managed 0.1.2 DSH",
+            "harness": { "mode": "repository", "path": repo_root, "cwd": repo_root },
+            "dshHome": "C:/Users/example/.dsh",
+            "profile": "work",
+            "nodePath": node,
+            "endpoint": { "host": "127.0.0.1", "port": 4317 },
+            "ownership": "managed"
+        }))
+        .expect("repository environment");
+        let spec = build_launch_spec(&value).expect("launch spec");
+        let displays: Vec<_> = spec
+            .args
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(displays[1], "tsx/esm");
+        assert_eq!(
+            displays[2],
+            path.join("apps/cli/src/bin.ts").to_string_lossy().into_owned()
+        );
+        let _ = fs::remove_dir_all(&path);
     }
 
     #[test]
