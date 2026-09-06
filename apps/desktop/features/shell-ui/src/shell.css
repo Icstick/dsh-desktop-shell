@@ -1,6 +1,7 @@
 :root {
   color: #e8edf6;
   background: #090c12;
+  color-scheme: dark;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -10,6 +11,13 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: #303b4d #0b1018;
+  scrollbar-width: thin;
+}
+
+::selection {
+  color: #f7faff;
+  background: rgb(76 125 199 / 48%);
 }
 
 html,
@@ -36,6 +44,7 @@ textarea,
   transition:
     border-color 140ms ease,
     background-color 140ms ease,
+    box-shadow 140ms ease,
     color 140ms ease,
     transform 140ms ease;
 }
@@ -44,8 +53,8 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #7da9ff;
-  outline-offset: 2px;
+  outline: 2px solid #82adf5;
+  outline-offset: 3px;
 }
 
 .shell-app {
@@ -53,8 +62,8 @@ textarea:focus-visible {
   grid-template-columns: 68px minmax(0, 1fr);
   min-height: 100vh;
   background:
-    radial-gradient(circle at 76% 14%, rgb(61 96 152 / 18%), transparent 31rem),
-    linear-gradient(150deg, #0b1018 0%, #090c12 58%, #0d1119 100%);
+    radial-gradient(circle at 74% 8%, rgb(51 82 130 / 15%), transparent 34rem),
+    linear-gradient(145deg, #0b1018 0%, #090c12 56%, #0c1119 100%);
 }
 
 .activity-rail {
@@ -64,41 +73,52 @@ textarea:focus-visible {
   min-height: 100vh;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding: 18px 10px;
-  border-right: 1px solid #202837;
-  background: rgb(10 14 21 / 92%);
+  gap: 20px;
+  padding: 16px 10px;
+  border-right: 1px solid #1d2634;
+  background: linear-gradient(180deg, rgb(10 14 21 / 97%), rgb(8 12 18 / 95%));
+  box-shadow: inset -1px 0 rgb(255 255 255 / 1.5%);
   backdrop-filter: blur(18px);
 }
 
 .activity-rail__brand {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border: 1px solid #5577ad;
-  border-radius: 12px;
-  color: #eff5ff;
-  background: linear-gradient(145deg, #31578f, #182943);
-  box-shadow: 0 8px 28px rgb(30 69 126 / 35%);
-  font-weight: 750;
+  border: 1px solid #4a6ea8;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #1f3a63 0%, #294d80 42%, #101c33 100%);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 14%),
+    inset 0 -6px 12px rgb(5 12 24 / 45%),
+    0 8px 24px rgb(20 51 96 / 32%);
+}
+
+.activity-rail__brand-mark {
+  width: 20px;
+  height: 20px;
+  display: block;
+  filter: drop-shadow(0 1px 4px rgb(140 180 235 / 30%));
 }
 
 .activity-rail__items {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  padding-top: 2px;
 }
 
 .activity-rail__button {
+  position: relative;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 11px;
-  color: #8f9bae;
+  border-radius: 10px;
+  color: #8492a6;
   background: transparent;
   cursor: pointer;
   font-size: 11px;
@@ -113,21 +133,34 @@ textarea:focus-visible {
 }
 
 .activity-rail__button:hover:not(:disabled) {
-  border-color: #303b4d;
-  color: #d9e5f7;
-  background: #151c28;
+  border-color: #2a3547;
+  color: #dce7f7;
+  background: #131b27;
   transform: translateY(-1px);
 }
 
 .activity-rail__button[data-active="true"] {
-  border-color: #486caa;
+  border-color: #3f6197;
   color: #f3f7ff;
-  background: #1c2b42;
-  box-shadow: inset 3px 0 #74a3ef;
+  background: linear-gradient(145deg, #1b2c46, #152238);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 7%),
+    0 8px 20px rgb(17 48 92 / 22%);
+}
+
+.activity-rail__button[data-active="true"]::before {
+  position: absolute;
+  left: -11px;
+  width: 2px;
+  height: 18px;
+  border-radius: 0 2px 2px 0;
+  background: #78a7f4;
+  box-shadow: 0 0 10px rgb(120 167 244 / 45%);
+  content: "";
 }
 
 .activity-rail__button:disabled {
-  opacity: 0.28;
+  opacity: 0.24;
   cursor: not-allowed;
 }
 
@@ -139,10 +172,10 @@ textarea:focus-visible {
 .activity-rail__lang-select {
   width: 52px;
   padding: 5px 2px;
-  border: 1px solid #303b4d;
+  border: 1px solid #293548;
   border-radius: 8px;
-  color: #8f9bae;
-  background: #10161f;
+  color: #909eb1;
+  background: #0e151f;
   color-scheme: dark;
   cursor: pointer;
   font-size: 11px;
@@ -157,13 +190,14 @@ textarea:focus-visible {
 
 .shell-workspace {
   min-width: 0;
-  padding: 28px clamp(22px, 4vw, 56px) 52px;
+  padding: 28px clamp(22px, 4vw, 56px) 42px;
 }
 
 .shell-header {
   display: flex;
-  max-width: 1180px;
-  margin: 0 auto 28px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto 24px;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
@@ -180,13 +214,14 @@ textarea:focus-visible {
 }
 
 .shell-header h1 {
-  font-size: clamp(25px, 3vw, 35px);
+  font-size: clamp(25px, 2.6vw, 34px);
+  line-height: 1.1;
 }
 
 .eyebrow {
-  margin: 0 0 7px;
-  color: #7f91aa;
-  font-size: 11px;
+  margin: 0 0 6px;
+  color: #7890b3;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -196,11 +231,13 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid #2b3544;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #293547;
   border-radius: 999px;
   color: #aeb9c9;
-  background: #111722;
+  background: rgb(14 21 31 / 88%);
+  box-shadow: inset 0 1px rgb(255 255 255 / 4%);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
 }
@@ -250,25 +287,27 @@ textarea:focus-visible {
 }
 
 .shell-content {
-  max-width: 1180px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .panel,
 .surface-state,
 .surface-frame {
-  border: 1px solid #252e3d;
-  border-radius: 18px;
-  background: rgb(17 22 32 / 92%);
-  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+  border: 1px solid #222d3d;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(16 22 32 / 96%), rgb(13 19 28 / 96%));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 18px 50px rgb(0 0 0 / 22%);
 }
 
 .panel {
-  padding: clamp(22px, 4vw, 38px);
+  padding: clamp(22px, 3vw, 32px);
 }
 
 .panel__heading {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .panel__heading--split {
@@ -305,9 +344,10 @@ textarea:focus-visible {
   min-width: 0;
   margin: 0;
   padding: 20px;
-  border: 1px solid #273142;
-  border-radius: 14px;
-  background: #0e141e;
+  border: 1px solid #253144;
+  border-radius: 12px;
+  background: #0c131d;
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
 }
 
 .setup-form legend {
@@ -339,10 +379,11 @@ textarea:focus-visible {
 .field select,
 .field textarea {
   width: 100%;
-  border: 1px solid #303b4e;
-  border-radius: 9px;
+  border: 1px solid #2b384c;
+  border-radius: 8px;
   color: #edf2fa;
-  background: #111925;
+  background: #0d1520;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 24%);
 }
 
 .field input,
@@ -360,6 +401,20 @@ textarea:focus-visible {
 .field input:disabled {
   color: #78869a;
   background: #0b1119;
+}
+
+.field input:hover:not(:disabled),
+.field select:hover:not(:disabled),
+.field textarea:hover:not(:disabled) {
+  border-color: #3b4d68;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
+  border-color: #5e89c9;
+  background: #101925;
+  box-shadow: 0 0 0 3px rgb(87 132 200 / 12%);
 }
 
 .field small {
@@ -382,10 +437,15 @@ textarea:focus-visible {
   display: flex;
   gap: 12px;
   padding: 15px;
-  border: 1px solid #303a4c;
-  border-radius: 11px;
-  background: #111823;
+  border: 1px solid #2b3749;
+  border-radius: 10px;
+  background: #0e1621;
   cursor: pointer;
+}
+
+.ownership-card:hover {
+  border-color: #3b4d68;
+  background: #111b29;
 }
 
 .ownership-card[data-checked="true"] {
@@ -534,9 +594,9 @@ textarea:focus-visible {
 
 .primary-button,
 .secondary-button {
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 9px;
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 650;
 }
@@ -550,21 +610,33 @@ textarea:focus-visible {
 }
 
 .primary-button {
-  border: 1px solid #6693d7;
+  border: 1px solid #5d87c7;
   color: #f7fbff;
-  background: linear-gradient(180deg, #4678bd, #315d99);
-  box-shadow: 0 8px 24px rgb(39 88 154 / 25%);
+  background: linear-gradient(180deg, #416fae, #31598f);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 10%),
+    0 7px 20px rgb(26 66 123 / 24%);
 }
 
 .secondary-button {
-  border: 1px solid #3b4a61;
+  border: 1px solid #34435a;
   color: #dbe5f2;
-  background: #172131;
+  background: #141e2c;
 }
 
 .primary-button:hover:not(:disabled),
 .secondary-button:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+.primary-button:hover:not(:disabled) {
+  border-color: #73a0e2;
+  background: linear-gradient(180deg, #4b7dbf, #37649f);
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: #4c617f;
+  background: #192638;
 }
 
 .primary-button:disabled,
@@ -706,13 +778,13 @@ textarea:focus-visible {
 
 .surface-frame__chrome {
   display: flex;
-  min-height: 48px;
+  min-height: 50px;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   padding: 0 17px;
-  border-bottom: 1px solid #273142;
-  background: #0e141e;
+  border-bottom: 1px solid #222d3d;
+  background: linear-gradient(180deg, #0f1621, #0c131d);
 }
 
 .surface-frame__chrome > div {
@@ -725,7 +797,7 @@ textarea:focus-visible {
 
 .surface-frame__chrome code {
   overflow: hidden;
-  color: #74849b;
+  color: #7f8ea3;
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -822,8 +894,8 @@ textarea:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 7px 14px;
-  border-top: 1px solid #273142;
-  background: #0e141e;
+  border-top: 1px solid #222d3d;
+  background: #0c131d;
 }
 
 .surface-native__policy span {
@@ -1308,9 +1380,12 @@ textarea:focus-visible {
   display: grid;
   gap: 18px;
   padding: 20px;
-  border: 1px solid #252e3d;
-  border-radius: 16px;
-  background: rgb(17 22 32 / 72%);
+  border: 1px solid #222d3d;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(15 21 31 / 94%), rgb(12 18 27 / 94%));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 16px 42px rgb(0 0 0 / 18%);
 }
 
 .setup-wizard__steps {
@@ -1327,10 +1402,10 @@ textarea:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 7px 12px;
-  border: 1px solid #2a3445;
+  border: 1px solid #293548;
   border-radius: 999px;
   color: #8f9bae;
-  background: #10161f;
+  background: #0e151f;
   cursor: pointer;
   font-size: 12px;
 }
@@ -1450,10 +1525,15 @@ textarea:focus-visible {
   grid-template-columns: 18px minmax(0, 1fr);
   gap: 4px 10px;
   padding: 13px 14px;
-  border: 1px solid #303a4c;
-  border-radius: 12px;
-  background: #111823;
+  border: 1px solid #2b3749;
+  border-radius: 10px;
+  background: #0e1621;
   cursor: pointer;
+}
+
+.setup-wizard__mode-card:hover {
+  border-color: #3b4d68;
+  background: #111b29;
 }
 
 .setup-wizard__mode-card.is-selected {
@@ -1995,7 +2075,7 @@ textarea:focus-visible {
 /* Environment list cards (env quick-edit D2): label/id/meta, actions, and the
    inline removal confirmation. Kept aligned with the wizard's dark palette. */
 .environment-list {
-  margin-top: 18px;
+  margin-top: 2px;
 }
 .environment-list__header {
   display: flex;
@@ -2006,23 +2086,27 @@ textarea:focus-visible {
 .environment-list__header h2,
 .environment-list > h2 {
   margin: 0;
-  font-size: 15px;
-  letter-spacing: 0.02em;
+  font-size: 14px;
+  font-weight: 680;
+  letter-spacing: 0.01em;
   color: #e8edf6;
 }
 .environment-list__add {
-  min-height: 32px;
-  padding: 0 14px;
-  border: 1px solid #3b4a61;
-  border-radius: 9px;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #3a4a62;
+  border-radius: 8px;
   color: #dbe5f2;
-  background: #172131;
+  background: linear-gradient(180deg, #182437, #131d2b);
+  box-shadow: inset 0 1px rgb(255 255 255 / 4%);
+  font-size: 12px;
   font-weight: 650;
   cursor: pointer;
 }
 .environment-list__add:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: #6693d7;
+  border-color: #587cae;
+  background: linear-gradient(180deg, #1d2d43, #172437);
 }
 .environment-list__add:disabled {
   opacity: 0.55;
@@ -2046,88 +2130,121 @@ textarea:focus-visible {
 .environment-list__items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 12px 0 0;
+  gap: 10px;
+  margin: 14px 0 0;
   padding: 0;
   list-style: none;
 }
 .environment-list__item {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px 14px;
-  padding: 12px 14px;
-  border: 1px solid #29384c;
-  border-radius: 11px;
-  background: #0f1622;
+  gap: 10px 18px;
+  overflow: hidden;
+  padding: 15px 17px;
+  border: 1px solid #263347;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #0e1621, #0c131d);
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+.environment-list__item:hover {
+  border-color: #34455d;
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 10px 28px rgb(0 0 0 / 14%);
 }
 .environment-list__item.is-active {
-  border-color: #3e6aa8;
-  background: #12202f;
+  border-color: #3b639a;
+  background: linear-gradient(145deg, #122235, #0d1825 62%);
+}
+.environment-list__item.is-active::before {
+  position: absolute;
+  inset: 10px auto 10px 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: #73a4ec;
+  box-shadow: 0 0 10px rgb(115 164 236 / 35%);
+  content: "";
 }
 .environment-list__info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 .environment-list__info strong {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 680;
+  line-height: 1.25;
   color: #e8edf6;
 }
 .environment-list__info code {
-  color: #7f8da1;
-  font-size: 12px;
+  color: #78879c;
+  font-size: 11px;
 }
 .environment-list__meta {
-  color: #7f8da1;
-  font-size: 12px;
+  color: #8194ae;
+  font-size: 11.5px;
 }
 .environment-list__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .environment-list__badge {
-  padding: 3px 10px;
-  border: 1px solid #3e6aa8;
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid #3c659d;
   border-radius: 999px;
   color: #9ec5f5;
-  background: #14283f;
-  font-size: 11px;
+  background: rgb(20 40 63 / 72%);
+  font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .environment-list__activate,
+.environment-list__edit,
 .environment-list__remove {
-  min-height: 30px;
-  padding: 0 12px;
-  border-radius: 8px;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 7px;
   cursor: pointer;
   font-weight: 650;
-  font-size: 13px;
+  font-size: 12px;
 }
 .environment-list__activate,
 .environment-list__edit {
-  border: 1px solid #3b4a61;
+  border: 1px solid #34445b;
   color: #dbe5f2;
-  background: #172131;
+  background: #141e2c;
 }
 .environment-list__activate:hover:not(:disabled),
 .environment-list__edit:hover:not(:disabled) {
-  border-color: #6693d7;
+  border-color: #516d93;
+  background: #192638;
 }
 .environment-list__remove {
-  border: 1px solid #5c3140;
-  color: #f0b3bf;
-  background: #241420;
+  border: 1px solid #50303d;
+  color: #dfabb6;
+  background: #1e141b;
 }
 .environment-list__remove:hover:not(:disabled) {
-  border-color: #a04a62;
+  border-color: #8f4659;
+  color: #ffc1cc;
+  background: #281720;
 }
 .environment-list__activate:disabled,
+.environment-list__edit:disabled,
 .environment-list__remove:disabled {
   opacity: 0.55;
   cursor: default;
@@ -2217,9 +2334,12 @@ textarea:focus-visible {
   gap: 14px;
   margin-top: 18px;
   padding: 18px;
-  border: 1px solid #29384c;
-  border-radius: 16px;
-  background: rgb(13 18 28 / 82%);
+  border: 1px solid #263347;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(14 20 30 / 96%), rgb(11 17 25 / 96%));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 16px 42px rgb(0 0 0 / 18%);
 }
 .environment-edit__header {
   display: flex;
@@ -2278,9 +2398,10 @@ textarea:focus-visible {
   min-width: 0;
   margin: 0;
   padding: 13px 14px 14px;
-  border: 1px solid #29384c;
-  border-radius: 12px;
-  background: #0f1622;
+  border: 1px solid #253247;
+  border-radius: 10px;
+  background: #0d151f;
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
 }
 .environment-edit__section legend {
   padding: 0 4px;
@@ -2406,6 +2527,110 @@ textarea:focus-visible {
   cursor: default;
 }
 
+/* Persistent terminal: compact desktop chrome around the xterm surface.
+   Height comes from the flex chain shared with the DSH surface layout
+   below (shell-content--surface): flex:1 + min-height:0 down to the host.
+   xterm renders canvas/absolutely-positioned children, so it never adds
+   document-flow height and the page cannot stretch past the viewport
+   (regression: a percentage-height + grid chain let the panel grow
+   unbounded). */
+.terminal-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #222d3d;
+  border-radius: 14px;
+  background: #05070a;
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 18px 50px rgb(0 0 0 / 24%);
+}
+
+.terminal-panel__chrome {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 15px;
+  border-bottom: 1px solid #202b3a;
+  background: linear-gradient(180deg, #101722, #0c131c);
+}
+
+.terminal-panel__chrome strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #c7d3e3;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-panel__state {
+  display: inline-flex;
+  min-height: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid #354257;
+  border-radius: 999px;
+  color: #9cabbf;
+  background: #121a26;
+  font-size: 9px;
+  font-weight: 720;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.terminal-panel__state[data-state="running"] {
+  border-color: #285b47;
+  color: #9ad7b8;
+  background: #0e211a;
+}
+
+.terminal-panel__state[data-state="closed"] {
+  opacity: 0.62;
+}
+
+.terminal-panel__chrome .primary-button,
+.terminal-panel__chrome .secondary-button {
+  min-height: 30px;
+  flex-shrink: 0;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+.terminal-panel__host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 10px 10px 13px;
+  background: #000;
+}
+
+.terminal-panel__host .xterm {
+  height: 100%;
+}
+
+.terminal-panel__host .xterm-viewport {
+  scrollbar-color: #303b4d #000;
+  scrollbar-width: thin;
+}
+
 
 /* Terminal surface stays mounted across surface switches (buffer kept);
    hidden instead of unmounted while another surface is active. */
@@ -2417,11 +2642,21 @@ textarea:focus-visible {
    not resize the embedded DSH webview — the 1180px shell-content cap plus
    the fixed 540px slot min-height kept the reported WebView bounds constant).
    The native surface branch now stretches to the available workspace height
-   and width; every other surface keeps the centered column look. */
+   and width; every other surface keeps the centered column look.
+
+   The workspace height is FIXED (not min-height): a min-height + flex:1
+   column is underdetermined once inner content exceeds the viewport, so
+   the content itself decides the height. The terminal surface feeds that
+   loop — xterm DOM rows contribute document-flow height and every
+   hidden->shown cycle re-fits against the grown box, stretching the page
+   without bound (regression observed: page grew on each terminal visit).
+   Fixed 100vh gives flex:1 children a definite height; xterm output is
+   clipped by .terminal-panel__host overflow:hidden instead of growing the
+   document. */
 .shell-workspace {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
 }
 .shell-workspace > .shell-header {
   flex-shrink: 0;
@@ -2446,5 +2681,57 @@ textarea:focus-visible {
   flex: 1;
   min-height: 0;
   height: auto;
+}
+
+/* Immersive surfaces (DSH web page / terminal): reclaim chrome space for
+   the embedded content — tighter workspace padding and a compact header
+   that hugs the top-left corner. */
+.shell-workspace--immersive {
+  padding: 10px 20px 16px;
+}
+
+.shell-workspace--immersive .shell-header {
+  max-width: none;
+  margin-bottom: 8px;
+}
+
+.shell-header--compact .eyebrow {
+  display: none;
+}
+
+.shell-header--compact h1 {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #ccd9ea;
+  white-space: nowrap;
+}
+
+.shell-header--compact .runtime-badge {
+  min-height: 24px;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.shell-header--compact .runtime-badge__dot {
+  width: 6px;
+  height: 6px;
+}
+
+@media (max-width: 780px) {
+  .environment-list__item {
+    align-items: flex-start;
+  }
+
+  .environment-list__actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .terminal-panel__chrome {
+    flex-wrap: wrap;
+    padding-block: 8px;
+  }
 }
 

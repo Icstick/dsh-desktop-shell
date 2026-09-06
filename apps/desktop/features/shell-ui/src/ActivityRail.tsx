@@ -111,7 +111,31 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
   return (
     <nav className="activity-rail" aria-label={t("rail.aria.surfaces")}>
       <div className="activity-rail__brand" aria-label={t("rail.aria.brand")}>
-        D
+        <svg className="activity-rail__brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <defs>
+            <linearGradient id="brand-d" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#f2f7ff" />
+              <stop offset="0.55" stopColor="#b7d2f6" />
+              <stop offset="1" stopColor="#7fa9e4" />
+            </linearGradient>
+          </defs>
+          {/* Monogram: vertical stem + full right arc, round caps, so the D
+              reads as a single smooth ring at 20px. */}
+          <path
+            d="M7.5 5.5v13"
+            fill="none"
+            stroke="url(#brand-d)"
+            strokeLinecap="round"
+            strokeWidth="3.4"
+          />
+          <path
+            d="M7.5 5.5a6.5 6.5 0 0 1 0 13"
+            fill="none"
+            stroke="url(#brand-d)"
+            strokeLinecap="round"
+            strokeWidth="3.4"
+          />
+        </svg>
       </div>
       <div className="activity-rail__items">
         {items.map((item) => {

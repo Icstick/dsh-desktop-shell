@@ -751,8 +751,22 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   return (
     <main className="shell-app">
       <ActivityRail active={activeSurface} onSelect={setActiveSurface} />
-      <section className="shell-workspace">
-        <header className="shell-header">
+      <section
+        className={
+          "shell-workspace" +
+          (activeSurface === "dsh" || activeSurface === "terminal"
+            ? " shell-workspace--immersive"
+            : "")
+        }
+      >
+        <header
+          className={
+            "shell-header" +
+            (activeSurface === "dsh" || activeSurface === "terminal"
+              ? " shell-header--compact"
+              : "")
+          }
+        >
           <div>
             <p className="eyebrow">{t("shell.eyebrow")}</p>
             <h1>{surfaceTitle(activeSurface, t)}</h1>
@@ -763,7 +777,9 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         <div
           className={
             "shell-content" +
-            (activeSurface === "dsh" ? " shell-content--surface" : "")
+            (activeSurface === "dsh" || activeSurface === "terminal"
+              ? " shell-content--surface"
+              : "")
           }
         >
           {activeSurface === "dsh" && (
