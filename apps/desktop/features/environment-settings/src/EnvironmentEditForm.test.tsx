@@ -170,6 +170,35 @@ describe("EnvironmentEditForm", () => {
     expect(screen.queryByTestId("edit-error")).not.toBeInTheDocument();
   });
 
+  it("drops a stale explicit cwd when saving a repository environment", async () => {
+    const user = userEvent.setup();
+    // The env carries a cwd from an older checkout layout; the repo path
+    // was edited to a new checkout. Saving must not keep the stale cwd —
+    // the repository launch follows the (new) repository root.
+    const environment = managedRepoEnvironment({
+      harness: {
+        mode: "repository",
+        path: "C:\\src\\deepseek-harness-new",
+        cwd: "C:\\src\\deepseek-harness-old",
+      },
+    });
+    const validate = vi.fn().mockResolvedValue(validationOk(environment));
+    const save = vi.fn().mockResolvedValue({ ...catalogOf(environment), revision: 9 });
+    const api = makeApi({ validateEnvironment: validate, saveEnvironment: save });
+    const onSaved = vi.fn();
+    renderEdit({ api, environment, onSaved });
+
+    await user.click(screen.getByTestId("edit-save"));
+
+    await waitFor(() => expect(validate).toHaveBeenCalledTimes(1));
+    const validated = validate.mock.calls[0][0] as DshEnvironment;
+    expect(validated.harness.path).toBe("C:\\src\\deepseek-harness-new");
+    // convert treats empty cwd as "repository root" — the launch directory
+    // must follow the edited path, not the stale old checkout.
+    expect(validated.harness.cwd).toBe("C:\\src\\deepseek-harness-new");
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+  });
+
   it("saves an edited label under the same id through validate -> save -> onSaved", async () => {
     const user = userEvent.setup();
     const environment = managedRepoEnvironment();

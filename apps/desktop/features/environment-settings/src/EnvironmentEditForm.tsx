@@ -114,7 +114,17 @@ export function EnvironmentEditForm({
 
   const save = async () => {
     if (busy || saving || scanning || savingRef.current) return;
-    const conversion = convertEnvironmentDraft({ ...draft, id: environment.id });
+    // cwd is read-only in the sectioned form (D3). For repository sources
+    // it follows the repository root by conversion, so a stale explicit cwd
+    // from an older layout must not survive an edit — otherwise changing the
+    // repo path leaves the launch working directory pointing at the old
+    // checkout. Attached/executable records keep their explicit cwd.
+    const effectiveDraft =
+      draft.harnessMode === "repository" ? { ...draft, cwd: "" } : draft;
+    const conversion = convertEnvironmentDraft({
+      ...effectiveDraft,
+      id: environment.id,
+    });
     if (!conversion.environment) return; // local issues keep Save disabled
     savingRef.current = true;
     setSaving(true);
