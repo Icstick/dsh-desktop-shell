@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M8-DEEPSEEK-UI
 title: "DeepSeek character desktop visual redesign"
-status: review
+status: done
 milestone: M8
 module: MOD-SHELL-UI
 owner_role: ui-owner
@@ -26,6 +26,6 @@ evidence:
   - "docs/design/evidence/deepseek-ui/README.md"
   - "docs/design/DEEPSEEK-WORKSPACE.md"
 blocked_by: []
-next_action: "Visual review; native integration acceptance and pre-existing ACL gate remain before release."
+next_action: "Merged to main (3ec677b) and shipped in v0.2.0 (2026-09-07). Artwork stays CC BY-NC-SA with third-party notices; commercial use requires upstream authorization."
 handoff: tracking/handoffs/HANDOFF-20260906-DEEPSEEK-UI.md
 updated_at: "2026-09-07T01:43:53.266Z"
