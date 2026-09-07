@@ -1,8 +1,19 @@
 # Current Project State
 
-## Local visual branch (2026-09-06)
+## Merged on main (2026-09-07)
 
-DeepSeek character redesign on `feat/deepseek-character-ui` is implemented and ready for visual review. Typecheck, 105 frontend tests and production build pass; independent review approved; ACL inventory gate resolved (2026-09-07: remove_environment registered in AppManifest/capability, expected list aligned, discovery comment false-positive fixed — 40 commands validated). Dev GUI native smoke started on the branch; visual review pending. Artwork CC BY-NC-SA (non-commercial) — release requires separate rights resolution. See [evidence](../docs/design/evidence/deepseek-ui/README.md) and [handoff](handoffs/HANDOFF-20260906-DEEPSEEK-UI.md). No merge or release performed.
+- 3ec677b DeepSeek character theme (WI-M8-DEEPSEEK-UI) squash-merged to
+  main; artwork stays CC BY-NC-SA (non-commercial) — release requires
+  separate rights resolution.
+- 5569545 browser multi-session tabs (WI-M9-BROWSER-TABS) squash-merged
+  to main after rebasing onto the theme: per-session tab strip with
+  document titles (title_changed events), open-URL-never-displaces
+  semantics, orphan-session cleanup on list, daemon ownership release on
+  disconnect, browser.close returns the closed report. All four daemon
+  fixes verified live by the user.
+- main @ 5569545 pushed; feature branches deleted.
+- Remaining: M8-E v0.1.0 release gates; release branch sync; artwork
+  rights / asset size (19MB PNGs) before any themed release.
 
 
 - Phase：`shell-mvp`
