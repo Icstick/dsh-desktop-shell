@@ -1,0 +1,28 @@
+schema_version: 1
+id: WI-M9-TIMER-UI
+title: "Timer UI (countdown / stopwatch / pomodoro)"
+status: planned
+milestone: M9
+module: MOD-TIMER-UI
+owner_role: ui-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Rail timer entry enabled; countdown/stopwatch/pomodoro modes with local state."
+  - "Completion notifications through the existing notification surface."
+  - "Typecheck, tests, build; design reviewed with the user before implementation."
+security_impact: "Local timer state + notification presentation only; no bridge/backend changes expected."
+compatibility_impact: "None (new surface; existing contracts untouched)."
+scope:
+  - apps/desktop/features/timer-ui/
+  - apps/desktop/features/shell-ui/ (rail enable + styles)
+  - apps/desktop/src/i18n.tsx
+  - tracking/
+evidence: []
+blocked_by: []
+next_action: "Design discussion with user (modes, presets, notification UX) before ADR/contract."
+handoff: null
+updated_at: "2026-09-07T15:00:00.000Z"
