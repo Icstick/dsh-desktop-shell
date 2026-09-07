@@ -1,11 +1,11 @@
 import type { SurfaceId } from "./ActivityRail";
-import studyArtwork from "./assets/deepseek-study.png";
-import observatoryArtwork from "./assets/harness-observatory.png";
-import waterArtwork from "./assets/deepseek-water.png";
+import studyArtwork from "./assets/deepseek-study.webp";
+import observatoryArtwork from "./assets/harness-observatory.webp";
+import waterArtwork from "./assets/deepseek-water.webp";
 
-import workshopArtwork from "./assets/deepseek-workshop.png";
-import explorerArtwork from "./assets/deepseek-explorer.png";
-import correspondenceArtwork from "./assets/deepseek-correspondence.png";
+import workshopArtwork from "./assets/deepseek-workshop.webp";
+import explorerArtwork from "./assets/deepseek-explorer.webp";
+import correspondenceArtwork from "./assets/deepseek-correspondence.webp";
 
 const artwork: Record<SurfaceId, string> = {
   dsh: waterArtwork,

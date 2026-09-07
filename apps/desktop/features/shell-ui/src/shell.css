@@ -2950,14 +2950,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   position: relative; isolation: isolate; min-height: 0; flex: 1; overflow: auto;
   align-content: center; justify-items: start; text-align: left;
   padding: clamp(26px, 5vw, 80px); background: #e9f4fa;
-  background-image: linear-gradient(90deg,#edf6fbe8,#edf6fba6 36%,#edf6fb00 66%), url("./assets/deepseek-water.png");
+  background-image: linear-gradient(90deg,#edf6fbe8,#edf6fba6 36%,#edf6fb00 66%), url("./assets/deepseek-water.webp");
   background-size: cover; background-position: center;
 }
 .surface-state h2 { max-width: min(520px, 48%); font-size: clamp(28px,3.2vw,46px); line-height: 1.4; color: #243e67; font-weight: 600; }
 .surface-state > p:not(.eyebrow) { max-width: 34ch; color: #4f6b85; line-height: 1.9; font-size: 14px; }
 .surface-state__mark { background: #ffffffc9; color: #315f90; border: 1px solid #bdd3e6; box-shadow: none; border-radius: 20px 20px 20px 5px; width: 52px; height: 52px; font-size: 15px; margin-bottom: 22px; }
 .surface-state .primary-button { min-height: 43px; padding: 0 23px; }
-.surface-frame__body { background: linear-gradient(90deg,#f6f9fdfa 30%,#f6f9fdbb),url("./assets/deepseek-study.png") right center / cover; }
+.surface-frame__body { background: linear-gradient(90deg,#f6f9fdfa 30%,#f6f9fdbb),url("./assets/deepseek-study.webp") right center / cover; }
 .surface-policy { background: #f6faf8; }
 .surface-native { background: #f4f8fc; }
 .dsh-surface-slot { background: #f4f8fc; }
@@ -3005,7 +3005,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .shell-header--compact > div:first-child { width: auto; align-self: center; }
   .shell-header--compact h1 { font-size: 14px; }
   .shell-header--compact > .runtime-badge { max-width: 100%; }
-  .surface-state { padding: 26px; background-position: 64% center; background-image: linear-gradient(90deg,#edf6fbf5,#edf6fbbb),url("./assets/deepseek-water.png"); }
+  .surface-state { padding: 26px; background-position: 64% center; background-image: linear-gradient(90deg,#edf6fbf5,#edf6fbbb),url("./assets/deepseek-water.webp"); }
   .surface-state h2 { font-size: 30px; }
   .surface-state > p:not(.eyebrow) { max-width: 30ch; }
   .definition-grid > div { border-right: 0; border-bottom: 1px solid #dee8f2; }

@@ -1,4 +1,4 @@
-import studyArtwork from "./assets/deepseek-study.png";
+import studyArtwork from "./assets/deepseek-study.webp";
 import { useI18n, type Lang } from "../../../src/i18n";
 
 export type SurfaceId =
