@@ -2,6 +2,26 @@
 
 本文件记录仓库级公开契约、治理与发布变化。模块级协议变化还必须更新对应 Schema、ADR 和 compatibility 记录。
 
+## [0.2.0] - unreleased
+
+### Added
+
+- DeepSeek 角色视觉主题（WI-M8-DEEPSEEK-UI）：蓝白海洋色系 + 深蓝导航 rail（角色头像/字标），页面横幅角色插画按页面职责映射（装饰性、沉浸页隐藏、渐变遮罩保可读）；双语页面描述；本地 mockIPC 预览 fixture（不进生产入口）。**主题插画素材 CC BY-NC-SA（非商业），发布前需解决授权**（assets/ATTRIBUTION.md）。
+- 浏览器多会话标签（WI-M9-BROWSER-TABS）：标签栏按实时会话列出并显示网页标题（title_changed 事件；host WebView2 标题回调 → 镜像 registry → browser://event）；新建/关闭/切换标签；打开 URL 不再顶替已导航标签（空标签原地填充、其余开新会话窗口）；重启孤儿会话清理（不弹窗、无死标签）。
+- 素材构建优化：插画 libwebp q90 打包（19.4MB → 1.3MB），原始 PNG 保留仓库不进入安装包。
+
+### Changed
+
+- 暗色主题打磨（Codex pass）：设计变量收敛、质感层级、激活指示、终端/环境列表/向导细节。
+- daemon 会话归属治理：连接断开释放 browser session ownership（重连后可管理自己的幸存会话）；孤儿会话（无渲染窗口）在 list 时关闭；browser.close 返回 closed report（修复窗口泄漏）。
+
+### Fixed
+
+- ACL 清单对齐（check:acl 40 commands 绿）：AppManifest/capability 补 remove_environment（此前删除环境功能被 ACL 拒）、expected 清单补 pick_directory/remove_environment、discovery 注释误报修正。
+- 终端页无限向下延长（根因：workspace min-height 欠定 + xterm DOM 行撑高；改为固定 100vh + host 裁剪）。
+- 浏览器 WebView 窗口随 Shell 重启的孤儿/死标签/窗口泄漏三连修复（见 Changed）。
+- 浏览器打开 URL 顶替当前页 → 新标签语义（用户报告：agent 操作与查资料冲突）。
+
 ## Unreleased
 ### Added
 
