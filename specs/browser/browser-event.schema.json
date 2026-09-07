@@ -10,6 +10,25 @@
     "kind",
     "occurredAtUnixMs"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "title_changed"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "title"
+        ]
+      }
+    }
+  ],
   "properties": {
     "schemaVersion": {
       "const": 1
