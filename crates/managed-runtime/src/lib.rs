@@ -24,9 +24,9 @@ pub use environment::{
     is_valid_id, load_catalog,
 };
 pub use supervisor::{
-    LaunchSpec, ManagedRuntimeError, ManagedRuntimeBindingRequest, ManagedRuntimeReport, ManagedRuntimeRestartRequest,
-    ManagedRuntimeStartRequest, ManagedRuntimeState, ManagedRuntimeStatusRequest,
-    ManagedRuntimeStopRequest, VerifiedSurfaceBinding, get_managed_runtime_status,
-    restart_managed_environment, start_managed_environment, start_with_spec,
-    stop_managed_environment, verified_surface_binding,
+    LaunchSpec, ManagedRuntimeBindingRequest, ManagedRuntimeError, ManagedRuntimeReport,
+    ManagedRuntimeRestartRequest, ManagedRuntimeStartRequest, ManagedRuntimeState,
+    ManagedRuntimeStatusRequest, ManagedRuntimeStopRequest, VerifiedSurfaceBinding,
+    get_managed_runtime_status, restart_managed_environment, start_managed_environment,
+    start_with_spec, stop_managed_environment, verified_surface_binding,
 };

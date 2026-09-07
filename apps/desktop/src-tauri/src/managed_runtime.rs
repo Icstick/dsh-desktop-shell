@@ -165,17 +165,16 @@ pub fn verified_surface_binding(
             eprintln!("[managed-runtime] runtime.binding invoke failed: {error:?}");
             map_daemon_error(error)
         })?;
-    let binding: SurfaceBindingReport = serde_json::from_value(value)
-        .map_err(|_error| ManagedRuntimeError::StateUnavailable)?;
+    let binding: SurfaceBindingReport =
+        serde_json::from_value(value).map_err(|_error| ManagedRuntimeError::StateUnavailable)?;
     if binding.schema_version != 1 {
         return Err(ManagedRuntimeError::StateUnavailable);
     }
     if binding.generation != expected_generation {
         return Err(ManagedRuntimeError::StaleGeneration);
     }
-    let url = tauri::Url::parse(&binding.bootstrap_url).map_err(|_| {
-        ManagedRuntimeError::StateUnavailable
-    })?;
+    let url = tauri::Url::parse(&binding.bootstrap_url)
+        .map_err(|_| ManagedRuntimeError::StateUnavailable)?;
     Ok(VerifiedSurfaceBinding::new(
         binding.generation,
         binding.port,
@@ -382,11 +381,18 @@ mod tests {
     fn verified_surface_binding_uses_daemon_binding_channel() {
         // Healthy + matching generation -> binding with its bootstrap URL
         // (the daemon-only channel; never part of the public report).
-        let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));
+        let connector = MockConnector::ok(binding_json(
+            7,
+            41731,
+            "http://127.0.0.1:41731/?token=abc123",
+        ));
         let binding = verified_surface_binding(&connector, &environment(), 7).expect("binding");
         assert_eq!(binding.generation(), 7);
         assert_eq!(binding.port(), 41731);
-        assert_eq!(binding.url().as_str(), "http://127.0.0.1:41731/?token=abc123");
+        assert_eq!(
+            binding.url().as_str(),
+            "http://127.0.0.1:41731/?token=abc123"
+        );
         let calls = connector.calls();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].1, "runtime.binding");
@@ -394,7 +400,11 @@ mod tests {
 
         // Generation mismatch -> stale (checked locally against the
         // daemon-verified report).
-        let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));
+        let connector = MockConnector::ok(binding_json(
+            7,
+            41731,
+            "http://127.0.0.1:41731/?token=abc123",
+        ));
         let error = verified_surface_binding(&connector, &environment(), 8).expect_err("stale");
         assert!(matches!(error, ManagedRuntimeError::StaleGeneration));
 
@@ -415,7 +425,11 @@ mod tests {
         ));
 
         // expectedGeneration 0 -> stale, before any invocation.
-        let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));
+        let connector = MockConnector::ok(binding_json(
+            7,
+            41731,
+            "http://127.0.0.1:41731/?token=abc123",
+        ));
         let error = verified_surface_binding(&connector, &environment(), 0).expect_err("zero");
         assert!(matches!(error, ManagedRuntimeError::StaleGeneration));
         assert!(connector.calls().is_empty());

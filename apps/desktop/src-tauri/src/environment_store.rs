@@ -422,8 +422,7 @@ mod tests {
             Some("work-dsh")
         );
 
-        let removed =
-            remove_environment(&catalog_path, "local-dsh").expect("remove non-active");
+        let removed = remove_environment(&catalog_path, "local-dsh").expect("remove non-active");
         assert!(removed.environment("local-dsh").is_none());
         assert!(removed.environment("work-dsh").is_some());
         assert!(removed.revision > after_first.revision);

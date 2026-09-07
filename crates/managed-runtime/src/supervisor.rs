@@ -1469,9 +1469,7 @@ fn maybe_send_candidate(line: &[u8], sender: &SyncSender<String>) {
 #[cfg(windows)]
 fn configure_process_group(command: &mut Command) {
     use std::os::windows::process::CommandExt;
-    use windows_sys::Win32::System::Threading::{
-        CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW,
-    };
+    use windows_sys::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
     // CREATE_NEW_PROCESS_GROUP keeps the child in its own process group;
     // CREATE_NO_WINDOW stops the console subsystem child (node) from popping
     // up its own console window next to the Shell.
@@ -1676,18 +1674,22 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .expect("system clock")
                 .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "dsh-managed-repo-test-{}-{id}",
-                std::process::id()
-            ));
+            let path = std::env::temp_dir()
+                .join(format!("dsh-managed-repo-test-{}-{id}", std::process::id()));
             fs::create_dir_all(path.join("apps/cli/src")).expect("repo entry dirs");
             fs::create_dir_all(path.join("scripts")).expect("repo scripts dir");
-            fs::write(path.join("apps/cli/src/bin.ts"), b"console.log('dsh')
-")
-                .expect("entry stub");
-            fs::write(path.join("scripts/register-tsx-esm.mjs"), b"export {};
-")
-                .expect("loader stub");
+            fs::write(
+                path.join("apps/cli/src/bin.ts"),
+                b"console.log('dsh')
+",
+            )
+            .expect("entry stub");
+            fs::write(
+                path.join("scripts/register-tsx-esm.mjs"),
+                b"export {};
+",
+            )
+            .expect("loader stub");
             Self(path)
         }
     }
@@ -1788,8 +1790,12 @@ mod tests {
         ));
         fs::create_dir_all(path.join("apps/cli/src")).expect("entry dir");
         fs::create_dir_all(path.join("node_modules/tsx")).expect("tsx dir");
-        fs::write(path.join("apps/cli/src/bin.ts"), b"console.log('dsh')
-").expect("entry");
+        fs::write(
+            path.join("apps/cli/src/bin.ts"),
+            b"console.log('dsh')
+",
+        )
+        .expect("entry");
         fs::write(
             path.join("node_modules/tsx/package.json"),
             b"{}
@@ -1819,7 +1825,9 @@ mod tests {
         assert_eq!(displays[1], "tsx/esm");
         assert_eq!(
             displays[2],
-            path.join("apps/cli/src/bin.ts").to_string_lossy().into_owned()
+            path.join("apps/cli/src/bin.ts")
+                .to_string_lossy()
+                .into_owned()
         );
         let _ = fs::remove_dir_all(&path);
     }
@@ -1890,7 +1898,10 @@ mod tests {
                 .expect("authenticated candidate");
         assert_eq!(authenticated.endpoint.port, 4317);
         assert_eq!(
-            authenticated.bootstrap_url.expect("marker bootstrap url").as_str(),
+            authenticated
+                .bootstrap_url
+                .expect("marker bootstrap url")
+                .as_str(),
             format!("http://127.0.0.1:4317/?token={token}")
         );
         for invalid in [

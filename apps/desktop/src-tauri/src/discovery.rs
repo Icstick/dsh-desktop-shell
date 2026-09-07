@@ -335,7 +335,10 @@ enum RepoProbeError {
 /// Recognition: root package name `@deepseek-ai/dsh-root` OR the structural
 /// fallback (workspace marker + CLI entry + TS loader all present) so that renamed
 /// forks stay recognizable. Never executes or writes anything.
-fn probe_repository(path: &Path, requested_path: &str) -> Result<(RepositoryInfo, Option<String>), RepoProbeError> {
+fn probe_repository(
+    path: &Path,
+    requested_path: &str,
+) -> Result<(RepositoryInfo, Option<String>), RepoProbeError> {
     let has_workspace = path.join("pnpm-workspace.yaml").is_file();
     let has_entry = path.join(REPO_ENTRY_REL).is_file();
     let has_loader = path.join(REPO_LOADER_REL).is_file();
@@ -641,10 +644,7 @@ mod tests {
         )
         .expect("discover");
         let candidate = &report.candidates[0];
-        assert!(matches!(
-            candidate.status,
-            CandidateStatus::RequiresRecipe
-        ));
+        assert!(matches!(candidate.status, CandidateStatus::RequiresRecipe));
         assert!(!candidate.launchable);
         assert!(has_evidence(candidate, "NOT_A_DSH_REPO"));
     }
@@ -685,10 +685,7 @@ mod tests {
         )
         .expect("discover");
         let candidate = &report.candidates[0];
-        assert!(matches!(
-            candidate.status,
-            CandidateStatus::RequiresRecipe
-        ));
+        assert!(matches!(candidate.status, CandidateStatus::RequiresRecipe));
         assert!(has_evidence(candidate, "REPO_ENTRY_MISSING"));
         assert!(candidate.repository.is_none());
     }
@@ -697,8 +694,7 @@ mod tests {
     fn repo_without_loader_reports_warning() {
         let directory = TestDirectory::new();
         full_repo_markers(&directory);
-        fs::remove_file(directory.0.join("scripts/register-tsx-esm.mjs"))
-            .expect("remove loader");
+        fs::remove_file(directory.0.join("scripts/register-tsx-esm.mjs")).expect("remove loader");
         let report = discover_with_sources(
             request(vec![directory.0.to_string_lossy().into_owned()]),
             None,

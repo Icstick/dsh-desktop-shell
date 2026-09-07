@@ -33,11 +33,12 @@
 use std::path::PathBuf;
 
 use dsh_managed_runtime::{
-    CATALOG_FILE_NAME, CatalogError, ManagedEnvironment, ManagedRuntimeError, ManagedRuntimeReport,
-    ManagedRuntimeBindingRequest, ManagedRuntimeRestartRequest, ManagedRuntimeStartRequest, ManagedRuntimeState,
-    ManagedRuntimeStatusRequest, ManagedRuntimeStopRequest, get_managed_runtime_status,
-    is_valid_id, load_catalog, restart_managed_environment, verified_surface_binding, start_managed_environment,
-    stop_managed_environment,
+    CATALOG_FILE_NAME, CatalogError, ManagedEnvironment, ManagedRuntimeBindingRequest,
+    ManagedRuntimeError, ManagedRuntimeReport, ManagedRuntimeRestartRequest,
+    ManagedRuntimeStartRequest, ManagedRuntimeState, ManagedRuntimeStatusRequest,
+    ManagedRuntimeStopRequest, get_managed_runtime_status, is_valid_id, load_catalog,
+    restart_managed_environment, start_managed_environment, stop_managed_environment,
+    verified_surface_binding,
 };
 
 use crate::capabilities::{CapabilityContext, DaemonMethodError};
@@ -363,11 +364,9 @@ fn managed_error(error: ManagedRuntimeError) -> DaemonMethodError {
             format!("Managed process tree could not be attached: {}", reason),
             true,
         ),
-        ManagedRuntimeError::RuntimeUnavailable(reason) => failed(
-            ErrorCode::Unavailable,
-            reason,
-            true,
-        ),
+        ManagedRuntimeError::RuntimeUnavailable(reason) => {
+            failed(ErrorCode::Unavailable, reason, true)
+        }
         ManagedRuntimeError::StopFailed
         | ManagedRuntimeError::StateUnavailable
         | ManagedRuntimeError::ClockUnavailable => failed(
