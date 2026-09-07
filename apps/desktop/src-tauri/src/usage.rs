@@ -278,7 +278,6 @@ pub(crate) fn observe_runtime_state(
     Ok(())
 }
 
-
 fn record_at(
     service: &UsageService,
     path: &Path,
@@ -330,9 +329,7 @@ fn snapshot_at_with(
         .into_iter()
         .filter(|record| since_unix_ms.is_none_or(|since| record.recorded_at_unix_ms >= since))
         .collect();
-    extra.retain(|record| {
-        since_unix_ms.is_none_or(|since| record.recorded_at_unix_ms >= since)
-    });
+    extra.retain(|record| since_unix_ms.is_none_or(|since| record.recorded_at_unix_ms >= since));
     records.append(&mut extra);
     records.sort_by(|left, right| {
         right
@@ -415,9 +412,7 @@ fn dsh_records_from_ledger(ledger: &Path, since_unix_ms: Option<u64>) -> Vec<Usa
                     .get("output")
                     .and_then(serde_json::Value::as_u64)
                     .unwrap_or(0),
-                cache_read_tokens: session
-                    .get("cacheRead")
-                    .and_then(serde_json::Value::as_u64),
+                cache_read_tokens: session.get("cacheRead").and_then(serde_json::Value::as_u64),
                 cost: session.get("cost").and_then(serde_json::Value::as_f64),
                 currency: Some(currency.clone()),
                 is_estimate: false,
@@ -1203,10 +1198,7 @@ mod tests {
         std::fs::write(ledger_dir.join("ledger.json"), LEDGER_FIXTURE).expect("write fixture");
         let snapshot = snapshot_with_dsh(&path, Some(&dir.0), None).expect("snapshot");
         assert_eq!(snapshot.records.len(), 3);
-        assert_eq!(
-            snapshot.totals.input_tokens,
-            100 + 21476 + 572
-        );
+        assert_eq!(snapshot.totals.input_tokens, 100 + 21476 + 572);
         assert_eq!(snapshot.totals.output_tokens, 50 + 6161 + 4452);
         assert_eq!(snapshot.totals.estimate_count, 1);
         // cost: the CNY dsh records anchor the total currency (most recent

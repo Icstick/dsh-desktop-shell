@@ -1532,8 +1532,7 @@ fn install_windows_deny_hooks(
                                         == COREWEBVIEW2_WEB_ERROR_STATUS_REDIRECT_FAILED
                                     || error_status
                                         == COREWEBVIEW2_WEB_ERROR_STATUS_CONNECTION_ABORTED
-                                    || error_status
-                                        == COREWEBVIEW2_WEB_ERROR_STATUS_DISCONNECTED;
+                                    || error_status == COREWEBVIEW2_WEB_ERROR_STATUS_DISCONNECTED;
                                 if !cancelled {
                                     let _ = mark_browser_load_failed(
                                         &state,
@@ -2490,7 +2489,9 @@ mod tests {
         // a NotFound no-op; the daemon record carries the audit trail.
         let mirror = state.inner.lock().expect("state").registry().list();
         assert!(
-            mirror.iter().all(|session| session.session_id != "brw-orphan"),
+            mirror
+                .iter()
+                .all(|session| session.session_id != "brw-orphan"),
             "orphan never entered the fresh mirror"
         );
     }

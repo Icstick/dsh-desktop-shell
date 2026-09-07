@@ -523,7 +523,7 @@ fn truncate_error(text: &str, max_chars: usize) -> String {
         return text.to_string();
     }
     let mut truncated: String = text.chars().take(max_chars).collect();
-    truncated.push_str("…");
+    truncated.push('…');
     truncated
 }
 

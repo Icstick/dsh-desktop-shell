@@ -1,0 +1,29 @@
+schema_version: 1
+id: WI-M9-STARTUP-ROLLBACK
+title: "Managed startup rollback (repo checkout / plugin load failure)"
+status: planned
+milestone: M9
+module: MOD-MANAGED-RUNTIME
+owner_role: runtime-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "When a managed DSH repo upgrade or profile/plugin load leaves the instance unable to start, the supervisor rolls back to the last-known-good state and restarts."
+  - "Two rollback classes: repo checkout (git last-good commit, dirty-tree safety) and profile/plugin snapshot (dshHome load-area restore)."
+  - "Sessions/ledgers never roll back with the tree."
+  - "Rollback only under explicit policy; bounded attempts; full audit trail."
+security_impact: "High - rollback mutates the source checkout and dshHome; wrong rollback is worse than none. ADR-first design with safety analysis."
+compatibility_impact: "Managed start/restart semantics gain a rollback phase; runtime report may surface rollback state."
+scope:
+  - crates/managed-runtime/
+  - crates/daemon/ (start lifecycle hooks)
+  - specs/protocol + reports
+  - tracking/
+evidence: []
+blocked_by: []
+next_action: "ADR draft: trigger definition (startup crash / readiness timeout), last-good bookkeeping, dirty-tree policy, plugin snapshot strategy, budget, UX surfacing."
+handoff: null
+updated_at: "2026-09-07T15:00:00.000Z"
