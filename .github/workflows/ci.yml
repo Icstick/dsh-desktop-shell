@@ -52,6 +52,20 @@ jobs:
       - name: Format check
         run: cargo fmt --all --check
 
+      # tauri-build resolves the daemon externalBin at compile time and
+      # panics when the sidecar is missing (binaries/ is git-ignored), so
+      # stage a debug daemon with the target-triple name before any Rust
+      # compile step (clippy / tests / debug build).
+      - name: Stage daemon sidecar (debug)
+        shell: bash
+        run: |
+          cargo build -p dsh-daemon --bin dsh-desktop-daemon
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then EXT=".exe"; fi
+          mkdir -p apps/desktop/src-tauri/binaries
+          cp "target/debug/dsh-desktop-daemon$EXT" "apps/desktop/src-tauri/binaries/dsh-desktop-daemon-$TRIPLE$EXT"
+
       - name: Clippy (deny warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
