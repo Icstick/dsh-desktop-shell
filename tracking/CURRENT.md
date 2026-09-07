@@ -1,5 +1,15 @@
 # Current Project State
 
+## v0.2.0 released (2026-09-07)
+
+- Theme (3ec677b) + browser multi-session tabs (5569545) + stability
+  fixes shipped; tag moved to 1a63c5d after fmt/clippy/specs/CI-sidecar
+  gate fixes (all green); SLSA attestation enabled (repo public).
+- Windows packages locally signed (self-signed cert 1B6A576C); SBOMs
+  uploaded (12 files); Chinese release notes; release branch synced.
+- Open backlog: 0.2.1 stable items (M6-C/C4 TODOs, live-daemon-qa CI),
+  timer UI (WI-M9-TIMER-UI), startup rollback (WI-M9-STARTUP-ROLLBACK).
+
 ## Merged on main (2026-09-07)
 
 - 3ec677b DeepSeek character theme (WI-M8-DEEPSEEK-UI) squash-merged to
