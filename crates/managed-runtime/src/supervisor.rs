@@ -833,7 +833,7 @@ pub fn start_with_spec(
         return Err(ManagedRuntimeError::StaleGeneration);
     }
     supervisor.state = Some(ManagedState::Healthy);
-    supervisor.endpoint = Some(candidate.endpoint.clone());
+    supervisor.endpoint = Some(candidate.endpoint);
     supervisor.bootstrap_url = candidate.bootstrap_url.clone();
     supervisor.evidence = vec![if candidate.bootstrap_url.is_some() {
         evidence(

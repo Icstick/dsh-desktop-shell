@@ -108,8 +108,10 @@ fn main() -> ExitCode {
     // invoke failing as a closed transport. Raise the idle deadline to 24h:
     // the Shell restarts daily and the credential-lease maintenance keeps
     // the file token fresh while the daemon idles (M6 bootstrap fix).
-    let mut limits = Limits::default();
-    limits.read_deadline = std::time::Duration::from_secs(24 * 60 * 60);
+    let limits = Limits {
+        read_deadline: std::time::Duration::from_secs(24 * 60 * 60),
+        ..Limits::default()
+    };
     let server = match DaemonServer::bind(limits, claim_port) {
         Ok(server) => server,
         Err(error) => {

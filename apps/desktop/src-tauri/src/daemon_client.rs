@@ -266,7 +266,7 @@ enum ClientCommand {
 /// invocation could be sent. The marker surfaces as a Transport error
 /// (a connection failure), never as a Remote daemon answer.
 enum ClientReply {
-    Result(Envelope),
+    Result(Box<Envelope>),
     TransportClosed,
 }
 
@@ -739,7 +739,7 @@ fn worker_loop(
                             if let Some(id) = envelope.reply_to.clone()
                                 && let Some(reply) = pending.remove(&id)
                             {
-                                let _ = reply.send(ClientReply::Result(envelope));
+                                let _ = reply.send(ClientReply::Result(Box::new(envelope)));
                             }
                         }
                         _ => {}
