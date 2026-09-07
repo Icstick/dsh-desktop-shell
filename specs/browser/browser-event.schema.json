@@ -23,7 +23,8 @@
         "navigation_changed",
         "load_failed",
         "closed",
-        "created"
+        "created",
+        "title_changed"
       ]
     },
     "occurredAtUnixMs": {
@@ -36,6 +37,13 @@
         "null"
       ],
       "maxLength": 2048
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1024
     }
   }
 }

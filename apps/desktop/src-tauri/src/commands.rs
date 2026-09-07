@@ -1412,12 +1412,18 @@ pub async fn close_browser(
 
 #[tauri::command]
 pub async fn list_browsers(
+    browser_state: State<'_, crate::browser::BrowserState>,
     daemon: State<'_, crate::daemon_client::DaemonClientState>,
 ) -> Result<Vec<crate::browser::BrowserReport>, crate::browser::BrowserCommandError> {
     let connector = daemon
         .connector()
         .ok_or_else(crate::browser::BrowserCommandError::daemon_unavailable)?;
-    crate::browser::list_browsers(connector.as_ref()).await
+    let reports = crate::browser::list_browsers(connector.as_ref()).await?;
+    // Sessions left over from a previous Shell process have no render
+    // window here; close them so the tabbed panel never shows dead tabs
+    // (WI-M9-BROWSER-TABS). Sessions this process renders are untouched.
+    crate::browser::close_orphan_sessions(connector.as_ref(), &browser_state, &reports).await;
+    Ok(reports)
 }
 
 #[tauri::command]

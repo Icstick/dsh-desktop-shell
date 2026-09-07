@@ -12,6 +12,8 @@ pub enum BrowserEventKind {
     LoadFailed,
     /// The session was closed.
     Closed,
+    /// The document title changed (host window state; WI-M9-BROWSER-TABS).
+    TitleChanged,
 }
 
 impl BrowserEventKind {
@@ -21,6 +23,7 @@ impl BrowserEventKind {
             Self::NavigationChanged => "navigation_changed",
             Self::LoadFailed => "load_failed",
             Self::Closed => "closed",
+            Self::TitleChanged => "title_changed",
         }
     }
 }
@@ -36,6 +39,9 @@ pub struct BrowserEvent {
     pub occurred_at_unix_ms: u64,
     /// The URL involved; `None` for `closed` events.
     pub url: Option<String>,
+    /// Current document title; `Some` for `title_changed` events
+    /// (WI-M9-BROWSER-TABS).
+    pub title: Option<String>,
 }
 
 impl BrowserEvent {
@@ -44,12 +50,16 @@ impl BrowserEvent {
     /// Field names mirror `browser-report.schema.json` conventions so the
     /// bridge can forward events without re-mapping.
     pub fn to_json(&self) -> String {
+        let title = match &self.title {
+            Some(title) => format!("\"{}\"", json_escape(title)),
+            None => "null".to_string(),
+        };
         let url = match &self.url {
             Some(url) => format!("\"{}\"", json_escape(url)),
             None => "null".to_string(),
         };
         format!(
-            "{{\"sessionId\":\"{}\",\"kind\":\"{}\",\"occurredAtUnixMs\":{},\"url\":{url}}}",
+            "{{\"sessionId\":\"{}\",\"kind\":\"{}\",\"occurredAtUnixMs\":{},\"url\":{url},\"title\":{title}}}",
             json_escape(&self.session_id),
             self.kind.as_str(),
             self.occurred_at_unix_ms
@@ -90,6 +100,7 @@ mod tests {
         );
         assert_eq!(BrowserEventKind::LoadFailed.as_str(), "load_failed");
         assert_eq!(BrowserEventKind::Closed.as_str(), "closed");
+        assert_eq!(BrowserEventKind::TitleChanged.as_str(), "title_changed");
     }
 
     #[test]
@@ -99,10 +110,11 @@ mod tests {
             kind: BrowserEventKind::NavigationChanged,
             occurred_at_unix_ms: 1234,
             url: Some("https://example.com".to_string()),
+            title: None,
         };
         assert_eq!(
             event.to_json(),
-            "{\"sessionId\":\"brw-1000-1\",\"kind\":\"navigation_changed\",\"occurredAtUnixMs\":1234,\"url\":\"https://example.com\"}"
+            "{\"sessionId\":\"brw-1000-1\",\"kind\":\"navigation_changed\",\"occurredAtUnixMs\":1234,\"url\":\"https://example.com\",\"title\":null}"
         );
     }
 
@@ -113,10 +125,11 @@ mod tests {
             kind: BrowserEventKind::Closed,
             occurred_at_unix_ms: 5678,
             url: None,
+            title: None,
         };
         assert_eq!(
             event.to_json(),
-            "{\"sessionId\":\"brw-1000-1\",\"kind\":\"closed\",\"occurredAtUnixMs\":5678,\"url\":null}"
+            "{\"sessionId\":\"brw-1000-1\",\"kind\":\"closed\",\"occurredAtUnixMs\":5678,\"url\":null,\"title\":null}"
         );
     }
 
@@ -127,6 +140,7 @@ mod tests {
             kind: BrowserEventKind::NavigationChanged,
             occurred_at_unix_ms: 1,
             url: Some("https://example.com/?q=\"a\\b\"".to_string()),
+            title: None,
         };
         let json = event.to_json();
         assert!(json.contains("?q=\\\"a\\\\b\\\""));

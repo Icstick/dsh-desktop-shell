@@ -1,0 +1,40 @@
+schema_version: 1
+id: WI-M9-BROWSER-TABS
+title: "Browser surface multi-session tabs with document titles"
+status: review
+milestone: M9
+module: MOD-BROWSER-UI
+owner_role: ui-owner
+claimed_by: null
+session: SESSION-20260907-BROWSER-TABS
+branch_or_worktree: feat/browser-multisession
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Multiple live browser sessions coexist; opening a URL never navigates an unrelated session."
+  - "Tab strip lists every live session with its document title (Chrome-style), new-tab button, per-tab close, and click-to-switch active session."
+  - "Panel remount (surface switch) restores all live sessions from listBrowsers."
+  - "Events route per sessionId (navigation_changed / load_failed / title_changed / closed)."
+  - "Typecheck, frontend tests, build and schema fixture validation pass."
+security_impact: "Presentation only; no bridge, API surface, state machine or backend behavior changes. WebView windows remain session-isolated profiles (ADR-0017 d3); the arbitrary page never gets Desktop IPC."
+compatibility_impact: "browser-event schema gains a title_changed kind and optional title payload; existing event fixtures stay valid (title optional). browser-report unchanged (titles are host-window state, restored with fallback after remount)."
+scope:
+  - crates/browser-provider/
+  - specs/browser/
+  - apps/desktop/src-tauri/src/browser.rs
+  - apps/desktop/features/browser-ui/
+  - apps/desktop/src/contracts.ts
+  - apps/desktop/src/i18n.tsx
+  - apps/desktop/features/shell-ui/src/shell.css (tab styles, dark theme baseline)
+  - tracking/
+notes:
+  - "User report: the browser surface cannot multi-open; each new URL replaces the page in the only WebView window, so an agent driving the page and a human researching collide."
+  - "Architecture: daemon owns the SessionRegistry authority; the host keeps a mirror registry whose drain_events feed browser://event (host emit). Document titles arrive via WebviewWindowBuilder::on_document_title_changed (tauri 2.11) and flow into the mirror registry as TitleChanged events — no daemon or report schema change."
+evidence:
+  - "pnpm check / test 111/111 (19 browser cases incl. multi-session) / build"
+  - "cargo test -p dsh-browser-provider 34/34; cargo test -p dsh-desktop-shell browser"
+  - "specs/browser/browser-event.schema.json + fixtures (title_changed)"
+blocked_by: []
+next_action: "Live GUI acceptance: two tabs navigating independently with document titles; then merge to main."
+handoff: null
+updated_at: "2026-09-07T13:10:00.000Z"

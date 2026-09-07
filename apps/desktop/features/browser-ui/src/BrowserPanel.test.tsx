@@ -51,15 +51,20 @@ function report(overrides: Partial<BrowserReport> = {}): BrowserReport {
   };
 }
 
-function createApi(): DesktopApi {
+function createApi(seedSeq = 0): DesktopApi {
+  let seq = seedSeq;
   return {
-    createBrowser: vi.fn().mockResolvedValue(report({ state: "created", currentUrl: null })),
+    createBrowser: vi.fn().mockImplementation(async () =>
+      report({ sessionId: `brw-test-${++seq}`, state: "created", currentUrl: null }),
+    ),
     navigateBrowser: vi
       .fn()
       .mockImplementation(async (request: { sessionId: string; url: string }) =>
-        report({ state: "ready", currentUrl: request.url }),
+        report({ sessionId: request.sessionId, state: "ready", currentUrl: request.url }),
       ),
-    closeBrowser: vi.fn().mockResolvedValue(report({ state: "closed", currentUrl: null })),
+    closeBrowser: vi.fn().mockImplementation(async (request: { sessionId: string }) =>
+      report({ sessionId: request.sessionId, state: "closed", currentUrl: null }),
+    ),
     listBrowsers: vi.fn().mockResolvedValue([]),
     snapshotBrowser: vi.fn().mockResolvedValue({ ...report(), text: "Example Domain" }),
   } as unknown as DesktopApi;
@@ -71,10 +76,22 @@ function emit(payload: BrowserEvent) {
   });
 }
 
-// The session id appears both in the panel chrome and the state grid.
-// The recovery effect is async, so always await the session label.
-function sessionLabel() {
-  return screen.findByText("brw-test-1", { selector: ".browser-panel__session" });
+function event(overrides: Partial<BrowserEvent>): BrowserEvent {
+  return {
+    schemaVersion: 1,
+    sessionId: "brw-test-1",
+    kind: "navigation_changed",
+    occurredAtUnixMs: 1787792400200,
+    url: "https://example.com/",
+    title: null,
+    ...overrides,
+  };
+}
+
+// The recovery effect is async, so always await the active session marker:
+// the definition-grid row shows the full session id.
+async function sessionGridValue() {
+  return screen.findByText("brw-test-1", { selector: ".browser-panel__session-id" });
 }
 
 describe("BrowserPanel", () => {
@@ -117,7 +134,7 @@ describe("BrowserPanel", () => {
     expect(
       screen.getByText("https://example.com", { selector: ".browser-panel__url-value" }),
     ).toBeInTheDocument();
-    expect(await sessionLabel()).toBeInTheDocument();
+    expect(await sessionGridValue()).toBeInTheDocument();
   });
 
   it("submits on Enter for keyboard-only operation", async () => {
@@ -141,16 +158,16 @@ describe("BrowserPanel", () => {
     });
   });
 
-  it("recovers a live session and navigates it without creating another", async () => {
+  it("fills a never-navigated tab in place", async () => {
     const api = createApi();
     vi.mocked(api.listBrowsers).mockResolvedValue([
-      report({ state: "ready", currentUrl: "https://example.com/" }),
+      report({ state: "created", currentUrl: null }),
     ]);
     const user = userEvent.setup();
     renderPanel(api);
 
     const input = await screen.findByRole("textbox", { name: "Browser URL" });
-    expect(await sessionLabel()).toBeInTheDocument();
+    expect(await sessionGridValue()).toBeInTheDocument();
     await user.clear(input);
     await user.type(input, "https://dsh.local/");
     await user.click(screen.getByRole("button", { name: "Open" }));
@@ -163,6 +180,33 @@ describe("BrowserPanel", () => {
     });
   });
 
+  it("opening a URL never displaces a navigated tab: it creates a new one", async () => {
+    const api = createApi(1);
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ sessionId: "brw-test-1", state: "ready", currentUrl: "https://one.example/" }),
+    ]);
+    const user = userEvent.setup();
+    renderPanel(api);
+
+    const input = await screen.findByRole("textbox", { name: "Browser URL" });
+    expect(await sessionGridValue()).toBeInTheDocument();
+    await user.clear(input);
+    await user.type(input, "https://two.example/");
+    await user.click(screen.getByRole("button", { name: "Open" }));
+
+    // A new session is created and navigated; the original tab is intact.
+    expect(api.createBrowser).toHaveBeenCalledTimes(1);
+    expect(api.navigateBrowser).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      sessionId: "brw-test-2",
+      url: "https://two.example/",
+    });
+    expect(screen.getByRole("tab", { name: "one.example" })).toBeInTheDocument();
+    expect(
+      await screen.findByText("brw-test-2", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+  });
+
   it("reloads the committed URL", async () => {
     const api = createApi();
     vi.mocked(api.listBrowsers).mockResolvedValue([
@@ -171,7 +215,7 @@ describe("BrowserPanel", () => {
     const user = userEvent.setup();
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
+    expect(await sessionGridValue()).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Reload" }));
 
     expect(api.navigateBrowser).toHaveBeenCalledWith({
@@ -188,7 +232,7 @@ describe("BrowserPanel", () => {
     ]);
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
+    expect(await sessionGridValue()).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeDisabled();
   });
 
@@ -200,7 +244,7 @@ describe("BrowserPanel", () => {
     const user = userEvent.setup();
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
+    expect(await sessionGridValue()).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close" }));
 
     expect(api.closeBrowser).toHaveBeenCalledWith({
@@ -217,14 +261,8 @@ describe("BrowserPanel", () => {
     ]);
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
-    emit({
-      schemaVersion: 1,
-      sessionId: "brw-test-1",
-      kind: "navigation_changed",
-      occurredAtUnixMs: 1787792400200,
-      url: "https://news.example/",
-    });
+    expect(await sessionGridValue()).toBeInTheDocument();
+    emit(event({ kind: "navigation_changed", url: "https://news.example/" }));
 
     expect(screen.getByRole("textbox", { name: "Browser URL" })).toHaveValue(
       "https://news.example/",
@@ -242,14 +280,8 @@ describe("BrowserPanel", () => {
     ]);
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
-    emit({
-      schemaVersion: 1,
-      sessionId: "brw-other-1",
-      kind: "navigation_changed",
-      occurredAtUnixMs: 1787792400200,
-      url: "https://other.example/",
-    });
+    expect(await sessionGridValue()).toBeInTheDocument();
+    emit(event({ sessionId: "brw-other-1", url: "https://other.example/" }));
 
     expect(screen.getByRole("textbox", { name: "Browser URL" })).toHaveValue(
       "https://example.com/",
@@ -263,14 +295,11 @@ describe("BrowserPanel", () => {
     ]);
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
-    emit({
-      schemaVersion: 1,
-      sessionId: "brw-test-1",
+    expect(await sessionGridValue()).toBeInTheDocument();
+    emit(event({
       kind: "load_failed",
-      occurredAtUnixMs: 1787792400300,
       url: "https://broken.example/",
-    });
+    }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Page failed to load: https://broken.example/",
@@ -285,14 +314,8 @@ describe("BrowserPanel", () => {
     ]);
     renderPanel(api);
 
-    expect(await sessionLabel()).toBeInTheDocument();
-    emit({
-      schemaVersion: 1,
-      sessionId: "brw-test-1",
-      kind: "closed",
-      occurredAtUnixMs: 1787792400400,
-      url: null,
-    });
+    expect(await sessionGridValue()).toBeInTheDocument();
+    emit(event({ kind: "closed", url: null }));
 
     expect(screen.getByText("no browser session")).toBeInTheDocument();
   });
@@ -307,13 +330,7 @@ describe("BrowserPanel", () => {
 
     const input = await screen.findByRole("textbox", { name: "Browser URL" });
     await user.click(input);
-    emit({
-      schemaVersion: 1,
-      sessionId: "brw-test-1",
-      kind: "navigation_changed",
-      occurredAtUnixMs: 1787792400200,
-      url: "https://redirected.example/",
-    });
+    emit(event({ url: "https://redirected.example/" }));
 
     expect(input).toHaveValue("https://example.com/");
   });
@@ -344,10 +361,149 @@ describe("BrowserPanel", () => {
     await user.type(screen.getByRole("textbox", { name: "Browser URL" }), "example.com");
     await user.click(screen.getByRole("button", { name: "Open" }));
 
+    expect(api.createBrowser).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores multiple live sessions as tabs", async () => {
+    const api = createApi();
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ sessionId: "brw-test-1", currentUrl: "https://one.example/" }),
+      report({ sessionId: "brw-test-2", currentUrl: "https://two.example/" }),
+    ]);
+    renderPanel(api);
+
+    expect(await screen.findByRole("tab", { name: "one.example" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "two.example" })).toBeInTheDocument();
+    // First session is active and its URL is in the bar.
+    expect(screen.getByRole("textbox", { name: "Browser URL" })).toHaveValue(
+      "https://one.example/",
+    );
+    expect(
+      screen.getByText("brw-test-1", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+  });
+
+  it("new-tab creates and activates a second session", async () => {
+    // brw-test-1 is already restored from listBrowsers; the new session
+    // must get the next id.
+    const api = createApi(1);
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ currentUrl: "https://one.example/" }),
+    ]);
+    const user = userEvent.setup();
+    renderPanel(api);
+
+    expect(await sessionGridValue()).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "New tab" }));
+
     expect(api.createBrowser).toHaveBeenCalledWith({
       schemaVersion: 1,
       mode: "human_surface",
     });
-    expect(await sessionLabel()).toBeInTheDocument();
+    expect(
+      await screen.findByText("brw-test-2", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+    // The new tab is active; the old session is still listed.
+    expect(screen.getByRole("tab", { name: "one.example" })).toBeInTheDocument();
+  });
+
+  it("does not displace the active navigated tab when opening another URL", async () => {
+    const api = createApi(2);
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ sessionId: "brw-test-1", currentUrl: "https://one.example/" }),
+      report({ sessionId: "brw-test-2", currentUrl: "https://two.example/" }),
+    ]);
+    const user = userEvent.setup();
+    renderPanel(api);
+
+    // Activate the second tab.
+    await user.click(await screen.findByRole("tab", { name: "two.example" }));
+    expect(
+      await screen.findByText("brw-test-2", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+
+    await user.clear(screen.getByRole("textbox", { name: "Browser URL" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Browser URL" }),
+      "https://three.example/",
+    );
+    await user.click(screen.getByRole("button", { name: "Open" }));
+
+    // A fresh tab is created and navigated; the active tab was NOT bumped.
+    expect(api.createBrowser).toHaveBeenCalledTimes(1);
+    expect(api.navigateBrowser).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      sessionId: "brw-test-3",
+      url: "https://three.example/",
+    });
+    expect(screen.getByRole("tab", { name: "two.example" })).toBeInTheDocument();
+    expect(
+      await screen.findByText("brw-test-3", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+  });
+
+  it("updates a tab label from title_changed events", async () => {
+    const api = createApi();
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ sessionId: "brw-test-1", currentUrl: "https://one.example/" }),
+      report({ sessionId: "brw-test-2", currentUrl: "https://two.example/" }),
+    ]);
+    renderPanel(api);
+
+    await screen.findByRole("tab", { name: "one.example" });
+    emit(event({
+      sessionId: "brw-test-2",
+      kind: "title_changed",
+      url: "https://two.example/",
+      title: "Two Docs",
+    }));
+
+    expect(screen.getByRole("tab", { name: "Two Docs" })).toBeInTheDocument();
+    // The other tab still falls back to its host.
+    expect(screen.getByRole("tab", { name: "one.example" })).toBeInTheDocument();
+  });
+
+  it("closing the active tab switches to a neighbour", async () => {
+    const api = createApi();
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ sessionId: "brw-test-1", currentUrl: "https://one.example/" }),
+      report({ sessionId: "brw-test-2", currentUrl: "https://two.example/" }),
+    ]);
+    const user = userEvent.setup();
+    renderPanel(api);
+
+    await user.click(await screen.findByRole("tab", { name: "two.example" }));
+    expect(
+      await screen.findByText("brw-test-2", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(api.closeBrowser).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      sessionId: "brw-test-2",
+    });
+    // Neighbouring tab takes over and its URL fills the bar.
+    expect(
+      await screen.findByText("brw-test-1", { selector: ".browser-panel__session-id" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Browser URL" })).toHaveValue(
+      "https://one.example/",
+    );
+  });
+
+  it("switching tabs refills the URL bar", async () => {
+    const api = createApi();
+    vi.mocked(api.listBrowsers).mockResolvedValue([
+      report({ sessionId: "brw-test-1", currentUrl: "https://one.example/" }),
+      report({ sessionId: "brw-test-2", currentUrl: "https://two.example/" }),
+    ]);
+    const user = userEvent.setup();
+    renderPanel(api);
+
+    await user.click(await screen.findByRole("tab", { name: "two.example" }));
+
+    expect(screen.getByRole("textbox", { name: "Browser URL" })).toHaveValue(
+      "https://two.example/",
+    );
   });
 });

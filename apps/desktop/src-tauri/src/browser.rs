@@ -509,6 +509,7 @@ pub struct BrowserEventPayload {
     kind: String,
     occurred_at_unix_ms: u64,
     url: Option<String>,
+    title: Option<String>,
 }
 
 fn public_report(session: BrowserSession) -> BrowserReport {
@@ -964,6 +965,34 @@ pub(crate) async fn list_browsers(
     Ok(payload.browsers)
 }
 
+pub(crate) async fn close_orphan_sessions(
+    connector: &dyn DaemonConnector,
+    state: &BrowserState,
+    reports: &[BrowserReport],
+) {
+    for report in reports {
+        if report.state == "closed" {
+            continue;
+        }
+        let rendered = state
+            .inner
+            .lock()
+            .map(|bridge| bridge.windows.contains_key(&report.session_id))
+            .unwrap_or(false);
+        if rendered {
+            continue;
+        }
+        let payload = serde_json::json!({
+            "schemaVersion": 1,
+            "sessionId": report.session_id,
+        });
+        let _ = connector.invoke(browser_coordinate(), BROWSER_CLOSE_METHOD, payload);
+        if let Ok(mut bridge) = state.inner.lock() {
+            let _ = bridge.registry().close(&report.session_id);
+        }
+    }
+}
+
 // --------------------- Agent interact / human takeover (M5-E3, AC-BRW-002) ---------------------
 
 /// M5-E3: authorize one agent interact against the broker dispatch gate
@@ -1310,6 +1339,7 @@ fn spawn_browser_window(
     let profile_dir = browser_profile_dir(app, &session_id)?;
     let page_state = state.clone();
     let page_session_id = session_id.clone();
+    let title_state = page_state.clone();
     #[cfg(windows)]
     let blocked_navigation = Arc::new(AtomicBool::new(false));
     #[cfg(windows)]
@@ -1344,6 +1374,19 @@ fn spawn_browser_window(
         let url = payload.url().as_str().to_string();
         if payload.event() == PageLoadEvent::Finished && url != "about:blank" {
             let _ = mark_browser_ready(&page_state, &page_session_id);
+        }
+    })
+    // Document titles flow into the mirror registry (WI-M9-BROWSER-TABS):
+    // the host drains registry events to browser://event, so tab titles
+    // reach the surface without any daemon or report schema change. The
+    // label embeds the session id (BROWSER_WINDOW_LABEL_PREFIX + id).
+    .on_document_title_changed(move |window, title| {
+        let label = window.label();
+        if let Some(session_id) = label.strip_prefix(BROWSER_WINDOW_LABEL_PREFIX) {
+            let Ok(mut bridge) = title_state.inner.lock() else {
+                return;
+            };
+            let _ = bridge.registry().set_title(session_id, &title);
         }
     });
 
@@ -1567,6 +1610,7 @@ pub(crate) fn drain_events(app: &AppHandle, state: &BrowserState) {
             kind: event.kind.as_str().to_string(),
             occurred_at_unix_ms: event.occurred_at_unix_ms,
             url: event.url,
+            title: event.title,
         };
         let _ = app.emit(EVENT_NAME, payload);
     }
@@ -1946,6 +1990,7 @@ mod tests {
             kind: "navigation_changed".to_string(),
             occurred_at_unix_ms: 1787000001000,
             url: Some("https://example.com/".to_string()),
+            title: None,
         };
         let actual = serde_json::to_value(&event).expect("serialize");
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
@@ -2411,6 +2456,43 @@ mod tests {
             Err(_) => return Vec::new(),
         };
         sessions.into_iter().map(public_report).collect()
+    }
+
+    #[test]
+    fn close_orphan_sessions_closes_unrendered_daemon_sessions() {
+        let connector = MockConnector::ok(daemon_report_json("brw-closed"));
+        let state = BrowserState::default();
+        let reports: Vec<BrowserReport> = [
+            daemon_report_json("brw-rendered"),
+            daemon_report_json("brw-orphan"),
+        ]
+        .into_iter()
+        .map(|json| serde_json::from_value(json).expect("report"))
+        .collect();
+        // brw-rendered has a live local window; brw-orphan does not.
+        state
+            .inner
+            .lock()
+            .expect("state")
+            .windows
+            .insert("brw-rendered".to_string(), ());
+
+        futures_block_on(close_orphan_sessions(&connector, &state, &reports));
+
+        let calls = connector.calls();
+        let closes: Vec<&(String, String, serde_json::Value)> = calls
+            .iter()
+            .filter(|(_, method, _)| method == BROWSER_CLOSE_METHOD)
+            .collect();
+        assert_eq!(closes.len(), 1, "only the unrendered session closes");
+        assert_eq!(closes[0].2["sessionId"], "brw-orphan");
+        // A fresh Shell never attached the orphan, so the mirror close is
+        // a NotFound no-op; the daemon record carries the audit trail.
+        let mirror = state.inner.lock().expect("state").registry().list();
+        assert!(
+            mirror.iter().all(|session| session.session_id != "brw-orphan"),
+            "orphan never entered the fresh mirror"
+        );
     }
 
     // ------------------------------------------------------------------

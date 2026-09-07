@@ -1,0 +1,17 @@
+schema_version: 1
+id: SESSION-20260907-BROWSER-TABS
+work_item: WI-M9-BROWSER-TABS
+branch: feat/browser-multisession
+opened_at: "2026-09-07T13:10:00.000Z"
+focus: "Multi-session browser tabs + document titles (user-reported collision: agent navigation replaces human browsing)."
+environment:
+  - "main @ 654c4cf baseline (dark theme); DeepSeek character theme stays on feat/deepseek-character-ui (unmerged)."
+plan:
+  - "1 contract: browser-event schema/type gain title_changed kind + optional title; fixtures."
+  - "2 provider: BrowserEvent title field + TitleChanged kind + session.set_title mirror API."
+  - "3 host: on_document_title_changed -> mirror registry set_title -> drain emit."
+  - "4 panel: tab strip (list live sessions, new/close/switch), per-session event routing, remount restore."
+  - "5 i18n + shell.css tab styles (dark baseline)."
+  - "6 tests: adapt BrowserPanel suite, add multi-session cases; provider/host unit tests."
+  - "7 verify: pnpm check/test/build, schema validation; live GUI acceptance by user."
+open_questions: []

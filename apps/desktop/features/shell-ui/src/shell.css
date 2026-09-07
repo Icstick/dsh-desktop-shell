@@ -1291,6 +1291,110 @@ textarea:focus-visible {
   background: #ffffff;
 }
 
+.browser-panel__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.browser-panel__tab {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  min-height: 28px;
+  border: 1px solid #2c3848;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #10161f;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.browser-panel__tab:hover {
+  border-color: #3a4a61;
+}
+
+.browser-panel__tab.is-active,
+.browser-panel__tab[data-active="true"] {
+  border-color: #486caa;
+  background: #1a2740;
+}
+
+.browser-panel__tab-select {
+  min-width: 0;
+  flex: 1;
+  padding: 5px 4px 5px 10px;
+  overflow: hidden;
+  border: 0;
+  color: #9fb0c6;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-panel__tab-select:hover {
+  color: #dce7f7;
+}
+
+.browser-panel__tab.is-active .browser-panel__tab-select,
+.browser-panel__tab[data-active="true"] .browser-panel__tab-select {
+  color: #f3f7ff;
+  font-weight: 600;
+}
+
+.browser-panel__tab-close {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 26px;
+  border: 0;
+  border-left: 1px solid #2c3848;
+  color: #7f8ea3;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.browser-panel__tab-close:hover:not(:disabled) {
+  color: #ffd7dd;
+  background: #3a2230;
+}
+
+.browser-panel__tab-close:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.browser-panel__new-tab {
+  flex-shrink: 0;
+  min-width: 28px;
+  height: 28px;
+  border: 1px dashed #3a4a61;
+  border-radius: 8px;
+  color: #8f9fb4;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.browser-panel__new-tab:hover:not(:disabled) {
+  border-color: #6693d7;
+  color: #dce7f7;
+  background: #151f30;
+}
+
+.browser-panel__new-tab:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .browser-panel__chrome {
   display: flex;
   align-items: center;
@@ -2922,3 +3026,54 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .browser-panel .definition-grid, .shell-app[data-surface="usage"] .panel > .definition-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
 @media (max-width: 1000px) { .browser-panel .definition-grid, .shell-app[data-surface="usage"] .panel > .definition-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 480px) { .browser-panel .definition-grid, .shell-app[data-surface="usage"] .panel > .definition-grid { grid-template-columns: 1fr; } }
+
+/* Browser tab strip, marine theme overlay (WI-M9-BROWSER-TABS; the base
+   block above is dark-theme and sits before the theme layer). */
+.browser-panel__tab {
+  border-color: #c8d8e6;
+  background: #f4f8fc;
+}
+
+.browser-panel__tab:hover {
+  border-color: #9fbad4;
+}
+
+.browser-panel__tab.is-active,
+.browser-panel__tab[data-active="true"] {
+  border-color: #467caf;
+  background: #e6f0fa;
+}
+
+.browser-panel__tab-select {
+  color: #55708c;
+}
+
+.browser-panel__tab-select:hover {
+  color: #1f3a5c;
+}
+
+.browser-panel__tab.is-active .browser-panel__tab-select,
+.browser-panel__tab[data-active="true"] .browser-panel__tab-select {
+  color: #233a63;
+}
+
+.browser-panel__tab-close {
+  border-left-color: #c8d8e6;
+  color: #7d93ab;
+}
+
+.browser-panel__tab-close:hover:not(:disabled) {
+  color: #a6324b;
+  background: #f7e6ea;
+}
+
+.browser-panel__new-tab {
+  border-color: #b9cede;
+  color: #55708c;
+}
+
+.browser-panel__new-tab:hover:not(:disabled) {
+  border-color: #467caf;
+  color: #233a63;
+  background: #eef5fc;
+}

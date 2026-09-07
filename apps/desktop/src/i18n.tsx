@@ -82,6 +82,9 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "browser.error.navigation": "浏览器导航不可用。",
     "browser.error.reload": "浏览器重新加载不可用。",
     "browser.error.close": "浏览器关闭不可用。",
+  "browser.newTab": "新建标签",
+  "browser.closeTab": "关闭标签",
+  "browser.tabsLabel": "浏览器标签",
 
     // Terminal panel
     "terminal.aria": "持久终端",
@@ -473,6 +476,9 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "browser.error.navigation": "Browser navigation is unavailable.",
     "browser.error.reload": "Browser reload is unavailable.",
     "browser.error.close": "Browser close is unavailable.",
+  "browser.newTab": "New tab",
+  "browser.closeTab": "Close tab",
+  "browser.tabsLabel": "Browser tabs",
 
     "terminal.aria": "Persistent terminal",
     "terminal.fallbackSession": "terminal",

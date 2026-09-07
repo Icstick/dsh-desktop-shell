@@ -239,6 +239,17 @@ impl BrowserHost {
         self.owners.lock().ok()?.get(session_id).copied()
     }
 
+    /// Drop every ownership record of one connection (call on disconnect,
+    /// M6-C4). Sessions stay live in the registry; once ownerless any live
+    /// connection may manage them (check_owner admits ownerless sessions),
+    /// which is how a Shell re-adopts its own surviving sessions after a
+    /// reconnect with a fresh connection id.
+    pub fn release_connection_ownership(&self, connection_id: u64) {
+        if let Ok(mut owners) = self.owners.lock() {
+            owners.retain(|_, owner| *owner != connection_id);
+        }
+    }
+
     /// Live session reports (`browser.list` / `browser.status`; daemon-wide
     /// view — the daemon is the resource authority, and the Shell restore
     /// flow needs to see every surviving session, M6-C4).
@@ -307,7 +318,8 @@ pub fn handle_close(
         ));
     }
     check_owner(ctx, &request.session_id)?;
-    ctx.browser
+    let report = ctx
+        .browser
         .close(&request.session_id)
         .map_err(map_browser_error)?;
     // Publish before unsubscribing so the closed event still routes to
@@ -319,7 +331,10 @@ pub fn handle_close(
         )));
     ctx.events
         .unsubscribe(ctx.connection_id, &request.session_id);
-    Ok(serde_json::json!({}))
+    // The response is the closed report (the render side destroys its
+    // window only after a successful close; an empty body would make it
+    // report "unexpected browser.close response" and leak the window).
+    Ok(serde_json::to_value(report).expect("browser report serializes"))
 }
 
 /// `browser.list`: live sessions as the registry view
@@ -367,16 +382,26 @@ pub fn valid_session_id(session_id: &str) -> bool {
 /// (the session is owned by the connection that established it).
 fn check_owner(ctx: &CapabilityContext, session_id: &str) -> Result<(), DaemonMethodError> {
     match ctx.browser.owner(session_id) {
-        None => Err(failed(
-            ErrorCode::Unavailable,
-            "browser session is unknown or already closed",
-            false,
-        )),
         Some(owner) if owner != ctx.connection_id => Err(failed(
             ErrorCode::NotProcessOwner,
             "browser session is owned by another connection",
             false,
         )),
+        // None: either the session is unknown/closed, or its creating
+        // connection disconnected and released ownership (M6-C4) - any
+        // live connection may then manage the surviving session.
+        None => ctx
+            .browser
+            .registry()
+            .get(session_id)
+            .map(|_| ())
+            .map_err(|_| {
+                failed(
+                    ErrorCode::Unavailable,
+                    "browser session is unknown or already closed",
+                    false,
+                )
+            }),
         Some(_) => Ok(()),
     }
 }
@@ -523,6 +548,23 @@ mod tests {
             host.close(&created.session_id),
             Err(BrowserError::Closed)
         ));
+    }
+
+    #[test]
+    fn disconnect_releases_ownership_but_keeps_sessions_live() {
+        let host = BrowserHost::new();
+        let created = host.create(7).expect("create");
+        assert_eq!(host.owner(&created.session_id), Some(7));
+
+        host.release_connection_ownership(7);
+
+        assert_eq!(host.owner(&created.session_id), None);
+        assert_eq!(host.session_count(), 1, "session survives the disconnect");
+        // Another connection's ownership is untouched.
+        let other = host.create(8).expect("create");
+        assert_eq!(host.owner(&other.session_id), Some(8));
+        host.release_connection_ownership(7);
+        assert_eq!(host.owner(&other.session_id), Some(8));
     }
 
     #[test]

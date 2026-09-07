@@ -170,6 +170,7 @@ impl SessionRegistry {
             last_activity_unix_ms: None,
             error: None,
             snapshot: None,
+            title: None,
         };
         self.sessions_guard()?.insert(id.clone(), session);
         Ok(BrowserSession {
@@ -224,6 +225,7 @@ impl SessionRegistry {
             last_activity_unix_ms,
             error: error.map(String::from),
             snapshot: None,
+            title: None,
         };
         let report = session.report();
         guard.insert(session_id.to_string(), session);
@@ -258,6 +260,7 @@ impl SessionRegistry {
             kind: BrowserEventKind::NavigationChanged,
             occurred_at_unix_ms: unix_ms(),
             url: Some(url),
+            title: None,
         });
         Ok(report)
     }
@@ -281,6 +284,35 @@ impl SessionRegistry {
             touch(session);
         }
         Ok(session.report())
+    }
+
+    /// Record the current document title (host webview callback,
+    /// WI-M9-BROWSER-TABS). Pushes a `title_changed` event with the new
+    /// title. Titles never appear in reports: they are window state owned
+    /// by the render host.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BrowserError::NotFound`] for unknown ids and
+    /// [`BrowserError::Closed`] for closed sessions.
+    pub fn set_title(&self, session_id: &str, title: &str) -> Result<BrowserSession, BrowserError> {
+        let report = {
+            let mut guard = self.sessions_guard()?;
+            let session = Self::live_session(&mut guard, session_id)?;
+            if session.title.as_deref() != Some(title) {
+                session.title = Some(title.to_string());
+                touch(session);
+            }
+            session.report()
+        };
+        self.push_event(BrowserEvent {
+            session_id: session_id.to_string(),
+            kind: BrowserEventKind::TitleChanged,
+            occurred_at_unix_ms: unix_ms(),
+            url: None,
+            title: Some(title.to_string()),
+        });
+        Ok(report)
     }
 
     /// Mark the current navigation as failed: `-> error` with the
@@ -311,6 +343,7 @@ impl SessionRegistry {
             kind: BrowserEventKind::LoadFailed,
             occurred_at_unix_ms: unix_ms(),
             url,
+            title: None,
         });
         self.get(session_id)
     }
@@ -368,6 +401,7 @@ impl SessionRegistry {
             kind: BrowserEventKind::Closed,
             occurred_at_unix_ms: unix_ms(),
             url: None,
+            title: None,
         });
         Ok(report)
     }
@@ -467,6 +501,9 @@ struct Session {
     last_activity_unix_ms: Option<u64>,
     error: Option<String>,
     snapshot: Option<String>,
+    /// Current document title (host window state, WI-M9-BROWSER-TABS);
+    /// never part of the public report.
+    title: Option<String>,
 }
 
 impl Session {

@@ -302,6 +302,11 @@ impl DaemonServer {
         // one-time credentials are consumed by the first handshake; the
         // file must carry a fresh one for the next Shell).
         self.reissue_credential_file();
+        // A disconnected Shell can no longer manage the browser sessions it
+        // created: release its ownership so the next Shell connection can
+        // close/hand over the surviving sessions (ownerless sessions are
+        // admitted by check_owner; WI-M9-BROWSER-TABS).
+        self.browser.release_connection_ownership(connection_key);
         // TODO(M6-C): revoke this connection session leases on disconnect
         // (broker `revoke` with `LeaseRevocationReason::Disconnect`); the
         // lease TTL bounds them until then.
