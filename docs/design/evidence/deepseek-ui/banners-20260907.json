@@ -1,0 +1,48 @@
+{
+  "verifiedAt": "2026-09-07T01:43:53.263Z",
+  "typecheck": "passed",
+  "productionBuild": "passed",
+  "distinctPageBanners": 5,
+  "assets": [
+    {
+      "page": "settings",
+      "file": "deepseek-workshop.png",
+      "status": 200,
+      "contentType": "image/png",
+      "sha256": "e2256ab833f9d9a1e1a74f5e1fa1fcc2d2321edd8b4bc3ef40be3f3df3852d08",
+      "bytes": 1872378
+    },
+    {
+      "page": "usage",
+      "file": "deepseek-study.png",
+      "status": 200,
+      "contentType": "image/png",
+      "sha256": "c3c97c9a3f733941e98d2a6a563813a068078e323cd9df2f6e820bab7ea4b373",
+      "bytes": 2053380
+    },
+    {
+      "page": "notifications",
+      "file": "deepseek-correspondence.png",
+      "status": 200,
+      "contentType": "image/png",
+      "sha256": "d2dfc1cdd25df9e93d55f9695f2295cee90ae79be564fa2f28ab0cddbbc87d13",
+      "bytes": 1920104
+    },
+    {
+      "page": "runtime",
+      "file": "harness-observatory.png",
+      "status": 200,
+      "contentType": "image/png",
+      "sha256": "978726e58a9c6ab6d72da979fe173397225738de3ce31db59271dc660c5ee632",
+      "bytes": 1944191
+    },
+    {
+      "page": "browser",
+      "file": "deepseek-explorer.png",
+      "status": 200,
+      "contentType": "image/png",
+      "sha256": "a30d6feec83a88f8a556d471c2b6496e79eff71525db8f2e97e77f8c6a5889d9",
+      "bytes": 1802653
+    }
+  ]
+}

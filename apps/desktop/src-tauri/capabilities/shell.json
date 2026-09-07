@@ -27,6 +27,7 @@
     "allow-probe-attached-environment",
     "allow-reload-dsh-surface",
     "allow-save-environment",
+    "allow-remove-environment",
     "allow-list-browsers",
     "allow-list-terminals",
     "allow-list-notifications",

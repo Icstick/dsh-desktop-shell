@@ -1,3 +1,4 @@
+import { PageArtwork } from "./PageArtwork";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
@@ -749,7 +750,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   };
 
   return (
-    <main className="shell-app">
+    <main className="shell-app" data-surface={activeSurface}>
       <ActivityRail active={activeSurface} onSelect={setActiveSurface} />
       <section
         className={
@@ -770,7 +771,9 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           <div>
             <p className="eyebrow">{t("shell.eyebrow")}</p>
             <h1>{surfaceTitle(activeSurface, t)}</h1>
+            <p className="shell-header__description">{t("art.description." + activeSurface)}</p>
           </div>
+          <PageArtwork surface={activeSurface} />
           <RuntimeBadge snapshot={snapshot} error={snapshotError} />
         </header>
 

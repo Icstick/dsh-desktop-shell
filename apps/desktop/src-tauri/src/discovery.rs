@@ -333,7 +333,7 @@ enum RepoProbeError {
 /// Probe a directory as a DeepSeek Harness source repository (read-only).
 ///
 /// Recognition: root package name `@deepseek-ai/dsh-root` OR the structural
-/// fallback (pnpm workspace + CLI entry + TS loader all present) so that renamed
+/// fallback (workspace marker + CLI entry + TS loader all present) so that renamed
 /// forks stay recognizable. Never executes or writes anything.
 fn probe_repository(path: &Path, requested_path: &str) -> Result<(RepositoryInfo, Option<String>), RepoProbeError> {
     let has_workspace = path.join("pnpm-workspace.yaml").is_file();

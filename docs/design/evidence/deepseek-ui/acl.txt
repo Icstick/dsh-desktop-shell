@@ -1,0 +1,12 @@
+Command: node scripts/validate-acl.mjs
+Exit: 1
+file:///D:/DSH_workspace/development/dsh-desktop-shell/apps/desktop/scripts/validate-acl.mjs:197
+  throw new Error(message);
+        ^
+
+Error: AppManifest inventory mismatch: ["close_browser","close_terminal","create_browser","create_terminal","dismiss_notification","discover_harnesses","discover_profiles","evaluate_dsh_surface_navigation","get_dsh_surface_status","get_dsh_surface_policy","get_environment_catalog","get_diagnostics","get_managed_runtime_status","get_shell_snapshot","get_usage_snapshot","interact_browser","mount_dsh_surface","pick_directory","probe_attached_environment","probe_port","reload_dsh_surface","save_environment","set_active_environment","list_browsers","list_terminals","list_notifications","navigate_browser","notify_application","resize_terminal","snapshot_browser","start_managed_environment","restart_managed_environment","status_terminal","stop_managed_environment","take_over_browser","write_terminal","unmount_dsh_surface","update_dsh_surface_layout","validate_environment"] != ["close_browser","close_terminal","create_browser","create_terminal","dismiss_notification","discover_harnesses","discover_profiles","evaluate_dsh_surface_navigation","get_dsh_surface_status","get_dsh_surface_policy","get_environment_catalog","get_diagnostics","get_managed_runtime_status","get_shell_snapshot","get_usage_snapshot","interact_browser","mount_dsh_surface","probe_attached_environment","probe_port","reload_dsh_surface","save_environment","set_active_environment","list_browsers","list_terminals","list_notifications","navigate_browser","notify_application","resize_terminal","snapshot_browser","start_managed_environment","restart_managed_environment","status_terminal","stop_managed_environment","take_over_browser","write_terminal","unmount_dsh_surface","update_dsh_surface_layout","validate_environment"]
+    at fail (file:///D:/DSH_workspace/development/dsh-desktop-shell/apps/desktop/scripts/validate-acl.mjs:197:9)
+    at assertSame (file:///D:/DSH_workspace/development/dsh-desktop-shell/apps/desktop/scripts/validate-acl.mjs:192:5)
+    at file:///D:/DSH_workspace/development/dsh-desktop-shell/apps/desktop/scripts/validate-acl.mjs:57:1
+
+Node.js v24.15.0

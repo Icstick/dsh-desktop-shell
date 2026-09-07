@@ -1,0 +1,31 @@
+schema_version: 1
+id: WI-M8-DEEPSEEK-UI
+title: "DeepSeek character desktop visual redesign"
+status: review
+milestone: M8
+module: MOD-SHELL-UI
+owner_role: ui-owner
+claimed_by: null
+session: SESSION-20260906-DEEPSEEK-UI
+branch_or_worktree: feat/deepseek-character-ui
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Page-specific character artwork, blue-white theme, visible navigation labels, responsive layout."
+  - "Preserve native viewport sizing, terminal mount lifetime and all lifecycle permissions."
+  - "Typecheck, frontend tests, build, ACL and browser screenshot evidence."
+security_impact: "Presentation only; no bridge, API, state machine or backend changes."
+compatibility_impact: "Existing contracts preserved. Character artwork has separate CC BY-NC-SA provenance; this user-requested theme is a local branch, not a release."
+scope:
+  - apps/desktop/features/shell-ui/
+  - apps/desktop/src/i18n.tsx
+  - docs/design/
+  - tracking/
+evidence:
+  - "docs/design/evidence/deepseek-ui/banners-20260907.json"
+  - "docs/design/evidence/deepseek-ui/README.md"
+  - "docs/design/DEEPSEEK-WORKSPACE.md"
+blocked_by: []
+next_action: "Visual review; native integration acceptance and pre-existing ACL gate remain before release."
+handoff: tracking/handoffs/HANDOFF-20260906-DEEPSEEK-UI.md
+updated_at: "2026-09-07T01:43:53.266Z"

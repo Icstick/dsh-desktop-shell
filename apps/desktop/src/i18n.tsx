@@ -26,6 +26,16 @@ type TranslationKey = string;
 
 export const translations: Record<Lang, Record<TranslationKey, string>> = {
   zh: {
+    // Character workspace
+    "art.companion": "与灵感，一起启航",
+    "art.companionNote": "你的鲸鱼工作台",
+    "art.description.dsh": "从一个想法开始，让工作自然发生。",
+    "art.description.browser": "打开一扇窗，探索想法的下一站。",
+    "art.description.terminal": "为专注留一方空间。",
+    "art.description.runtime": "查看连接、健康与每一次运行的状态。",
+    "art.description.settings": "把工作环境，整理成顺手的样子。",
+    "art.description.notifications": "重要的动静，在这里留一封信。",
+    "art.description.usage": "让每一份投入，都有迹可循。",
     // Rail
     "rail.dsh": "DSH",
     "rail.browser": "浏览器",
@@ -141,7 +151,7 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "notifications.deduplicated": "已去重",
     "notifications.dismiss": "关闭",
     "notifications.dismissAll": "全部关闭",
-    "notifications.note": "内容遵循通知策略 (ADR-0016)：仅 explicit_body 通知携带正文，每条通知都会记录到本地 AppData 审计轨迹。",
+    "notifications.note": "通知按内容策略显示，并保留本机记录。",
 
     // Usage
     "usage.eyebrow": "用量统计（仅保存在本机）",
@@ -153,7 +163,7 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "usage.empty": "暂无用量记录。",
     "usage.estimate": "估算",
     "usage.inOut": "{input} 进 · {output} 出",
-    "usage.note": "用量记录只携带来源、时段与 token 估算——绝不含终端输出或通知内容 (AC-USG-001)——且只保留在本机 (AC-USG-002)。",
+    "usage.note": "用量记录保存在本机，不包含终端输出或通知正文。",
 
 
     // Harness surface (HarnessSurface.tsx)
@@ -161,7 +171,7 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "harness.bootstrap.reading": "正在读取运行时状态…",
     "harness.empty.eyebrow": "尚未连接 DSH 环境",
     "harness.empty.title": "选择现有 DSH 环境",
-    "harness.empty.body": "本应用只展示 DSH 自己的网页界面：不改写页面内容，也不向页面开放本机能力。请先在「环境设置」中选择一个环境并完成验证。",
+    "harness.empty.body": "选择一个已有的 DSH 环境并完成验证，就可以开始对话与创作。你也可以在环境设置中添加新的环境。",
     "harness.empty.openSettings": "打开环境设置",
     "harness.native.eyebrow": "DSH 界面",
     "harness.native.restoring": "正在恢复 DSH 界面…",
@@ -411,6 +421,16 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "wizard.error.save": "环境保存或启动失败。",
   },
   en: {
+    // Character workspace
+    "art.companion": "A little room for discovery",
+    "art.companionNote": "Your whale-side workspace",
+    "art.description.dsh": "Start with an idea. Make room for your next creation.",
+    "art.description.browser": "A window into your next discovery.",
+    "art.description.terminal": "A quiet space to focus.",
+    "art.description.runtime": "Keep an eye on connections, health and every run.",
+    "art.description.settings": "Make your workspace feel like yours.",
+    "art.description.notifications": "A place for the updates that matter.",
+    "art.description.usage": "Keep track of the work behind your ideas.",
     "rail.dsh": "DSH",
     "rail.browser": "Browser",
     "rail.terminal": "Terminal",
@@ -521,8 +541,7 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "notifications.deduplicated": "deduplicated",
     "notifications.dismiss": "Dismiss",
     "notifications.dismissAll": "Dismiss all",
-    "notifications.note":
-      "Content follows the notification policy (ADR-0016): only explicit_body notifications carry a body, and every notification is recorded in the local AppData audit trail.",
+    "notifications.note": "Notifications follow your content policy and are recorded on this device.",
 
     "usage.eyebrow": "Usage (stored locally only)",
     "usage.inputTokens": "Input tokens",
@@ -533,8 +552,7 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "usage.empty": "No usage records yet.",
     "usage.estimate": "estimate",
     "usage.inOut": "{input} in · {output} out",
-    "usage.note":
-      "Usage records carry only source, period and token estimates — never terminal output or notification content (AC-USG-001) — and stay on this device (AC-USG-002).",
+    "usage.note": "Usage records stay on this device and do not include terminal output or notification bodies.",
 
 
     // Harness surface (HarnessSurface.tsx)
@@ -542,7 +560,7 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "harness.bootstrap.reading": "Reading the latest runtime state…",
     "harness.empty.eyebrow": "No DSH environment connected yet",
     "harness.empty.title": "Choose an existing DSH environment",
-    "harness.empty.body": "This app shows DSH's own web UI as-is: it never modifies the page and never gives the page access to your machine. Choose an environment in Settings and validate it first.",
+    "harness.empty.body": "Choose and validate an existing DSH environment to start working. You can also add an environment in Settings.",
     "harness.empty.openSettings": "Open Environment Settings",
     "harness.native.eyebrow": "DSH view",
     "harness.native.restoring": "Restoring the DSH view…",

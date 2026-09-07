@@ -1,3 +1,4 @@
+import studyArtwork from "./assets/deepseek-study.png";
 import { useI18n, type Lang } from "../../../src/i18n";
 
 export type SurfaceId =
@@ -111,31 +112,8 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
   return (
     <nav className="activity-rail" aria-label={t("rail.aria.surfaces")}>
       <div className="activity-rail__brand" aria-label={t("rail.aria.brand")}>
-        <svg className="activity-rail__brand-mark" viewBox="0 0 24 24" aria-hidden="true">
-          <defs>
-            <linearGradient id="brand-d" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#f2f7ff" />
-              <stop offset="0.55" stopColor="#b7d2f6" />
-              <stop offset="1" stopColor="#7fa9e4" />
-            </linearGradient>
-          </defs>
-          {/* Monogram: vertical stem + full right arc, round caps, so the D
-              reads as a single smooth ring at 20px. */}
-          <path
-            d="M7.5 5.5v13"
-            fill="none"
-            stroke="url(#brand-d)"
-            strokeLinecap="round"
-            strokeWidth="3.4"
-          />
-          <path
-            d="M7.5 5.5a6.5 6.5 0 0 1 0 13"
-            fill="none"
-            stroke="url(#brand-d)"
-            strokeLinecap="round"
-            strokeWidth="3.4"
-          />
-        </svg>
+        <span className="activity-rail__portrait" aria-hidden="true"><img src={studyArtwork} alt="" /></span>
+        <span className="activity-rail__wordmark">DeepSeek<span>Desktop</span></span>
       </div>
       <div className="activity-rail__items">
         {items.map((item) => {
@@ -144,6 +122,7 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
             <button
               className="activity-rail__button"
               data-active={enabledItem === active}
+              aria-current={enabledItem === active ? "page" : undefined}
               disabled={!enabledItem}
               key={item.id}
               onClick={() => enabledItem && onSelect(enabledItem)}
@@ -151,10 +130,15 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
               type="button"
             >
               <RailIcon id={item.id} />
-              <span className="sr-only">{item.label}</span>
+              <span className="activity-rail__label">{item.label}</span>
             </button>
           );
         })}
+      </div>
+      <div className="activity-rail__companion" aria-hidden="true">
+        <span className="activity-rail__companion-line" />
+        <p>{t("art.companion")}</p>
+        <small>{t("art.companionNote")}</small>
       </div>
       <div className="activity-rail__lang">
         <select
@@ -167,6 +151,7 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
           <option value="en">EN</option>
         </select>
       </div>
+      <small className="activity-rail__credit" title="ZipZipPipe / 上善无形 · CC BY-NC-SA 4.0 · Includes AI-assisted derivative scenes">Art · ZipZipPipe</small>
     </nav>
   );
 }

@@ -21,6 +21,7 @@ const COMMANDS: &[&str] = &[
     "probe_port",
     "reload_dsh_surface",
     "save_environment",
+    "remove_environment",
     "set_active_environment",
     "list_browsers",
     "list_terminals",

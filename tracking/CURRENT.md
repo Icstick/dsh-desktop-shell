@@ -1,5 +1,10 @@
 # Current Project State
 
+## Local visual branch (2026-09-06)
+
+DeepSeek character redesign on `feat/deepseek-character-ui` is implemented and ready for visual review. Typecheck, 105 frontend tests and production build pass; independent review approved; ACL inventory gate resolved (2026-09-07: remove_environment registered in AppManifest/capability, expected list aligned, discovery comment false-positive fixed — 40 commands validated). Dev GUI native smoke started on the branch; visual review pending. Artwork CC BY-NC-SA (non-commercial) — release requires separate rights resolution. See [evidence](../docs/design/evidence/deepseek-ui/README.md) and [handoff](handoffs/HANDOFF-20260906-DEEPSEEK-UI.md). No merge or release performed.
+
+
 - Phase：`shell-mvp`
 - Milestone：M8 Stable Candidate（已合并 main @ 4c21489）+ **M8-E v0.1.0 发布（进行中，被两个发布门 blocker 门控）**
 - Status：M1–M8 全部合并 main；wizard 分支 feat/wizard-repo-source 已 squash 合并 main @ 23c5027；ux-polish 分支进行中

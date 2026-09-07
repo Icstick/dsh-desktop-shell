@@ -1,0 +1,12 @@
+Command: node node_modules/vitest/vitest.mjs run
+Exit: 0
+
+ RUN  v4.1.11 D:/DSH_workspace/development/dsh-desktop-shell/apps/desktop
+
+
+ Test Files  7 passed (7)
+      Tests  105 passed (105)
+   Start at  22:54:57
+   Duration  36.75s (transform 1.13s, setup 29.12s, import 5.12s, tests 29.91s, environment 96.09s)
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package

@@ -1,0 +1,15 @@
+schema_version: 1
+id: SESSION-20260906-DEEPSEEK-UI
+status: review
+agent_or_human: codex
+work_items: [WI-M8-DEEPSEEK-UI]
+branch_or_worktree: feat/deepseek-character-ui
+started_at: "2026-09-06T14:00:00Z"
+summary: "User authorized frontend redesign with referenced DeepSeek characters and page-specific backgrounds; new branch created from clean main."
+artifacts:
+  - docs/design/DEEPSEEK-WORKSPACE.md
+  - docs/design/evidence/deepseek-ui/README.md
+  - tracking/handoffs/HANDOFF-20260906-DEEPSEEK-UI.md
+next_action: "User visual review; see handoff for native and release gates."
+
+follow_up: "2026-09-07: distinct banners for all five utility pages; three new images; typecheck/build/HTTP asset verification passed. See banners-20260907.json."
