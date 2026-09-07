@@ -69,6 +69,8 @@ export interface DesktopApi {
   discoverHarnesses(request: HarnessDiscoveryRequest): Promise<HarnessDiscoveryReport>;
   discoverProfiles(request: DiscoverProfilesRequest): Promise<DiscoverProfilesReport>;
   probePort(request: ProbePortRequest): Promise<ProbePortReport>;
+  pickDirectory(): Promise<string | null>;
+  removeEnvironment(environmentId: string): Promise<EnvironmentCatalog>;
   setActiveEnvironment(request: SetActiveEnvironmentRequest): Promise<EnvironmentCatalog>;
   evaluateDshSurfaceNavigation(
     request: DshSurfaceNavigationRequest,
@@ -116,6 +118,9 @@ export const desktopApi: DesktopApi = {
   discoverProfiles: (request) =>
     invoke<DiscoverProfilesReport>("discover_profiles", { request }),
   probePort: (request) => invoke<ProbePortReport>("probe_port", { request }),
+  pickDirectory: () => invoke<string | null>("pick_directory"),
+  removeEnvironment: (environmentId) =>
+    invoke<EnvironmentCatalog>("remove_environment", { environmentId }),
   setActiveEnvironment: (request) =>
     invoke<EnvironmentCatalog>("set_active_environment", { request }),
   evaluateDshSurfaceNavigation: (request) =>

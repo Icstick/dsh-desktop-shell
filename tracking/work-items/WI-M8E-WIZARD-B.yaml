@@ -1,0 +1,27 @@
+schema_version: 1
+id: WI-M8E-WIZARD-B
+title: "D5/WI-B: discovery 源码仓库识别 + HarnessCandidate 契约扩展（repository 详情）"
+status: verified
+milestone: M8
+module: MOD-ENVIRONMENT-SETTINGS
+owner_role: ui-and-runtime-owner
+claimed_by: dsh-agent-primary
+session: SESSION-20260902-M8E-WIZARD-REPO-SOURCE
+branch_or_worktree: feat/wizard-repo-source
+claim_expires_at: "2026-09-03T08:00:00Z"
+dependencies:
+  - WI-M8-RELEASE
+acceptance_criteria:
+  - "目录识别：@deepseek-ai/dsh-root（或 pnpm-workspace.yaml + apps/cli/src/bin.ts + scripts/register-tsx-esm.mjs 结构 fallback）→ mode=repository status=available launchable=true，携带 repository 详情（repoRoot/entry/loader/needsInstall/needsBuild）"
+  - "非 DSH 目录 → requires_recipe + NOT_A_DSH_REPO error evidence；入口缺失 → REPO_ENTRY_MISSING；loader 缺失 → LOADER_MISSING warning"
+  - "harness-discovery-report.schema.json + fixtures 更新；contracts.ts 类型同步；discovery.rs 单测覆盖"
+security_impact: "None（只读目录探测，不执行任何文件）"
+compatibility_impact: "HarnessCandidate 增可选 repository 字段（向后兼容）；requires_recipe 语义收窄为『非 DSH 目录/结构损坏』"
+evidence:
+  - "discovery.rs repo 探测 8 单测通过（cargo test discovery --lib：12 passed，含 verbatim 前缀剥离回归）"
+  - "specs validate：61 schemas 126 fixtures ALL PASS（node scripts/validate-specs.mjs）"
+  - "commit 9d92f3e（feat/wizard-repo-source）；契约三处同步：schema/contracts.ts/discovery.rs（字段 5/5 一致）"
+blocked_by: []
+next_action: "实现已完成并入 feat/wizard-repo-source（9d92f3e），随分支统一验收后 squash 合并 main。"
+handoff: null
+updated_at: "2026-09-02T19:00:00Z"

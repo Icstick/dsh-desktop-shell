@@ -2,7 +2,39 @@
 
 本文件记录仓库级公开契约、治理与发布变化。模块级协议变化还必须更新对应 Schema、ADR 和 compatibility 记录。
 
+## [0.2.0] - unreleased
+
+### Added
+
+- DeepSeek 角色视觉主题（WI-M8-DEEPSEEK-UI）：蓝白海洋色系 + 深蓝导航 rail（角色头像/字标），页面横幅角色插画按页面职责映射（装饰性、沉浸页隐藏、渐变遮罩保可读）；双语页面描述；本地 mockIPC 预览 fixture（不进生产入口）。**主题插画素材 CC BY-NC-SA（非商业），发布前需解决授权**（assets/ATTRIBUTION.md）。
+- 浏览器多会话标签（WI-M9-BROWSER-TABS）：标签栏按实时会话列出并显示网页标题（title_changed 事件；host WebView2 标题回调 → 镜像 registry → browser://event）；新建/关闭/切换标签；打开 URL 不再顶替已导航标签（空标签原地填充、其余开新会话窗口）；重启孤儿会话清理（不弹窗、无死标签）。
+- 素材构建优化：插画 libwebp q90 打包（19.4MB → 1.3MB），原始 PNG 保留仓库不进入安装包。
+
+### Changed
+
+- 暗色主题打磨（Codex pass）：设计变量收敛、质感层级、激活指示、终端/环境列表/向导细节。
+- daemon 会话归属治理：连接断开释放 browser session ownership（重连后可管理自己的幸存会话）；孤儿会话（无渲染窗口）在 list 时关闭；browser.close 返回 closed report（修复窗口泄漏）。
+
+### Fixed
+
+- ACL 清单对齐（check:acl 40 commands 绿）：AppManifest/capability 补 remove_environment（此前删除环境功能被 ACL 拒）、expected 清单补 pick_directory/remove_environment、discovery 注释误报修正。
+- 终端页无限向下延长（根因：workspace min-height 欠定 + xterm DOM 行撑高；改为固定 100vh + host 裁剪）。
+- 浏览器 WebView 窗口随 Shell 重启的孤儿/死标签/窗口泄漏三连修复（见 Changed）。
+- 浏览器打开 URL 顶替当前页 → 新标签语义（用户报告：agent 操作与查资料冲突）。
+
 ## Unreleased
+### Added
+
+- Managed DSH 源码仓库来源（决策 D5，ADR-0020）：discovery 对目录做 deepseek-harness checkout 识别（@deepseek-ai/dsh-root 或结构 fallback）→ HarnessCandidate 新增可选 repository 详情（repoRoot/entry/loader/needsInstall/needsBuild，向后兼容）；requires_recipe 语义收窄为"非 DSH 目录/结构损坏"。
+- SetupWizard 重做为源码仓库单形态（来源目录 + 原生文件夹浏览 + 仓库有效性检测 + clone 引导 + 探测详情徽章）；Profile-ID 由 Profile 名称自动生成（编辑已有环境时保持原 ID）；advanced 暴露 nodePath/cwd/extraArguments（cwd 留空自动 = 仓库根）；finish 错误细分（保存/启动/验证分离并透出后端消息）+ 重复 ID 覆盖防护 + 仓库未就绪不自动启动。
+- 执行层 repository recipe（WI-C 最小核心）：目录语义启动 node --import loader+entry（loader 以 file:// URL 传入，规避 Windows 下 --import 绝对路径的 ERR_UNSUPPORTED_ESM_URL_SCHEME 缺陷）；nodePath 留空自动 PATH 探测（Windows node.exe / Unix node）。
+- SetupWizard 全量 i18n（wizard.* zh/en）；activity rail SVG 图标（替换首字母缩写）；setup-wizard 样式接入；shell 主程序 Windows GUI subsystem（不再弹出控制台窗口）。
+- 盲审 UX 修复（feat/ux-polish，P1/P3/P4/P7）：harness.*/runtime.*/error.* 说明文案人话化（zh/en 46 key，安全语义保留）；后端枚举值本地化字典 enum.*（39 组 zh/en，覆盖 badge/运行时面板/诊断/Surface 状态，消除 zh 界面英文枚举混排）；策略卡新增「默认拒绝」提示与页面地址来源说明（Attached 只读不挂载 DSH 界面）；运行时徽章状态色体系化（进行中蓝/降级琥珀/崩溃红）；diagnostics/notifications/usage eyebrow 去除内部 AC-/ADR- 编号。
+
+### Changed
+
+- repository 模式语义从"nodePath + 脚本/构建产物文件"改为"源码目录 + 固定 entry/loader"：旧 catalog 中指向文件的 repository 条目需改为指向 checkout 目录（启动时给出明确 UnsupportedSource 错误）。
+- SetupWizard 文案如实说明依赖安装与 Web 构建需在仓库内手动完成（渐进恢复未实现，勿承诺自动安装）。
 
 ### Fixed
 

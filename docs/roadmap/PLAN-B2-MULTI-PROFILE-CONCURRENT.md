@@ -1,7 +1,10 @@
 # PLAN-B2: Multi-Profile Concurrent Runtime（ADR-0020 草案）
 
 > 预研规划（2026-08-30，maintainer 要求：先规划，评估塞入后续开发流程的位置）。
-> 状态：草案 —— 未实现，待 M7 交付后重新评估。
+> 状态：**草案 + 决策记录（2026-09-02 maintainer D2）**——先记录不立项；触发条件 =
+> 首个可用版本 v0.1.0 发布后，作为 feature 正式立项（届时按 tracking 规则建 WI-M9-*、走 ADR）。
+> 范围与红线输入：`docs/multi-profile-field-evidence.md`（A/B/C/D/R 建议 + ROI 排序）与
+> `docs/roadmap/PLAN-DEBUG-OPTIMIZATION.md` §4。
 
 ## 目标
 

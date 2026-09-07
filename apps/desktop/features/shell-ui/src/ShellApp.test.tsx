@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DshEnvironment } from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
-import { I18nProvider } from "../../../src/i18n";
+import { I18nProvider, persistLang } from "../../../src/i18n";
 import { ShellApp } from "./ShellApp";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -14,6 +14,18 @@ vi.mock("@tauri-apps/api/event", () => ({
 beforeEach(() => {
   window.localStorage.clear();
 });
+
+// ShellApp reads the active language from I18nProvider (no provider means
+// the default zh locale). Most assertions in this file are written in
+// English, so the default render helper pins the English locale.
+function renderShellApp(api: DesktopApi) {
+  persistLang("en");
+  return render(
+    <I18nProvider>
+      <ShellApp api={api} />
+    </I18nProvider>,
+  );
+}
 
 function createApi(): DesktopApi {
   return {
@@ -113,6 +125,7 @@ function createApi(): DesktopApi {
       port: 8080,
       inUse: false,
     }),
+    pickDirectory: vi.fn().mockResolvedValue(null),
     setActiveEnvironment: vi.fn().mockImplementation(async (request) => ({
       schemaVersion: 1,
       revision: 2,
@@ -142,8 +155,8 @@ function createApi(): DesktopApi {
       downloads: "deny",
       permissions: "deny",
       privilegedIpc: "denied",
-      domInjection: "denied",
-      rendererPatch: "denied",
+      domInjection: "no",
+      rendererPatch: "no",
       automaticExternalOpen: false,
     })),
     getDshSurfaceStatus: vi.fn().mockImplementation(async (request) =>
@@ -245,6 +258,12 @@ function createApi(): DesktopApi {
     reloadDshSurface: vi.fn().mockImplementation(async (request) =>
       surfaceStatus(request.environmentId, request.expectedGeneration, "loading", true),
     ),
+    removeEnvironment: vi.fn().mockImplementation(async () => ({
+      schemaVersion: 1,
+      revision: 1,
+      activeEnvironmentId: null,
+      environments: [],
+    })),
     saveEnvironment: vi.fn().mockImplementation(async (environment) => ({
       schemaVersion: 1,
       revision: 1,
@@ -406,7 +425,7 @@ describe("ShellApp", () => {
   });
 
   it("renders the unconfigured DSH boundary from backend state", async () => {
-    render(<ShellApp api={createApi()} />);
+    renderShellApp(createApi());
     expect(await screen.findByText("Choose an existing DSH environment")).toBeInTheDocument();
     expect(screen.getByText("unconfigured")).toBeInTheDocument();
   });
@@ -414,13 +433,15 @@ describe("ShellApp", () => {
   it("validates a setup draft through the wizard without launching DSH", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
+    await user.click(await screen.findByTestId("add-environment"));
     await screen.findByTestId("setup-wizard");
-    // Wizard: mode (next) → harness (prefilled "dsh", next) → profile
+    // Wizard: mode (next) → harness (type repo dir, next) → profile
     await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("harness-path"), "C:/src/deepseek-harness");
     await user.click(screen.getByTestId("wizard-next"));
     await user.type(screen.getByTestId("dsh-home"), "C:/Users/example/.dsh");
     await user.click(screen.getByTestId("wizard-next"));
@@ -440,12 +461,14 @@ describe("ShellApp", () => {
   it("persists a validated environment through the wizard without starting DSH", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
+    await user.click(await screen.findByTestId("add-environment"));
     await screen.findByTestId("setup-wizard");
     await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("harness-path"), "C:/src/deepseek-harness");
     await user.click(screen.getByTestId("wizard-next"));
     await user.type(screen.getByTestId("dsh-home"), "C:/Users/example/.dsh");
     await user.click(screen.getByTestId("wizard-next"));
@@ -456,7 +479,11 @@ describe("ShellApp", () => {
     await user.click(screen.getByTestId("finish-save"));
 
     expect(api.saveEnvironment).toHaveBeenCalledOnce();
-    expect(await screen.findByText(/Saved at catalog revision 1/i)).toBeInTheDocument();
+    // D1: the wizard is trigger-based — a successful save closes it again.
+    await waitFor(() =>
+      expect(screen.queryByTestId("setup-wizard")).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByTestId("environment-local-dsh")).toBeInTheDocument();
   });
 
   it("uses a launchable discovery candidate without executing it", async () => {
@@ -468,29 +495,42 @@ describe("ShellApp", () => {
       candidates: [
         {
           id: "candidate-0001",
-          source: "path",
-          mode: "executable",
-          requestedPath: "C:/tools/dsh.exe",
-          canonicalPath: "C:/tools/dsh.exe",
+          source: "explicit",
+          mode: "repository",
+          requestedPath: "C:/src/deepseek-harness",
+          canonicalPath: "C:/src/deepseek-harness",
           status: "available",
           launchable: true,
-          version: null,
+          version: "0.2.0",
+          repository: {
+            repoRoot: "C:/src/deepseek-harness",
+            entry: "apps/cli/src/bin.ts",
+            loader: "scripts/register-tsx-esm.mjs",
+            needsInstall: false,
+            needsBuild: false,
+          },
           evidence: [
-            { code: "FILE_CANDIDATE", severity: "info", message: "Candidate was not executed." },
+            {
+              code: "REPO_RECOGNIZED",
+              severity: "info",
+              message: "Directory is a recognized DeepSeek Harness source repository.",
+            },
           ],
         },
       ],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("Choose an existing DSH environment");
     await user.click(screen.getByRole("button", { name: "Open Environment Settings" }));
+    await user.click(await screen.findByTestId("add-environment"));
     await screen.findByTestId("setup-wizard");
     await user.click(screen.getByTestId("wizard-next"));
+    await user.type(screen.getByTestId("harness-path"), "C:/src/deepseek-harness");
     await user.click(screen.getByTestId("discover-button"));
-    expect(await screen.findByText("C:/tools/dsh.exe")).toBeInTheDocument();
-    expect(screen.getByTestId("harness-path")).toHaveValue("C:/tools/dsh.exe");
+    expect(await screen.findByText("C:/src/deepseek-harness")).toBeInTheDocument();
+    expect(screen.getByTestId("harness-path")).toHaveValue("C:/src/deepseek-harness");
   });
 
   it("restores and validates the active persisted environment on startup", async () => {
@@ -512,9 +552,9 @@ describe("ShellApp", () => {
       environments: [environment],
     });
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
-    expect(await screen.findByText("DSH launch remains intentionally idle")).toBeInTheDocument();
+    expect(await screen.findByText("DSH won't start automatically")).toBeInTheDocument();
     expect(screen.getByText("Restored DSH")).toBeInTheDocument();
     expect(api.validateEnvironment).toHaveBeenCalledWith(environment);
   });
@@ -529,12 +569,12 @@ describe("ShellApp", () => {
       environments: [environment],
     });
 
-    const { container } = render(<ShellApp api={api} />);
+    const { container } = renderShellApp(api);
 
-    expect(await screen.findByText("DSH Surface policy ready")).toBeInTheDocument();
+    expect(await screen.findByText("DSH view permissions")).toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:4317")).toBeInTheDocument();
     expect(
-      screen.getByText("A native Surface requires a verified, owned Managed generation."),
+      screen.getByText("Only a DSH instance started by this app (Managed) and verified may show its view here."),
     ).toBeInTheDocument();
     expect(api.getDshSurfacePolicy).toHaveBeenCalledWith({
       schemaVersion: 1,
@@ -562,9 +602,9 @@ describe("ShellApp", () => {
       correlationId: "desktop-test-policy",
     });
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
-    expect(await screen.findByText("DSH Surface policy pending.")).toBeInTheDocument();
+    expect(await screen.findByText("Permission rules are not ready yet.")).toBeInTheDocument();
     expect(
       await screen.findByText("DSH Surface policy requires a fixed loopback endpoint."),
     ).toBeInTheDocument();
@@ -581,7 +621,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("attached", { selector: ".runtime-badge" })).toBeInTheDocument();
     expect(api.probeAttachedEnvironment).toHaveBeenCalledWith({
@@ -606,7 +646,7 @@ describe("ShellApp", () => {
       environments: [environment],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("attached", { selector: ".runtime-badge" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Runtime" }));
@@ -625,7 +665,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("stopped", { selector: ".runtime-badge" })).toBeInTheDocument();
     expect(api.getManagedRuntimeStatus).toHaveBeenCalledWith({
@@ -638,7 +678,7 @@ describe("ShellApp", () => {
       schemaVersion: 1,
       environmentId: "managed-local",
     });
-    expect(await screen.findByText("Verified endpoint: http://127.0.0.1:4317")).toBeInTheDocument();
+    expect(await screen.findByText("Confirmed address of this instance: http://127.0.0.1:4317")).toBeInTheDocument();
     expect(screen.getByText("owned")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Review managed stop" }));
@@ -677,9 +717,9 @@ describe("ShellApp", () => {
     } as DOMRect);
     const user = userEvent.setup();
 
-    const { container } = render(<ShellApp api={api} />);
+    const { container } = renderShellApp(api);
 
-    expect(await screen.findByText("Native DSH Surface ready")).toBeInTheDocument();
+    expect(await screen.findByText("DSH view is ready")).toBeInTheDocument();
     expect(api.mountDshSurface).toHaveBeenCalledWith({
       schemaVersion: 1,
       environmentId: "managed-local",
@@ -688,8 +728,8 @@ describe("ShellApp", () => {
       visible: true,
     });
     expect(container.querySelector("iframe, webview, script")).not.toBeInTheDocument();
-    expect(screen.getByText("Native IPC denied")).toBeInTheDocument();
-    expect(screen.getByText("Page permissions denied")).toBeInTheDocument();
+    expect(screen.getByText("The page cannot use native app features")).toBeInTheDocument();
+    expect(screen.getByText("Page permission requests are denied")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Runtime" }));
     await waitFor(() => {
@@ -725,10 +765,10 @@ describe("ShellApp", () => {
       toJSON: () => ({}),
     } as DOMRect);
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("Expand the window to show native DSH")).toBeInTheDocument();
-    expect(screen.getByText("The native Surface requires at least 320 × 240 visible CSS pixels.")).toBeInTheDocument();
+    expect(screen.getByText("The DSH view needs at least 320 × 240 pixels of space.")).toBeInTheDocument();
     expect(api.mountDshSurface).not.toHaveBeenCalled();
   });
 
@@ -765,19 +805,19 @@ describe("ShellApp", () => {
     } as DOMRect);
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     expect(await screen.findByText("Native DSH Surface operation failed.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Retry native Surface" }));
+    await user.click(screen.getByRole("button", { name: "Reload the DSH view" }));
     expect(api.reloadDshSurface).toHaveBeenCalledWith({
       schemaVersion: 1,
       environmentId: "managed-local",
       expectedGeneration: 7,
     });
-    expect(await screen.findByText("Native DSH Surface ready")).toBeInTheDocument();
+    expect(await screen.findByText("DSH view is ready")).toBeInTheDocument();
   });
 
-  it("renders a safe error when Attached has no fixed endpoint", async () => {
+  it("degrades gracefully when Attached has no fixed port instead of probing", async () => {
     const environment = { ...attachedEnvironment(), endpoint: { host: "127.0.0.1", port: "auto" } } satisfies DshEnvironment;
     const api = createApi();
     vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
@@ -786,20 +826,13 @@ describe("ShellApp", () => {
       activeEnvironmentId: environment.id,
       environments: [environment],
     });
-    vi.mocked(api.probeAttachedEnvironment).mockRejectedValue({
-      code: "UNAVAILABLE",
-      message: "Attached health requires a fixed loopback port.",
-      retryable: false,
-      correlationId: "desktop-test-1",
-    });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
-    await screen.findByText("unavailable", { selector: ".runtime-badge" });
+    await screen.findByText("degraded", { selector: ".runtime-badge" });
+    expect(api.probeAttachedEnvironment).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Runtime" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Attached health requires a fixed loopback port.",
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent("no concrete port (auto)");
   });
 
   it("restarts a healthy Managed runtime into a new generation", async () => {
@@ -838,7 +871,7 @@ describe("ShellApp", () => {
         },
       ],
     });
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
     await screen.findByText("stopped", { selector: ".runtime-badge" });
     await userEvent.click(screen.getByRole("button", { name: "Runtime" }));
     await screen.findByText("Start Managed DSH");
@@ -853,7 +886,7 @@ describe("ShellApp", () => {
       });
     });
     expect(
-      await screen.findByText("Verified endpoint: http://127.0.0.1:4318"),
+      await screen.findByText("Confirmed address of this instance: http://127.0.0.1:4318"),
     ).toBeInTheDocument();
   });
   it("switches managed environments: stop previous, activate, start target (REVIEW-M7 HIGH-1)", async () => {
@@ -874,10 +907,10 @@ describe("ShellApp", () => {
       environments: [envA, envB],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
-    await screen.findByTestId("setup-wizard");
+    await screen.findByTestId("environment-list");
     await user.click(screen.getByTestId("activate-work-dsh"));
 
     // Ordered B1 sequence: stop the previous managed environment, persist
@@ -907,6 +940,111 @@ describe("ShellApp", () => {
     });
   });
 
+  it("removes a non-running environment through the card confirmation (env quick-edit D4)", async () => {
+    const api = createApi();
+    const envA = managedEnvironment();
+    const envB = { ...managedEnvironment(), id: "work-dsh", label: "Work DSH" };
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 11,
+      activeEnvironmentId: envA.id,
+      environments: [envA, envB],
+    });
+    vi.mocked(api.getManagedRuntimeStatus).mockResolvedValue(healthyManagedReport());
+    vi.mocked(api.removeEnvironment).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 12,
+      activeEnvironmentId: envA.id,
+      environments: [envA],
+    });
+    const user = userEvent.setup();
+    renderShellApp(api);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByTestId("remove-work-dsh"));
+    await screen.findByTestId("remove-confirm-work-dsh");
+    await user.click(screen.getByTestId("remove-confirm-work-dsh"));
+
+    await waitFor(() => expect(api.removeEnvironment).toHaveBeenCalledWith("work-dsh"));
+    // The running managed process belongs to envA — removing envB stops nothing.
+    expect(api.stopManagedEnvironment).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.queryByTestId("environment-work-dsh")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("removes the active running environment: stop first, then back to unconfigured (env quick-edit D4)", async () => {
+    const api = createApi();
+    const envA = managedEnvironment();
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 11,
+      activeEnvironmentId: envA.id,
+      environments: [envA],
+    });
+    vi.mocked(api.getManagedRuntimeStatus).mockResolvedValue(healthyManagedReport());
+    vi.mocked(api.removeEnvironment).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 12,
+      activeEnvironmentId: null,
+      environments: [],
+    });
+    const user = userEvent.setup();
+    renderShellApp(api);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByTestId("remove-managed-local"));
+    // Active + running notices precede the destructive action.
+    await screen.findByTestId("remove-note-active-managed-local");
+    expect(screen.getByTestId("remove-note-running-managed-local")).toBeInTheDocument();
+    await user.click(screen.getByTestId("remove-confirm-managed-local"));
+
+    // Ordered stop → remove.
+    await waitFor(() =>
+      expect(api.stopManagedEnvironment).toHaveBeenCalledWith({
+        schemaVersion: 1,
+        environmentId: envA.id,
+        expectedGeneration: 7,
+      }),
+    );
+    await waitFor(() => expect(api.removeEnvironment).toHaveBeenCalledWith("managed-local"));
+    // Removing the active environment returns the Shell to the empty surface.
+    await user.click(screen.getByRole("button", { name: "DSH" }));
+    expect(await screen.findByText("Choose an existing DSH environment")).toBeInTheDocument();
+  });
+
+  it("edits an environment through the sectioned form and closes it after saving (env quick-edit D3)", async () => {
+    const api = createApi();
+    const envA = managedEnvironment();
+    vi.mocked(api.getEnvironmentCatalog).mockResolvedValue({
+      schemaVersion: 1,
+      revision: 11,
+      activeEnvironmentId: envA.id,
+      environments: [envA],
+    });
+    const user = userEvent.setup();
+    renderShellApp(api);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByTestId("edit-managed-local"));
+    await screen.findByTestId("environment-edit");
+    // id is fixed (upsert-by-id); only the label changes.
+    const labelInput = screen.getByTestId("edit-label");
+    await user.clear(labelInput);
+    await user.type(labelInput, "Renamed DSH");
+    await user.click(screen.getByTestId("edit-save"));
+
+    await waitFor(() => expect(api.saveEnvironment).toHaveBeenCalledTimes(1));
+    const saved = vi.mocked(api.saveEnvironment).mock.calls[0][0] as DshEnvironment;
+    expect(saved.id).toBe("managed-local");
+    expect(saved.label).toBe("Renamed DSH");
+    // D3: saving closes the dialog and refreshes the surrounding state.
+    await waitFor(() =>
+      expect(screen.queryByTestId("environment-edit")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("environment-managed-local")).toBeInTheDocument();
+  });
+
   it("starts the target managed environment after switching from attached (REVIEW-M7 HIGH-1)", async () => {
     const api = createApi();
     const envAttached = attachedEnvironment();
@@ -924,10 +1062,10 @@ describe("ShellApp", () => {
       environments: [envAttached, envManaged],
     });
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
-    await screen.findByTestId("setup-wizard");
+    await screen.findByTestId("environment-list");
     await user.click(screen.getByTestId("activate-managed-local"));
 
     // No previous managed process to stop; the target must still start
@@ -939,6 +1077,17 @@ describe("ShellApp", () => {
         environmentId: envManaged.id,
       }),
     );
+    // The activated environment must be re-validated: validation drives the
+    // DSH surface gate, so without it the surface stays on the empty
+    // "choose an environment" state even while the runtime is healthy.
+    await waitFor(() =>
+      expect(api.validateEnvironment).toHaveBeenCalledWith(envManaged),
+    );
+    await user.click(screen.getByRole("button", { name: "DSH" }));
+    expect(await screen.findByText("Managed DSH")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose an existing DSH environment"),
+    ).not.toBeInTheDocument();
   });
 
 
@@ -984,7 +1133,7 @@ describe("ShellApp", () => {
       environmentId: "managed-local",
       generation: 3,
     });
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
     await screen.findByText("safe_stop", { selector: ".runtime-badge" });
     await userEvent.click(screen.getByRole("button", { name: "Runtime" }));
     expect(await screen.findByText("Start Managed DSH")).toBeInTheDocument();
@@ -1035,7 +1184,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await screen.findByText("stopped", { selector: ".runtime-badge" });
     await user.click(screen.getByRole("button", { name: "Runtime" }));
@@ -1085,7 +1234,7 @@ describe("ShellApp", () => {
     ]);
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(await screen.findByText("Turn completed")).toBeInTheDocument();
@@ -1101,6 +1250,57 @@ describe("ShellApp", () => {
     await waitFor(() => {
       expect(screen.queryByText("Turn completed")).not.toBeInTheDocument();
     });
+  });
+
+  it("dismisses all notifications from the panel header", async () => {
+    const api = createApi();
+    vi.mocked(api.listNotifications).mockResolvedValue([
+      {
+        schemaVersion: 1,
+        id: "notif-1787792400000-1",
+        event: "schedule_result",
+        title: "Schedule job finished",
+        contentPolicy: "title_only",
+        deliveredBody: null,
+        createdAtUnixMs: 1787792400000,
+        dedupeKey: null,
+        deduplicated: false,
+      },
+      {
+        schemaVersion: 1,
+        id: "notif-1787792401000-2",
+        event: "runtime_changed",
+        title: "Runtime changed",
+        contentPolicy: "explicit_body",
+        deliveredBody: "Agent turn finished.",
+        createdAtUnixMs: 1787792401000,
+        dedupeKey: null,
+        deduplicated: false,
+      },
+    ]);
+    const user = userEvent.setup();
+
+    renderShellApp(api);
+
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
+    await screen.findByText("Schedule job finished");
+    await user.click(screen.getByTestId("notifications-dismiss-all"));
+
+    await waitFor(() =>
+      expect(api.dismissNotification).toHaveBeenCalledTimes(2),
+    );
+    expect(api.dismissNotification).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      notificationId: "notif-1787792400000-1",
+    });
+    expect(api.dismissNotification).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      notificationId: "notif-1787792401000-2",
+    });
+    await waitFor(() =>
+      expect(screen.queryByText("Schedule job finished")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Runtime changed")).not.toBeInTheDocument();
   });
 
   it("marks folded deduplicated notifications in the list", async () => {
@@ -1120,7 +1320,7 @@ describe("ShellApp", () => {
     ]);
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Notifications" }));
     expect(await screen.findByText("Schedule job finished")).toBeInTheDocument();
@@ -1138,7 +1338,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Usage" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
@@ -1178,7 +1378,7 @@ describe("ShellApp", () => {
     });
     const user = userEvent.setup();
 
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Usage" }));
     expect(await screen.findByText("runtime")).toBeInTheDocument();
@@ -1192,7 +1392,7 @@ describe("ShellApp", () => {
   it("opens the Browser surface from the rail", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<ShellApp api={api} />);
+    renderShellApp(api);
 
     await user.click(screen.getByRole("button", { name: "Browser" }));
     expect(await screen.findByRole("heading", { name: "Browser" })).toBeInTheDocument();
@@ -1203,6 +1403,7 @@ describe("ShellApp", () => {
 
 describe("language switching", () => {
   it("switches the rail copy to English and persists the choice", async () => {
+    persistLang("zh");
     const api = createApi();
     const user = userEvent.setup();
     render(
@@ -1211,15 +1412,15 @@ describe("language switching", () => {
       </I18nProvider>,
     );
 
-    const select = screen.getByRole("combobox", { name: "Language" });
+    const select = screen.getByRole("combobox", { name: "语言" });
     expect(select).toHaveValue("zh");
-    expect(screen.getByTitle("Timer（M3）")).toBeInTheDocument();
+    expect(screen.getByTitle("计时器（M3）")).toBeInTheDocument();
 
     await user.selectOptions(select, "en");
 
     expect(select).toHaveValue("en");
     expect(screen.getByTitle("Timer (M3)")).toBeInTheDocument();
-    expect(screen.queryByTitle("Timer（M3）")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("计时器（M3）")).not.toBeInTheDocument();
     expect(window.localStorage.getItem("dsh-lang")).toBe("en");
   });
 
@@ -1234,6 +1435,40 @@ describe("language switching", () => {
 
     expect(screen.getByRole("combobox", { name: "Language" })).toHaveValue("en");
     expect(await screen.findByTitle("Timer (M3)")).toBeInTheDocument();
+  });
+
+  it("retries the bootstrap snapshot when the daemon is not connected yet", async () => {
+    // BLOCK-M8E-BOOTSTRAP-STUCK regression: the daemon connector installs
+    // in the background, so the first getShellSnapshot can fail; without a
+    // retry the snapshot stays null and HarnessSurface renders the
+    // bootstrap state forever.
+    const api = createApi();
+    vi.mocked(api.getShellSnapshot)
+      .mockRejectedValueOnce(new Error("The daemon is not connected."))
+      .mockResolvedValueOnce({
+        phase: "shell-mvp",
+        runtimeState: "unconfigured",
+        environmentId: null,
+        generation: 0,
+      });
+    renderShellApp(api);
+
+    // First attempt fails: the bootstrap state is visible and the retry
+    // timer is armed.
+    await screen.findByText("Reading the latest runtime state…");
+    await waitFor(
+      () => expect(api.getShellSnapshot).toHaveBeenCalledTimes(2),
+      { timeout: 5000 },
+    );
+
+    // The retried snapshot leaves the bootstrap state.
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText("Reading the latest runtime state…"),
+        ).not.toBeInTheDocument(),
+      { timeout: 3000 },
+    );
   });
 });
 

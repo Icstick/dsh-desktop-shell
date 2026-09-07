@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -30,6 +30,33 @@ export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
   sessionRef.current = session;
   const tRef = useRef(t);
   tRef.current = t;
+  const [starting, setStarting] = useState(false);
+  // The mount effect auto-creates a session only once (first visit). After
+  // the user closes the terminal the panel stays mounted (kept hidden by the
+  // ShellApp) and offers an explicit Open button instead of reopening on its
+  // own.
+  const autoCreatedRef = useRef(false);
+
+  const createSession = async () => {
+    if (starting || sessionRef.current) return;
+    setStarting(true);
+    try {
+      const report = await api.createTerminal({
+        schemaVersion: 1,
+        mode: "human_surface",
+        cols: terminalRef.current?.cols ?? 80,
+        rows: terminalRef.current?.rows ?? 24,
+      });
+      autoCreatedRef.current = true;
+      onSession(report);
+    } catch (error: unknown) {
+      terminalRef.current?.writeln(
+        tRef.current("terminal.unavailable") + String(error),
+      );
+    } finally {
+      setStarting(false);
+    }
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -68,19 +95,9 @@ export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
     resizeObserver.observe(container);
     window.addEventListener("resize", onResize);
 
-    // Start a session if none exists yet.
-    if (!sessionRef.current) {
-      void api
-        .createTerminal({
-          schemaVersion: 1,
-          mode: "human_surface",
-          cols: terminal.cols,
-          rows: terminal.rows,
-        })
-        .then((report) => onSession(report))
-        .catch((error: unknown) => {
-          terminal.writeln(tRef.current("terminal.unavailable") + String(error));
-        });
+    // First mount with no live session: auto-create (first visit UX).
+    if (!sessionRef.current && !autoCreatedRef.current) {
+      void createSession();
     }
 
     // Output stream: terminal://output events emitted by the backend.
@@ -114,19 +131,30 @@ export function TerminalPanel({ api, session, onSession }: TerminalPanelProps) {
         <span className="terminal-panel__state" data-state={session?.state ?? "created"}>
           {session?.state ?? "created"}
         </span>
-        <button
-          className="secondary-button"
-          disabled={!session}
-          onClick={() => {
-            const current = sessionRef.current;
-            if (!current) return;
-            void api.closeTerminal({ schemaVersion: 1, sessionId: current.sessionId });
-            onSession(null);
-          }}
-          type="button"
-        >
-          {t("common.close")}
-        </button>
+        {session ? (
+          <button
+            className="secondary-button"
+            onClick={() => {
+              const current = sessionRef.current;
+              if (!current) return;
+              void api.closeTerminal({ schemaVersion: 1, sessionId: current.sessionId });
+              onSession(null);
+            }}
+            type="button"
+          >
+            {t("common.close")}
+          </button>
+        ) : (
+          <button
+            className="primary-button"
+            disabled={starting}
+            onClick={() => void createSession()}
+            type="button"
+            data-testid="terminal-open"
+          >
+            {t("terminal.open")}
+          </button>
+        )}
       </div>
       <div className="terminal-panel__host" ref={containerRef} />
     </section>

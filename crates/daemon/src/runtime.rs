@@ -34,9 +34,9 @@ use std::path::PathBuf;
 
 use dsh_managed_runtime::{
     CATALOG_FILE_NAME, CatalogError, ManagedEnvironment, ManagedRuntimeError, ManagedRuntimeReport,
-    ManagedRuntimeRestartRequest, ManagedRuntimeStartRequest, ManagedRuntimeState,
+    ManagedRuntimeBindingRequest, ManagedRuntimeRestartRequest, ManagedRuntimeStartRequest, ManagedRuntimeState,
     ManagedRuntimeStatusRequest, ManagedRuntimeStopRequest, get_managed_runtime_status,
-    is_valid_id, load_catalog, restart_managed_environment, start_managed_environment,
+    is_valid_id, load_catalog, restart_managed_environment, verified_surface_binding, start_managed_environment,
     stop_managed_environment,
 };
 
@@ -202,6 +202,44 @@ pub fn handle_restart(
     Ok(report_value(report))
 }
 
+/// `runtime.binding`: the verified Surface binding of the exact
+/// generation. Carries the private bootstrap URL (authenticated entry of
+/// the owned generation) through the daemon-only channel - it is never
+/// part of the public status report.
+pub fn handle_binding(
+    ctx: &CapabilityContext,
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, DaemonMethodError> {
+    let request: ManagedRuntimeBindingRequest = parse_request("runtime.binding", payload)?;
+    validate_request(&request.schema_version(), request.environment_id())?;
+    if request.expected_generation() == 0 {
+        return Err(failed(
+            ErrorCode::MalformedMessage,
+            "runtime.binding requires expectedGeneration >= 1",
+            false,
+        ));
+    }
+    let environment = ctx
+        .runtime
+        .environment(request.environment_id())
+        .map_err(host_error)?;
+    let binding = verified_surface_binding(
+        ctx.runtime.state(),
+        &environment,
+        request.expected_generation(),
+    )
+    .map_err(|error| {
+        eprintln!("[daemon] runtime.binding failed: {error:?}");
+        managed_error(error)
+    })?;
+    Ok(serde_json::json!({
+        "schemaVersion": 1,
+        "generation": binding.generation(),
+        "port": binding.port(),
+        "bootstrapUrl": binding.url().as_str(),
+    }))
+}
+
 // ----------------------------------------------------------------------
 // Validation / error mapping
 // ----------------------------------------------------------------------
@@ -272,12 +310,12 @@ fn managed_error(error: ManagedRuntimeError) -> DaemonMethodError {
         ),
         ManagedRuntimeError::UnsupportedSource => failed(
             ErrorCode::MalformedMessage,
-            "Managed start requires an existing executable or a prebuilt source recipe",
+            "Managed start source is missing or is not a deepseek-harness checkout (entry or TS loader not found)",
             false,
         ),
         ManagedRuntimeError::NodeOverrideUnsupported => failed(
             ErrorCode::MalformedMessage,
-            "Managed source start requires an absolute existing Node executable",
+            "Managed start needs an absolute existing Node executable (set nodePath or add node to PATH)",
             false,
         ),
         ManagedRuntimeError::Conflict => failed(
@@ -315,9 +353,22 @@ fn managed_error(error: ManagedRuntimeError) -> DaemonMethodError {
             "Managed endpoint is not a verified current-generation binding",
             true,
         ),
-        ManagedRuntimeError::SpawnUnavailable
-        | ManagedRuntimeError::ProcessTreeUnavailable
-        | ManagedRuntimeError::StopFailed
+        ManagedRuntimeError::SpawnFailed(reason) => failed(
+            ErrorCode::Unavailable,
+            format!("Managed process could not be started: {}", reason),
+            true,
+        ),
+        ManagedRuntimeError::ProcessTreeFailed(reason) => failed(
+            ErrorCode::Unavailable,
+            format!("Managed process tree could not be attached: {}", reason),
+            true,
+        ),
+        ManagedRuntimeError::RuntimeUnavailable(reason) => failed(
+            ErrorCode::Unavailable,
+            reason,
+            true,
+        ),
+        ManagedRuntimeError::StopFailed
         | ManagedRuntimeError::StateUnavailable
         | ManagedRuntimeError::ClockUnavailable => failed(
             ErrorCode::Unavailable,
@@ -373,7 +424,7 @@ mod tests {
         );
         // Spawn/readiness failures are retryable; policy rejections are not.
         assert!(retryable_of(managed_error(
-            ManagedRuntimeError::SpawnUnavailable
+            ManagedRuntimeError::SpawnFailed("probe".into())
         )));
         assert!(!retryable_of(managed_error(
             ManagedRuntimeError::InvalidEnvironment

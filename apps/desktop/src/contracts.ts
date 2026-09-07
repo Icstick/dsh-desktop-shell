@@ -98,6 +98,14 @@ export interface DiscoveryEvidence {
   message: string;
 }
 
+export interface RepositoryInfo {
+  repoRoot: string;
+  entry: string;
+  loader: string | null;
+  needsInstall: boolean;
+  needsBuild: boolean;
+}
+
 export interface HarnessCandidate {
   id: string;
   source: DiscoverySource;
@@ -107,6 +115,7 @@ export interface HarnessCandidate {
   status: DiscoveryCandidateStatus;
   launchable: boolean;
   version: string | null;
+  repository?: RepositoryInfo;
   evidence: DiscoveryEvidence[];
 }
 
@@ -566,7 +575,11 @@ export interface UsageSnapshotRequest {
 export type BrowserState = "created" | "loading" | "ready" | "closed" | "error";
 export type BrowserMode = "human_surface";
 export type BrowserSnapshotMode = "text" | "screenshot";
-export type BrowserEventKind = "navigation_changed" | "load_failed" | "closed";
+export type BrowserEventKind =
+  | "navigation_changed"
+  | "load_failed"
+  | "closed"
+  | "title_changed";
 
 export interface BrowserCreateRequest {
   schemaVersion: 1;
@@ -613,4 +626,6 @@ export interface BrowserEvent {
   kind: BrowserEventKind;
   occurredAtUnixMs: number;
   url: string | null;
+  /** Current document title (title_changed events; WI-M9-BROWSER-TABS). */
+  title: string | null;
 }

@@ -63,7 +63,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p apps/desktop/src-tauri/binaries
-          cp target/release/dsh-desktop-daemon apps/desktop/src-tauri/binaries/dsh-desktop-daemon
+          # tauri externalBin sidecars must carry the target-triple suffix
+          # (binaries/<name>-<triple>[.exe]); derive it from rustc's host so
+          # the step stays correct across runner architectures.
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then EXT=".exe"; fi
+          cp "target/release/dsh-desktop-daemon$EXT" "apps/desktop/src-tauri/binaries/dsh-desktop-daemon-$TRIPLE$EXT"
 
       # Platform bundle sets (Windows signing is applied locally per
       # docs/release/signing-and-distribution.md before upload; macOS
@@ -101,17 +107,20 @@ jobs:
         with:
           path: artifacts
 
-      # GitHub attestation (SLSA build provenance) is unavailable on
-      # user-owned private repositories (2026-09-02, error: Feature not
-      # available for user-owned private repositories). Provide SHA-256
-      # checksums instead; re-enable attest-build-provenance when the
-      # repository is public.
+      # The repository is public (since 2026-09-07), so SLSA build
+      # provenance attestation is available. Checksums are still produced
+      # and uploaded alongside the attestation.
       - name: Compute SHA-256 checksums
         working-directory: artifacts
         run: |
           # -print0/-0: bundle file names contain spaces (DSH Desktop Shell_*).
           find . -type f -print0 | sort -z | xargs -0 sha256sum > checksums.txt
           cat checksums.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: artifacts/**
 
       - name: Upload checksums
         uses: actions/upload-artifact@v4

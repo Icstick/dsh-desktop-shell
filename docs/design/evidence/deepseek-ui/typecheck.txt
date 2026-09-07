@@ -1,0 +1,2 @@
+Command: node node_modules/typescript/bin/tsc -b --pretty false
+Exit: 0

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/runtime/managed-runtime-binding-request.schema.json",
+  "title": "ManagedRuntimeBindingRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "environmentId",
+    "expectedGeneration"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "environmentId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "expectedGeneration": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

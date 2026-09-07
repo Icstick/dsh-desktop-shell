@@ -1,0 +1,17 @@
+schema_version: 1
+id: BLOCK-M8E-I18N-ZH
+title: "i18n 中文模式界面仍英文——v0.1.0 发布质量门"
+status: resolved
+owner_role: milestone-owner
+blocked_items:
+  - WI-M8-RELEASE
+details: >-
+  根因（2026-09-02）：非切换机制问题——M6 i18n 只做了机制（切换/持久化/字典表），
+  zh 字典 123 个 key 全是英文占位从未翻译。修复：zh 字典全部翻译为真实中文 +
+  HarnessSurface/EnvironmentList 硬编码文案 i18n 化（harness.*/envlist.* key）；
+  测试默认语境固定 en + 语言切换测试显式从 zh 开始。typecheck + 66 vitest 全绿，
+  GUI 实机验收通过（切中文生效）。遗留：zh 文案个别措辞待润色（用户反馈"读起来
+  奇怪"）；SetupWizard 文案 i18n 化与向导问题一起在后续处理。
+resolution: null
+created_at: "2026-09-02T15:00:00Z"
+updated_at: "2026-09-02T17:10:00Z"

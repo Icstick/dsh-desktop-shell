@@ -61,6 +61,7 @@ pub(crate) enum StoreError {
     Corrupt,
     InvalidEnvironment,
     Capacity,
+    NotFound,
     Unavailable,
 }
 
@@ -136,6 +137,34 @@ pub(crate) fn save_environment(
         .checked_add(1)
         .ok_or(StoreError::Capacity)?;
 
+    validate_catalog(&catalog)?;
+    write_catalog(path, &catalog)?;
+    Ok(catalog)
+}
+
+/// Remove one environment from the catalog. Removing the active
+/// environment clears the active selection (the Shell returns to the
+/// empty surface state). Unknown ids are rejected without touching the
+/// catalog (no silent deletion).
+pub(crate) fn remove_environment(
+    path: &Path,
+    environment_id: &str,
+) -> Result<EnvironmentCatalog, StoreError> {
+    let mut catalog = load_catalog(path)?;
+    let original_len = catalog.environments.len();
+    catalog
+        .environments
+        .retain(|environment| environment.id() != environment_id);
+    if catalog.environments.len() == original_len {
+        return Err(StoreError::NotFound);
+    }
+    if catalog.active_environment_id.as_deref() == Some(environment_id) {
+        catalog.active_environment_id = None;
+    }
+    catalog.revision = catalog
+        .revision
+        .checked_add(1)
+        .ok_or(StoreError::Capacity)?;
     validate_catalog(&catalog)?;
     write_catalog(path, &catalog)?;
     Ok(catalog)
@@ -378,5 +407,61 @@ mod tests {
         assert!(matches!(error, StoreError::InvalidEnvironment));
         let loaded = load_catalog(&catalog_path).expect("reload");
         assert_eq!(loaded.active_environment_id.as_deref(), Some("local-dsh"));
+    }
+
+    #[test]
+    fn remove_environment_deletes_entry_and_bumps_revision() {
+        let directory = TestDirectory::new();
+        let catalog_path = directory.0.join("environment-catalog-v1.json");
+        let dsh_home = directory.0.join("dsh-home");
+        save_environment(&catalog_path, environment("local-dsh", &dsh_home)).expect("first");
+        let after_first =
+            save_environment(&catalog_path, environment("work-dsh", &dsh_home)).expect("second");
+        assert_eq!(
+            after_first.active_environment_id.as_deref(),
+            Some("work-dsh")
+        );
+
+        let removed =
+            remove_environment(&catalog_path, "local-dsh").expect("remove non-active");
+        assert!(removed.environment("local-dsh").is_none());
+        assert!(removed.environment("work-dsh").is_some());
+        assert!(removed.revision > after_first.revision);
+        // The active environment is untouched when a different one is removed.
+        assert_eq!(removed.active_environment_id.as_deref(), Some("work-dsh"));
+    }
+
+    #[test]
+    fn remove_active_environment_clears_active_selection() {
+        let directory = TestDirectory::new();
+        let catalog_path = directory.0.join("environment-catalog-v1.json");
+        let dsh_home = directory.0.join("dsh-home");
+        save_environment(&catalog_path, environment("local-dsh", &dsh_home)).expect("first");
+        save_environment(&catalog_path, environment("work-dsh", &dsh_home)).expect("second");
+
+        let removed = remove_environment(&catalog_path, "work-dsh").expect("remove active");
+        assert!(removed.environment("work-dsh").is_none());
+        assert!(removed.environment("local-dsh").is_some());
+        assert_eq!(removed.active_environment_id.as_deref(), None);
+        let loaded = load_catalog(&catalog_path).expect("reload");
+        assert_eq!(loaded.active_environment_id.as_deref(), None);
+        // The cleared catalog is still a valid catalog (empty active is legal).
+        assert!(validate_catalog(&loaded).is_ok());
+    }
+
+    #[test]
+    fn remove_unknown_environment_is_rejected_without_touching_catalog() {
+        let directory = TestDirectory::new();
+        let catalog_path = directory.0.join("environment-catalog-v1.json");
+        let dsh_home = directory.0.join("dsh-home");
+        let saved =
+            save_environment(&catalog_path, environment("local-dsh", &dsh_home)).expect("first");
+
+        let error =
+            remove_environment(&catalog_path, "ghost-dsh").expect_err("unknown environment");
+        assert!(matches!(error, StoreError::NotFound));
+        let loaded = load_catalog(&catalog_path).expect("reload");
+        assert_eq!(loaded.revision, saved.revision);
+        assert!(loaded.environment("local-dsh").is_some());
     }
 }

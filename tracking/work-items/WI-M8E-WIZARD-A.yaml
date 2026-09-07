@@ -1,0 +1,25 @@
+schema_version: 1
+id: WI-M8E-WIZARD-A
+title: "D5/WI-A: SetupWizard 源码仓库单形态 + id/label 编辑 + advanced 字段 + clone 引导 + 文案 i18n"
+status: in_progress
+milestone: M8
+module: MOD-ENVIRONMENT-SETTINGS
+owner_role: ui-owner
+claimed_by: dsh-agent-primary
+session: SESSION-20260902-M8E-WIZARD-REPO-SOURCE
+branch_or_worktree: feat/wizard-repo-source
+claim_expires_at: "2026-09-03T08:00:00Z"
+dependencies:
+  - WI-M8E-WIZARD-B
+acceptance_criteria:
+  - "来源步单形态：Managed 来源 = 源码仓库目录（附官方 clone 说明）；探测结果展示 repo 详情（entry/loader/install/build 状态）"
+  - "非 repo/缺失路径：显示 clone 引导（建议位置 + git clone 命令文本）"
+  - "label（Profile 名称）可编辑；Profile-ID 由名称自动生成且不可手编（用户 2026-09-02 review 变更，UI 只读展示）；编辑已有环境 id 锁定；保存前 id 冲突拦截；advanced 暴露 nodePath/cwd/extraArguments（回填可见）"
+  - "SetupWizard 全部文案 i18n 化（zh/en）；SetupWizard.test 扩展 repo 路径场景"
+security_impact: "None（configuration UX）"
+compatibility_impact: "executable 来源不再在 UI 引导（schema/discovery 保留兼容旧 catalog）"
+evidence: []
+blocked_by: []
+next_action: "已完成 UI 重做与 i18n（未合并）：提交后跑门禁 → 更新 evidence → 待 maintainer 验收"
+handoff: null
+updated_at: "2026-09-02T17:40:00Z"

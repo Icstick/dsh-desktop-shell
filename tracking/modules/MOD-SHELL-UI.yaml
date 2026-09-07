@@ -16,3 +16,11 @@ depends_on:
 security_review: in_progress
 updated_at: "2026-08-29T10:05:00Z"
 next_action: "M3-A 完成：Notification service（AC-NOT-001/002，10 tests）与通知面板；继续维护 native Surface 门禁。"
+
+visual_redesign:
+  work_item: WI-M8-DEEPSEEK-UI
+  status: review
+  branch: feat/deepseek-character-ui
+  evidence: docs/design/evidence/deepseek-ui/README.md
+  interface_changes: none
+  next_action: "Visual acceptance and live native verification; prior module evidence preserved."

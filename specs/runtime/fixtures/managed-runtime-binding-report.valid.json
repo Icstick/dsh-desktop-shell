@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "generation": 2,
+  "port": 3081,
+  "bootstrapUrl": "http://127.0.0.1:3081/?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+}

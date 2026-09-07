@@ -65,13 +65,36 @@ fn node_executable() -> PathBuf {
     panic!("node must be resolvable on PATH for the runtime integration test");
 }
 
-/// The fake-DSH child: a real node process that prints the endpoint
-/// marker and answers the HTTP-level readiness probe (FM-1).
-fn write_fake_dsh(dir: &Path) -> PathBuf {
-    let script = dir.join("fake-dsh.js");
+/// The fake-DSH "checkout": a repository-shaped directory the new
+/// repository recipe can launch: apps/cli/src/bin.ts (the CLI entry,
+/// plain JS in commonjs form) plus a minimal TS loader at
+/// scripts/register-tsx-esm.mjs that passes .ts sources through
+/// verbatim, so any Node version can execute the entry.
+///
+/// The child prints the endpoint marker and answers the HTTP-level
+/// readiness probe (FM-1) like the real DSH CLI does.
+fn write_fake_repo(dir: &Path) -> PathBuf {
+    let entry_dir = dir.join("apps/cli/src");
+    let scripts_dir = dir.join("scripts");
+    fs::create_dir_all(&entry_dir).expect("create repo entry dirs");
+    fs::create_dir_all(&scripts_dir).expect("create repo scripts dir");
     fs::write(
-        &script,
-        r#"const net = require('net');
+        scripts_dir.join("register-tsx-esm.mjs"),
+        r#"import { readFile } from 'node:fs/promises';
+export async function load(url, context, nextLoad) {
+  if (url.endsWith('.ts')) {
+    const source = await readFile(new URL(url));
+    return { format: 'commonjs', source, shortCircuit: true };
+  }
+  return nextLoad(url, context);
+}
+"#,
+    )
+    .expect("write fake ts loader");
+    let entry = entry_dir.join("bin.ts");
+    fs::write(
+        &entry,
+        r#"import net from 'node:net';
 const server = net.createServer((socket) => {
   // The readiness probe drops its TCP stream with unread response bytes;
   // Windows may then RST the connection. Swallow the socket error so the
@@ -85,13 +108,13 @@ server.listen(0, '127.0.0.1', () => {
   const port = server.address().port;
   console.log('dsh web: http://127.0.0.1:' + port + '/');
 });
-setInterval(() => {}, 1000);"#,
+setInterval(() => {}, 1000);
+"#,
     )
-    .expect("write fake dsh script");
-    script
+    .expect("write fake dsh entry");
+    entry
 }
 
-/// A managed repository environment referencing the fake-DSH script.
 fn managed_environment(dir: &Path, id: &str, node: &Path) -> serde_json::Value {
     serde_json::json!({
         "schemaVersion": 1,
@@ -99,7 +122,7 @@ fn managed_environment(dir: &Path, id: &str, node: &Path) -> serde_json::Value {
         "label": format!("Managed {id}"),
         "harness": {
             "mode": "repository",
-            "path": dir.join("fake-dsh.js"),
+            "path": dir,
             "cwd": dir,
         },
         "dshHome": "C:/Users/example/.dsh",
@@ -162,8 +185,8 @@ fn stop_request(environment_id: &str, generation: u64) -> serde_json::Value {
 fn managed_runtime_full_lifecycle_over_envelope() {
     let dir = TestDirectory::new();
     let node = node_executable();
-    let script = write_fake_dsh(&dir.0);
-    assert!(script.is_file());
+    let entry = write_fake_repo(&dir.0);
+    assert!(entry.is_file());
     write_catalog(
         &dir,
         vec![managed_environment(&dir.0, "managed-local", &node)],
@@ -281,7 +304,7 @@ fn managed_runtime_full_lifecycle_over_envelope() {
 fn runtime_authorization_and_validation_matrix() {
     let dir = TestDirectory::new();
     let node = node_executable();
-    write_fake_dsh(&dir.0);
+    write_fake_repo(&dir.0);
     // Two environments: managed-other exists in the catalog so the
     // supervisor conflict path (FM-4) is exercised, not the
     // environment-not-found path.

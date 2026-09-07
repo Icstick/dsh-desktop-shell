@@ -1,1 +1,2 @@
-{ "schemaVersion": 1, "sessionId": "brw-1787000000000-1", "kind": "navigation_changed", "occurredAtUnixMs": 1787000001000, "url": "https://example.com/" }
+{ "schemaVersion": 1, "sessionId": "brw-1787000000000-1", "kind": "navigation_changed", "occurredAtUnixMs": 1787000001000, "url": "https://example.com/",
+  "title": null }

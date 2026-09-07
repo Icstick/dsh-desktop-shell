@@ -1,3 +1,4 @@
+import { PageArtwork } from "./PageArtwork";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
@@ -18,6 +19,7 @@ import type {
 } from "../../../src/contracts";
 import { desktopApi, type DesktopApi } from "../../../src/desktop-api";
 import { useI18n } from "../../../src/i18n";
+import { EnvironmentEditForm } from "../../environment-settings/src/EnvironmentEditForm";
 import { EnvironmentList } from "../../environment-settings/src/EnvironmentList";
 import { SetupWizard } from "../../environment-settings/src/SetupWizard";
 import { BrowserPanel } from "../../browser-ui/src/BrowserPanel";
@@ -49,6 +51,12 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [transitioningManaged, setTransitioningManaged] = useState(false);
   const [confirmingManagedStop, setConfirmingManagedStop] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingEnvironment, setEditingEnvironment] = useState<DshEnvironment | null>(null);
+  // The terminal panel stays mounted once visited (kept hidden) so its
+  // xterm buffer survives surface switches; unmounting would drop every
+  // scrollback line and leave a black screen on return (user report).
+  const [visitedTerminal, setVisitedTerminal] = useState(false);
   const [terminalSession, setTerminalSession] = useState<TerminalReport | null>(null);
   const [surfaceBounds, setSurfaceBounds] = useState<DshSurfaceBounds | null>(null);
   const [nativeSurface, setNativeSurface] = useState<DshSurfaceStatus | null>(null);
@@ -67,7 +75,18 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   }, []);
 
   useEffect(() => {
+    if (activeSurface === "terminal") setVisitedTerminal(true);
+  }, [activeSurface]);
+
+  useEffect(() => {
     let current = true;
+    let retryTimer: number | undefined;
+    // BLOCK-M8E-BOOTSTRAP-STUCK: the daemon connector installs in the
+    // background (retry loop), so the very first getShellSnapshot can
+    // fail before the daemon is reachable. Without a retry the snapshot
+    // stays null forever and HarnessSurface renders the bootstrap state
+    // permanently. Retry on failure (2s, matching the daemon connect
+    // interval) until the snapshot loads or the component unmounts.
     const load = async () => {
       try {
         const [nextSnapshot, catalog] = await Promise.all([
@@ -76,6 +95,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
         ]);
         if (!current) return;
         setSnapshot(nextSnapshot);
+        setSnapshotError(null);
         setCatalog(catalog);
 
         const activeEnvironment = catalog.environments.find(
@@ -89,12 +109,16 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           setValidation(nextValidation);
         }
       } catch {
-        if (current) setSnapshotError(tRef.current("error.desktopUnavailable"));
+        if (current) {
+          setSnapshotError(tRef.current("error.desktopUnavailable"));
+          retryTimer = window.setTimeout(() => void load(), 2000);
+        }
       }
     };
     void load();
     return () => {
       current = false;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
   }, [api]);
 
@@ -103,6 +127,19 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
       setAttachedHealth(null);
       setAttachedHealthError(null);
       setProbingAttached(false);
+      return;
+    }
+
+    // An Attached environment without a concrete port cannot be probed at
+    // all. Probe attempts would only fail with a fixed-port error and pin
+    // the badge to unavailable — surface the configuration problem instead.
+    if (validatedEnvironment.endpoint.port === "auto") {
+      setAttachedHealth(null);
+      setAttachedHealthError(tRef.current("runtime.attached.autoPortNeeded"));
+      setProbingAttached(false);
+      setSnapshot((snapshot) =>
+        snapshot ? { ...snapshot, runtimeState: "degraded" } : snapshot,
+      );
       return;
     }
 
@@ -444,6 +481,31 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
+  // Wizard is trigger-based (env quick-edit D1): it only exists while the
+  // user is creating an environment, so a successful save closes it first.
+  const handleWizardSaved = (
+    environment: DshEnvironment,
+    catalog: EnvironmentCatalog,
+    result: EnvironmentValidation,
+  ) => {
+    setWizardOpen(false);
+    void handleSaved(environment, catalog, result);
+  };
+
+  const openEditForm = (environment: DshEnvironment) => {
+    setWizardOpen(false);
+    setEditingEnvironment(environment);
+  };
+
+  const handleEditSaved = (
+    environment: DshEnvironment,
+    catalog: EnvironmentCatalog,
+    result: EnvironmentValidation,
+  ) => {
+    setEditingEnvironment(null);
+    void handleSaved(environment, catalog, result);
+  };
+
   const activateEnvironment = async (
     nextCatalog: EnvironmentCatalog,
     environment: DshEnvironment,
@@ -467,6 +529,17 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     setCatalog(nextCatalog);
     setValidatedEnvironment(environment);
     setValidation(null);
+    // Re-validate the activated environment: validation drives the DSH
+    // surface gate, so without it the surface stays on the empty
+    // "choose an environment" state even while the runtime is healthy.
+    api
+      .validateEnvironment(environment)
+      .then((result) => {
+        if (result.valid) setValidation(result);
+      })
+      .catch(() => {
+        // Keep validation null: the surface renders the empty state copy.
+      });
     if (environment.ownership === "attached") {
       setSnapshot((current) =>
         current ? { ...current, environmentId: environment.id } : current,
@@ -576,6 +649,44 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
     }
   };
 
+  const handleRemoveEnvironment = async (environment: DshEnvironment) => {
+    // Ordered stop → remove (mirrors the B1 activation sequence): a running
+    // managed DSH must be stopped before its environment can be removed.
+    if (
+      environment.ownership === "managed" &&
+      managedRuntime &&
+      managedRuntime.environmentId === environment.id &&
+      managedRuntime.generation >= 1
+    ) {
+      await stopManaged(environment);
+    }
+    setTransitioningManaged(true);
+    try {
+      const nextCatalog = await api.removeEnvironment(environment.id);
+      setCatalog(nextCatalog);
+      if (validatedEnvironment?.id === environment.id) {
+        // Removed the active environment: return to the empty surface state
+        // (validated environment gone, no runtime, no native surface).
+        setValidatedEnvironment(null);
+        setValidation(null);
+        setManagedRuntime(null);
+        setManagedRuntimeError(null);
+        setNativeSurface(null);
+        setNativeSurfaceError(null);
+        mountedSurfaceRef.current = null;
+        surfaceIntentRef.current = null;
+        surfaceFailureRef.current = null;
+        setSnapshot((current) =>
+          current
+            ? { ...current, environmentId: null, runtimeState: "unconfigured" }
+            : current,
+        );
+      }
+    } finally {
+      setTransitioningManaged(false);
+    }
+  };
+
   const retryNativeSurface = async () => {
     const environment = validatedEnvironment;
     const bounds = lastSurfaceBoundsRef.current;
@@ -639,18 +750,41 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
   };
 
   return (
-    <main className="shell-app">
+    <main className="shell-app" data-surface={activeSurface}>
       <ActivityRail active={activeSurface} onSelect={setActiveSurface} />
-      <section className="shell-workspace">
-        <header className="shell-header">
+      <section
+        className={
+          "shell-workspace" +
+          (activeSurface === "dsh" || activeSurface === "terminal"
+            ? " shell-workspace--immersive"
+            : "")
+        }
+      >
+        <header
+          className={
+            "shell-header" +
+            (activeSurface === "dsh" || activeSurface === "terminal"
+              ? " shell-header--compact"
+              : "")
+          }
+        >
           <div>
             <p className="eyebrow">{t("shell.eyebrow")}</p>
             <h1>{surfaceTitle(activeSurface, t)}</h1>
+            <p className="shell-header__description">{t("art.description." + activeSurface)}</p>
           </div>
+          <PageArtwork surface={activeSurface} />
           <RuntimeBadge snapshot={snapshot} error={snapshotError} />
         </header>
 
-        <div className="shell-content">
+        <div
+          className={
+            "shell-content" +
+            (activeSurface === "dsh" || activeSurface === "terminal"
+              ? " shell-content--surface"
+              : "")
+          }
+        >
           {activeSurface === "dsh" && (
             <HarnessSurface
               environment={validatedEnvironment}
@@ -667,12 +801,19 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
               onRetry={retryNativeSurface}
             />
           )}
-          {activeSurface === "terminal" && (
-            <TerminalPanel
-              api={api}
-              onSession={setTerminalSession}
-              session={terminalSession}
-            />
+          {visitedTerminal && (
+            <div
+              className={
+                "terminal-surface" +
+                (activeSurface === "terminal" ? "" : " is-hidden")
+              }
+            >
+              <TerminalPanel
+                api={api}
+                onSession={setTerminalSession}
+                session={terminalSession}
+              />
+            </div>
           )}
           {activeSurface === "browser" && <BrowserPanel api={api} />}
           {activeSurface === "notifications" && <NotificationsPanel api={api} />}
@@ -701,18 +842,42 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           )}
           {activeSurface === "settings" && (
             <>
-              <SetupWizard
-                api={api}
-                initialEnvironment={validatedEnvironment}
-                onSaved={handleSaved}
-              />
+              {wizardOpen && (
+                <SetupWizard
+                  api={api}
+                  initialEnvironment={null}
+                  onSaved={handleWizardSaved}
+                  onClose={() => setWizardOpen(false)}
+                />
+              )}
+              {editingEnvironment && catalog && (
+                <EnvironmentEditForm
+                  api={api}
+                  environment={editingEnvironment}
+                  catalog={catalog}
+                  busy={transitioningManaged}
+                  onClose={() => setEditingEnvironment(null)}
+                  onSaved={handleEditSaved}
+                />
+              )}
               {catalog && (
                 <EnvironmentList
                   api={api}
                   catalog={catalog}
                   activeEnvironmentId={catalog.activeEnvironmentId}
                   transitioning={transitioningManaged}
+                  runningEnvironmentId={
+                    managedRuntime && managedRuntime.generation >= 1
+                      ? managedRuntime.environmentId
+                      : null
+                  }
                   onActivated={activateEnvironment}
+                  onAddEnvironment={() => {
+                    setEditingEnvironment(null);
+                    setWizardOpen(true);
+                  }}
+                  onEdit={openEditForm}
+                  onRemove={handleRemoveEnvironment}
                 />
               )}
             </>
@@ -734,11 +899,12 @@ function surfaceTitle(surface: SurfaceId, t: (key: string) => string) {
 }
 
 function RuntimeBadge({ snapshot, error }: { snapshot: ShellSnapshot | null; error: string | null }) {
+  const { t } = useI18n();
   const state = error ? "unavailable" : snapshot?.runtimeState ?? "loading";
   return (
     <div className="runtime-badge" data-state={state} aria-live="polite">
       <span className="runtime-badge__dot" aria-hidden="true" />
-      {state}
+      {t("enum.state." + state)}
     </div>
   );
 }
@@ -796,7 +962,7 @@ function RuntimePanel({
       ) : (
         <dl className="definition-grid">
           <div><dt>{t("runtime.phase")}</dt><dd>{snapshot?.phase ?? t("common.loading")}</dd></div>
-          <div><dt>{t("runtime.state")}</dt><dd>{snapshot?.runtimeState ?? t("common.loading")}</dd></div>
+          <div><dt>{t("runtime.state")}</dt><dd>{snapshot ? t("enum.state." + snapshot.runtimeState) : t("common.loading")}</dd></div>
           <div><dt>{t("runtime.environment")}</dt><dd>{snapshot?.environmentId ?? t("common.notSelected")}</dd></div>
           <div><dt>{t("runtime.generation")}</dt><dd>{snapshot?.generation ?? 0}</dd></div>
         </dl>
@@ -823,10 +989,10 @@ function RuntimePanel({
           {attachedHealth && (
             <>
               <dl className="definition-grid definition-grid--health">
-                <div><dt>{t("runtime.reachability")}</dt><dd>{attachedHealth.reachability}</dd></div>
-                <div><dt>{t("runtime.identity")}</dt><dd>{attachedHealth.identity}</dd></div>
-                <div><dt>{t("runtime.processOwnership")}</dt><dd>{attachedHealth.processOwnership}</dd></div>
-                <div><dt>{t("runtime.mutation")}</dt><dd>{attachedHealth.lifecycleMutation}</dd></div>
+                <div><dt>{t("runtime.reachability")}</dt><dd>{t("enum.reach." + attachedHealth.reachability)}</dd></div>
+                <div><dt>{t("runtime.identity")}</dt><dd>{t("enum.ident." + attachedHealth.identity)}</dd></div>
+                <div><dt>{t("runtime.processOwnership")}</dt><dd>{t("enum.own." + attachedHealth.processOwnership)}</dd></div>
+                <div><dt>{t("runtime.mutation")}</dt><dd>{t("enum.mut." + attachedHealth.lifecycleMutation)}</dd></div>
                 <div>
                   <dt>{t("runtime.endpoint")}</dt>
                   <dd>{attachedHealth.endpoint.host}:{attachedHealth.endpoint.port}</dd>
@@ -941,12 +1107,12 @@ function ManagedRuntimeSection({
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       <dl className="definition-grid definition-grid--health">
-        <div><dt>{t("runtime.state")}</dt><dd>{state}</dd></div>
+        <div><dt>{t("runtime.state")}</dt><dd>{t("enum.state." + state)}</dd></div>
         <div><dt>{t("runtime.generation")}</dt><dd>{report?.generation ?? 0}</dd></div>
-        <div><dt>{t("runtime.processOwnership")}</dt><dd>{report?.processOwnership ?? "none"}</dd></div>
-        <div><dt>{t("runtime.readiness")}</dt><dd>{report?.readiness ?? t("common.loading")}</dd></div>
+        <div><dt>{t("runtime.processOwnership")}</dt><dd>{report ? t("enum.own." + report.processOwnership) : t("common.loading")}</dd></div>
+        <div><dt>{t("runtime.readiness")}</dt><dd>{report ? t("enum.ready." + report.readiness) : t("common.loading")}</dd></div>
         <div><dt>{t("runtime.instance")}</dt><dd>{report?.instanceId ?? "none"}</dd></div>
-        <div><dt>{t("runtime.stopDisposition")}</dt><dd>{report?.stopDisposition ?? "not_requested"}</dd></div>
+        <div><dt>{t("runtime.stopDisposition")}</dt><dd>{report ? t("enum.stop." + report.stopDisposition) : t("common.loading")}</dd></div>
         {report?.recovery && (
           <>
             <div><dt>{t("runtime.recoveryCrashes")}</dt><dd>{report.recovery.crashCount} / {report.recovery.budget}</dd></div>
@@ -1011,8 +1177,8 @@ function DiagnosticsSection({
         <>
           <dl className="definition-grid definition-grid--health">
             <div><dt>{t("diagnostics.observed")}</dt><dd>{new Date(report.observedAtUnixMs).toISOString()}</dd></div>
-            <div><dt>{t("diagnostics.runtimeState")}</dt><dd>{report.runtime.state}</dd></div>
-            <div><dt>{t("runtime.readiness")}</dt><dd>{report.runtime.readiness}</dd></div>
+            <div><dt>{t("diagnostics.runtimeState")}</dt><dd>{t("enum.state." + report.runtime.state)}</dd></div>
+            <div><dt>{t("runtime.readiness")}</dt><dd>{t("enum.ready." + report.runtime.readiness)}</dd></div>
             <div>
               <dt>{t("runtime.endpoint")}</dt>
               <dd>
@@ -1023,7 +1189,7 @@ function DiagnosticsSection({
             </div>
             <div>
               <dt>{t("diagnostics.surface")}</dt>
-              <dd>{report.surface.state}{report.surface.visible ? t("diagnostics.visible") : ""}</dd>
+              <dd>{t("enum.surface." + report.surface.state)}{report.surface.visible ? t("diagnostics.visible") : ""}</dd>
             </div>
             <div>
               <dt>{t("diagnostics.process")}</dt>
@@ -1101,6 +1267,23 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
     }
   };
 
+  const dismissAll = async () => {
+    const pending = notifications ?? [];
+    if (pending.length === 0) return;
+    try {
+      for (const notification of pending) {
+        await api.dismissNotification({
+          schemaVersion: 1,
+          notificationId: notification.id,
+        });
+      }
+      setNotifications([]);
+      setError(null);
+    } catch (cause: unknown) {
+      setError(commandErrorMessage(cause, t("error.notificationDismiss")));
+    }
+  };
+
   return (
     <section className="panel" aria-labelledby="notifications-heading">
       <div className="panel__heading panel__heading--split">
@@ -1108,9 +1291,20 @@ function NotificationsPanel({ api }: { api: DesktopApi }) {
           <p className="eyebrow">{t("notifications.eyebrow")}</p>
           <h2 id="notifications-heading">{t("surface.notifications")}</h2>
         </div>
-        <button className="secondary-button" onClick={() => void refresh()} type="button">
-          {t("common.refresh")}
-        </button>
+        <div className="button-row">
+          <button
+            className="secondary-button"
+            disabled={!notifications || notifications.length === 0}
+            onClick={() => void dismissAll()}
+            type="button"
+            data-testid="notifications-dismiss-all"
+          >
+            {t("notifications.dismissAll")}
+          </button>
+          <button className="secondary-button" onClick={() => void refresh()} type="button">
+            {t("common.refresh")}
+          </button>
+        </div>
       </div>
       {error && <div className="callout callout--danger" role="alert">{error}</div>}
       {notifications === null ? (
@@ -1210,7 +1404,11 @@ function UsagePanel({ api }: { api: DesktopApi }) {
                     {record.isEstimate && <span className="estimate-badge">{t("usage.estimate")}</span>}
                   </div>
                   <p className="usage-item__meta">
-                    {new Date(record.period.start).toLocaleString()} → {new Date(record.period.end).toLocaleString()}
+                    {record.period.start === record.period.end
+                      ? new Date(record.period.start).toLocaleString()
+                      : new Date(record.period.start).toLocaleString() +
+                        " → " +
+                        new Date(record.period.end).toLocaleString()}
                   </p>
                   <p className="usage-item__meta">
                     {t("usage.inOut", {

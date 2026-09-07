@@ -211,3 +211,82 @@ fn non_shell_conflict_stays_fail_closed() {
         .expect("Shell human path dispatches");
     assert_eq!(status["count"], 0);
 }
+
+/// BLOCK-M8E-BOOTSTRAP-STUCK root-cause regression: a daemon that has
+/// been idle past its lease leaves the credential file stale, and because
+/// re-issue only happened on disconnect, a Shell start could never
+/// connect again (stale rejection loop; GUI stuck in bootstrap). The
+/// freshness maintenance must rewrite the file before the token expires -
+/// no connection required.
+#[test]
+fn idle_daemon_refreshes_expiring_credential() {
+    let dir = std::env::temp_dir().join(format!("dsh-refresh-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let catalog = dir.join("environments.json");
+
+    let server = DaemonServer::bind_with_catalog(Limits::default(), CLAIM_PORT, catalog)
+        .expect("bind daemon server");
+
+    // Short TTL (< BOOTSTRAP_REFRESH_LEAD): the recorded expiry is already
+    // inside the refresh window, so the very next maintenance must rewrite
+    // the file with a fresh full-lease token.
+    let file = server
+        .issue_bootstrap_credential_file(Duration::from_secs(30))
+        .expect("issue bootstrap credential")
+        .expect("data directory present");
+    let first_token = file.credential.token.clone();
+
+    // No connection ever happens: maintenance alone keeps the file usable.
+    server.maintain_bootstrap_credential();
+    let refreshed = CredentialFile::read_from(&dir).expect("read refreshed file");
+    assert_ne!(
+        refreshed.credential.token, first_token,
+        "maintenance must re-issue a token inside the refresh window"
+    );
+
+    // The fresh token has the full lease, so a second maintenance leaves
+    // the file untouched (stable when nothing is expiring).
+    let stable_token = refreshed.credential.token.clone();
+    server.maintain_bootstrap_credential();
+    let again = CredentialFile::read_from(&dir).expect("read stable file");
+    assert_eq!(
+        again.credential.token, stable_token,
+        "a fresh token must not be rewritten by maintenance"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// BLOCK-M8E-BOOTSTRAP-STUCK companion: when the credential file itself
+/// is missing (deleted/corrupted externally), maintenance restores it so
+/// a Shell start finds a file to read.
+#[test]
+fn maintenance_restores_missing_credential_file() {
+    let dir = std::env::temp_dir().join(format!("dsh-restore-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let catalog = dir.join("environments.json");
+
+    let server = DaemonServer::bind_with_catalog(Limits::default(), CLAIM_PORT, catalog)
+        .expect("bind daemon server");
+    let file = server
+        .issue_bootstrap_credential_file(Duration::from_secs(3600))
+        .expect("issue bootstrap credential")
+        .expect("data directory present");
+    let first_token = file.credential.token.clone();
+
+    // External deletion (the Shell-side wait would time out forever).
+    std::fs::remove_file(dir.join(dsh_daemon::credential::CREDENTIAL_FILE_NAME))
+        .expect("remove credential file");
+    assert!(CredentialFile::read_from(&dir).is_err(), "file gone");
+
+    server.maintain_bootstrap_credential();
+    let restored = CredentialFile::read_from(&dir).expect("file restored by maintenance");
+    assert_ne!(
+        restored.credential.token, first_token,
+        "restored file must carry a freshly issued token"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -18,8 +18,8 @@
 use serde::{Deserialize, Serialize};
 
 use dsh_daemon::capabilities::{
-    RUNTIME_API_VERSION, RUNTIME_KIND, RUNTIME_RESTART_METHOD, RUNTIME_START_METHOD,
-    RUNTIME_STATUS_METHOD, RUNTIME_STOP_METHOD,
+    RUNTIME_API_VERSION, RUNTIME_BINDING_METHOD, RUNTIME_KIND, RUNTIME_RESTART_METHOD,
+    RUNTIME_START_METHOD, RUNTIME_STATUS_METHOD, RUNTIME_STOP_METHOD,
 };
 use dsh_daemon::envelope::{ErrorCode, ProtocolCoordinate};
 
@@ -149,27 +149,49 @@ pub fn verified_surface_binding(
     if expected_generation == 0 {
         return Err(ManagedRuntimeError::StaleGeneration);
     }
-    let report = get_managed_runtime_status(connector, environment)?;
-    if report.generation() != expected_generation {
+    // runtime.binding (daemon-only channel): the daemon re-verifies the
+    // exact generation and returns its private bootstrap URL (the
+    // authenticated entry through the DSH web token exchange). The URL
+    // never travels in the public status report (managed-runtime
+    // redaction tests).
+    let payload = serde_json::json!({
+        "schemaVersion": 1,
+        "environmentId": environment.id(),
+        "expectedGeneration": expected_generation,
+    });
+    let value = connector
+        .invoke(runtime_coordinate(), RUNTIME_BINDING_METHOD, payload)
+        .map_err(|error| {
+            eprintln!("[managed-runtime] runtime.binding invoke failed: {error:?}");
+            map_daemon_error(error)
+        })?;
+    let binding: SurfaceBindingReport = serde_json::from_value(value)
+        .map_err(|_error| ManagedRuntimeError::StateUnavailable)?;
+    if binding.schema_version != 1 {
+        return Err(ManagedRuntimeError::StateUnavailable);
+    }
+    if binding.generation != expected_generation {
         return Err(ManagedRuntimeError::StaleGeneration);
     }
-    if report.runtime_state() != "healthy" {
-        return Err(ManagedRuntimeError::SurfaceBindingUnavailable);
-    }
-    let endpoint = report
-        .endpoint
-        .clone()
-        .ok_or(ManagedRuntimeError::SurfaceBindingUnavailable)?;
-    let url = tauri::Url::parse(&format!(
-        "{}://{}:{}",
-        endpoint.scheme, endpoint.host, endpoint.port
-    ))
-    .map_err(|_| ManagedRuntimeError::SurfaceBindingUnavailable)?;
+    let url = tauri::Url::parse(&binding.bootstrap_url).map_err(|_| {
+        ManagedRuntimeError::StateUnavailable
+    })?;
     Ok(VerifiedSurfaceBinding::new(
-        report.generation(),
-        endpoint.port,
+        binding.generation,
+        binding.port,
         url,
     ))
+}
+
+/// Wire shape of the runtime.binding report (daemon-only; never reaches
+/// the frontend contract).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SurfaceBindingReport {
+    schema_version: u8,
+    generation: u64,
+    port: u16,
+    bootstrap_url: String,
 }
 
 /// Stop the exact current generation (stale generations are rejected
@@ -215,7 +237,10 @@ fn invoke_report(
 ) -> Result<ManagedRuntimeReport, ManagedRuntimeError> {
     let value = connector
         .invoke(runtime_coordinate(), method, payload)
-        .map_err(map_daemon_error)?;
+        .map_err(|error| {
+            eprintln!("[managed-runtime] {method} invoke error: {error:?}");
+            map_daemon_error(error)
+        })?;
     serde_json::from_value(value).map_err(|_| ManagedRuntimeError::StateUnavailable)
 }
 
@@ -226,12 +251,18 @@ fn invoke_report(
 /// through the code mapping).
 fn map_daemon_error(error: DaemonCommandError) -> ManagedRuntimeError {
     match &error {
-        DaemonCommandError::Remote { code, .. } => match code {
+        DaemonCommandError::Remote {
+            code,
+            message,
+            retryable: _,
+        } => match code {
             ErrorCode::Conflict => ManagedRuntimeError::Conflict,
             ErrorCode::StaleGeneration => ManagedRuntimeError::StaleGeneration,
             ErrorCode::MalformedMessage => ManagedRuntimeError::InvalidEnvironment,
             ErrorCode::NotProcessOwner => ManagedRuntimeError::NotManaged,
-            _ => ManagedRuntimeError::StateUnavailable,
+            // Keep the daemon-side diagnostic text for unavailable codes so
+            // managed launch failures stay diagnosable from the UI.
+            _ => ManagedRuntimeError::RuntimeUnavailable(message.clone()),
         },
         // Connection-level failures: fail closed as an unavailable
         // runtime (retryable in the command mapping).
@@ -348,34 +379,55 @@ mod tests {
     }
 
     #[test]
-    fn verified_surface_binding_requires_healthy_matching_generation() {
-        // Healthy + matching generation -> binding from the report.
-        let connector = MockConnector::ok(report_json("healthy", 7));
+    fn verified_surface_binding_uses_daemon_binding_channel() {
+        // Healthy + matching generation -> binding with its bootstrap URL
+        // (the daemon-only channel; never part of the public report).
+        let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));
         let binding = verified_surface_binding(&connector, &environment(), 7).expect("binding");
         assert_eq!(binding.generation(), 7);
         assert_eq!(binding.port(), 41731);
-        // url::Url normalizes the path to a trailing slash.
-        assert_eq!(binding.url().as_str(), "http://127.0.0.1:41731/");
+        assert_eq!(binding.url().as_str(), "http://127.0.0.1:41731/?token=abc123");
+        let calls = connector.calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].1, "runtime.binding");
+        assert_eq!(calls[0].2["expectedGeneration"], 7);
 
-        // Generation mismatch -> stale.
-        let connector = MockConnector::ok(report_json("healthy", 7));
+        // Generation mismatch -> stale (checked locally against the
+        // daemon-verified report).
+        let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));
         let error = verified_surface_binding(&connector, &environment(), 8).expect_err("stale");
         assert!(matches!(error, ManagedRuntimeError::StaleGeneration));
 
-        // Not healthy -> surface binding unavailable.
-        let connector = MockConnector::ok(report_json("stopped", 7));
+        // Daemon cannot produce a binding -> the command contract maps
+        // the remote Unavailable code onto RuntimeUnavailable, keeping the
+        // daemon-side diagnostic text for the UI.
+        let connector = MockConnector::error(DaemonCommandError::Remote {
+            code: ErrorCode::Unavailable,
+            message: "Managed endpoint is not a verified current-generation binding".into(),
+            retryable: true,
+        });
         let error =
-            verified_surface_binding(&connector, &environment(), 7).expect_err("not healthy");
+            verified_surface_binding(&connector, &environment(), 7).expect_err("unavailable");
         assert!(matches!(
             error,
-            ManagedRuntimeError::SurfaceBindingUnavailable
+            ManagedRuntimeError::RuntimeUnavailable(message)
+                if message == "Managed endpoint is not a verified current-generation binding"
         ));
 
         // expectedGeneration 0 -> stale, before any invocation.
-        let connector = MockConnector::ok(report_json("healthy", 7));
+        let connector = MockConnector::ok(binding_json(7, 41731, "http://127.0.0.1:41731/?token=abc123"));
         let error = verified_surface_binding(&connector, &environment(), 0).expect_err("zero");
         assert!(matches!(error, ManagedRuntimeError::StaleGeneration));
         assert!(connector.calls().is_empty());
+    }
+
+    fn binding_json(generation: u64, port: u16, bootstrap_url: &str) -> serde_json::Value {
+        serde_json::json!({
+            "schemaVersion": 1,
+            "generation": generation,
+            "port": port,
+            "bootstrapUrl": bootstrap_url,
+        })
     }
 
     #[test]

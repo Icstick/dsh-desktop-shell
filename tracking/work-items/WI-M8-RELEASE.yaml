@@ -20,7 +20,9 @@ security_impact: "Release provenance; signing"
 compatibility_impact: "v0.1.0 首个公开版本"
 evidence:
   - "token 验证：DSH authenticated root（401 无凭据）+ launchToken 43 位契约匹配 + 手工 cookie 实测 200（docs/verification/M8E-REAL-DSH-TOKEN.md）"
-blocked_by: []
-next_action: "v0.1.0 发布：release notes 草稿 → tag v0.1.0 → SBOM 生成 → --bundles 构建 + 签名 → release 发布 → attestation → 收尾文档。"
+blocked_by:
+  - BLOCK-M8E-BOOTSTRAP-STUCK
+  - BLOCK-M8E-I18N-ZH
+next_action: "决策 D1（修复先于 release）：① 卡点 A 按 docs/roadmap/PLAN-DEBUG-OPTIMIZATION.md §2.1 四步调试修复并 GUI 连续启动验证 ② 卡点 B i18n 中文链路修复 ③ externalBin 本地重建（tauri build --bundles nsis 含 daemon）→ 更新 draft → publish v0.1.0 → 收尾文档。"
 handoff: null
-updated_at: "2026-09-01T22:30:00Z"
+updated_at: "2026-09-02T15:00:00Z"

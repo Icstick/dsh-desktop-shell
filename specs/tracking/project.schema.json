@@ -23,7 +23,7 @@
       "type": "string"
     },
     "current_milestone": {
-      "pattern": "^M[0-7]$"
+      "pattern": "^M[0-9]+$"
     },
     "status": {
       "enum": [
