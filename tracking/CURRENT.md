@@ -1,5 +1,14 @@
 # Current Project State
 
+
+## Roadmap decided (2026-09-08)
+
+See docs/roadmap/ROADMAP-V021-PLUS.md: 0.2.1 stabilization debt → 0.3.0
+dev workbench Phase 1 (file manager + git panel, human-only, environment
+linking) → 0.4.0 startup rollback (ADR first) → 0.5.0 workbench Phase 2
+(SSH). Deferred: timer UI design, terminal automation, B2 multi-profile,
+artwork commercial rights.
+
 ## v0.2.0 released (2026-09-07)
 
 - Theme (3ec677b) + browser multi-session tabs (5569545) + stability

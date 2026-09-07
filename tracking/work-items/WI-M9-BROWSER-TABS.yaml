@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M9-BROWSER-TABS
 title: "Browser surface multi-session tabs with document titles"
-status: review
+status: done
 milestone: M9
 module: MOD-BROWSER-UI
 owner_role: ui-owner
@@ -35,6 +35,6 @@ evidence:
   - "cargo test -p dsh-browser-provider 34/34; cargo test -p dsh-desktop-shell browser"
   - "specs/browser/browser-event.schema.json + fixtures (title_changed)"
 blocked_by: []
-next_action: "Live GUI acceptance: two tabs navigating independently with document titles; then merge to main."
+next_action: "Merged to main (5569545) and shipped in v0.2.0 (2026-09-07); user-accepted in live GUI (multi-open, titles, close, restart hygiene)."
 handoff: null
 updated_at: "2026-09-07T13:10:00.000Z"

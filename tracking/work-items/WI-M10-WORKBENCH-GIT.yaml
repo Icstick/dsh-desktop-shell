@@ -1,0 +1,29 @@
+schema_version: 1
+id: WI-M10-WORKBENCH-GIT
+title: "Dev workbench Phase 1: git panel"
+status: planned
+milestone: M10
+module: MOD-SHELL-UI
+owner_role: ui-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: [WI-M10-WORKBENCH-FS]
+acceptance_criteria:
+  - "Status / diff / stage / commit / log / branch UI over the linked repository."
+  - "Read-only views plus explicit human confirmations for mutations (commit, checkout)."
+  - "Human-only surface; commands ACL-registered; no agent bridge."
+security_impact: "git mutations run under the human user; destructive actions (checkout/reset) require explicit confirmation; repo paths constrained to environment-linked roots."
+compatibility_impact: "New commands + contracts only."
+scope:
+  - apps/desktop/features/git-panel-ui/ (new)
+  - apps/desktop/src-tauri/ (git commands)
+  - specs/ (git command schemas + fixtures)
+  - apps/desktop/src/contracts.ts + i18n.tsx
+  - tracking/
+evidence: []
+blocked_by: [WI-M10-WORKBENCH-FS]
+next_action: "Design doc: git backend choice (gitoxide vs CLI), diff rendering, confirmation UX for mutations."
+handoff: null
+updated_at: "2026-09-08T00:00:00.000Z"

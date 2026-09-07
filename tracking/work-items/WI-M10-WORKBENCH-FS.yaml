@@ -1,0 +1,29 @@
+schema_version: 1
+id: WI-M10-WORKBENCH-FS
+title: "Dev workbench Phase 1: file manager surface"
+status: planned
+milestone: M10
+module: MOD-SHELL-UI
+owner_role: ui-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "File tree + text view with lightweight edit/save over environment-linked roots (env repo path, dshHome, plugin dirs)."
+  - "Human-only surface; every new command registered in the ACL manifest/capability; no agent bridge."
+  - "Typecheck, tests, build; visual acceptance with the user."
+security_impact: "Reads and writes files on the user's machine under human UI actions only; commands gated by the existing Shell capability."
+compatibility_impact: "New Tauri commands + contracts; no existing behavior changes."
+scope:
+  - apps/desktop/features/file-manager-ui/ (new)
+  - apps/desktop/src-tauri/ (fs commands)
+  - specs/ (fs command schemas + fixtures)
+  - apps/desktop/src/contracts.ts + i18n.tsx
+  - tracking/
+evidence: []
+blocked_by: []
+next_action: "Design doc: tree model, path policy (roots + containment), edit/save flow, diff handoff to the git panel."
+handoff: null
+updated_at: "2026-09-08T00:00:00.000Z"
