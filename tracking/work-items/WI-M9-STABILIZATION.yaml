@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M9-STABILIZATION
 title: "0.2.1 stabilization: M6-C/M6-C4 engineering debt + live-daemon-qa CI"
-status: review
+status: done
 milestone: M9
 module: MOD-SUPERVISOR
 owner_role: milestone-owner
@@ -28,6 +28,6 @@ evidence:
   - "M6-C lease revocation: supervisor 27 tests (incl. disconnect reason), daemon 69 lib tests + lease_disconnect integration (commit 45473f8)"
   - "M6-C fixed port: local-transport bind_on tests 3, daemon split_brain 5/5 unchanged, credential_reissue 4/4, workspace cargo test all green (commit 36ac405)"
 blocked_by: []
-next_action: "Merge feat/021-stabilization to main (squash), push origin, delete branch; verify CI on main (live-qa job with evidence upload)."
+next_action: "Verify CI on main (live-qa job with evidence upload); then plan 0.2.1 release or move to 0.3.0 workbench Phase 1."
 handoff: null
-updated_at: "2026-09-08T04:10:00Z"
+updated_at: "2026-09-08T05:40:00Z"

@@ -20,7 +20,7 @@
   navigate/snapshot, handover re-attach) filed in ROADMAP deferred.
 - live-daemon-qa CI: evidence upload added to ci.yml (every main-push
   run keeps its QA evidence artifact).
-- NEXT: squash-merge feat/021-stabilization to main + push + verify CI.
+- Squash-merged to main @ e08e8c6 (2026-09-08) and pushed to origin; feature branch deleted. WI-M9-STABILIZATION done. Next: verify CI on main, then 0.3.0 workbench Phase 1.
 
 ## Roadmap decided (2026-09-08)
 
