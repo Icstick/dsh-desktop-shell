@@ -187,6 +187,9 @@ impl TestClient {
         info
     }
 
+    // Used by a subset of test binaries (each integration test compiles
+    // this module separately), so allow dead_code.
+    #[allow(dead_code)]
     pub fn invoke(
         &mut self,
         capability: ProtocolCoordinate,
@@ -374,10 +377,9 @@ pub struct RemoteError {
 /// spawn_daemon_with_catalog.
 #[allow(dead_code)]
 pub fn spawn_daemon() -> (SocketAddr, Credential, Arc<DaemonServer>) {
-    let server = Arc::new(
-        DaemonServer::bind(Limits::default(), dsh_daemon::credential::CLAIM_PORT)
-            .expect("bind daemon server"),
-    );
+    // Port 0 = OS-assigned envelope port (parallel-safe across test
+    // binaries; the daemon records the actual port in the credential file).
+    let server = Arc::new(DaemonServer::bind(Limits::default(), 0).expect("bind daemon server"));
     let addr = server.addr();
     let credential = server.issue_credential(Duration::from_secs(300));
     let serve_server = Arc::clone(&server);
@@ -392,13 +394,11 @@ pub fn spawn_daemon() -> (SocketAddr, Credential, Arc<DaemonServer>) {
 pub fn spawn_daemon_with_catalog(
     catalog_path: std::path::PathBuf,
 ) -> (SocketAddr, Credential, Arc<DaemonServer>) {
+    // Port 0 = OS-assigned envelope port (parallel-safe across test
+    // binaries; the daemon records the actual port in the credential file).
     let server = Arc::new(
-        DaemonServer::bind_with_catalog(
-            Limits::default(),
-            dsh_daemon::credential::CLAIM_PORT,
-            catalog_path,
-        )
-        .expect("bind daemon server"),
+        DaemonServer::bind_with_catalog(Limits::default(), 0, catalog_path)
+            .expect("bind daemon server"),
     );
     let addr = server.addr();
     let credential = server.issue_credential(Duration::from_secs(300));

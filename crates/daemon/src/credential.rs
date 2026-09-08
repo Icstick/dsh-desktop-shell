@@ -27,10 +27,11 @@ pub const CREDENTIAL_FILE_NAME: &str = "daemon-credential.json";
 /// Name of the single-instance lock file inside the data directory.
 pub const LOCK_FILE_NAME: &str = "daemon.lock";
 
-/// The fixed, well-known daemon presence port (single-instance claim +
-/// Shell liveness probe). The envelope server itself binds a dynamic
-/// loopback port (local-transport limitation; see `server.rs` docs and
-/// the M6-C TODO) and its real port travels in the credential file.
+/// The fixed, well-known daemon envelope port (ADR-0019 decision 5,
+/// 0.2.1 M6-C): the envelope server binds this loopback port directly.
+/// It is simultaneously the single-instance authority (a second daemon
+/// fails the bind), the Shell presence probe and the connect endpoint;
+/// the credential file still carries the one-time token.
 pub const CLAIM_PORT: u16 = 37_771;
 
 /// Schema version of the credential file (bump on breaking shape change).

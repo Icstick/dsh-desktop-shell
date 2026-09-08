@@ -1,9 +1,11 @@
 //! Supervised loopback TCP server with ephemeral-credential authentication.
 //!
-//! The server owns the endpoint lifecycle: it binds a random port on
-//! `127.0.0.1`, issues one-time ephemeral credentials, authenticates every
-//! connection with a framed handshake, and supervises each connection with
-//! frame limits, read/write deadlines and a concurrency cap
+//! The server owns the endpoint lifecycle: it binds `127.0.0.1` (random
+//! port by default, or an explicit address via [`LocalServer::bind_on`] —
+//! the daemon envelope endpoint uses the fixed port 37771), issues
+//! one-time ephemeral credentials, authenticates every connection with a
+//! framed handshake, and supervises each connection with frame limits,
+//! read/write deadlines and a concurrency cap
 //! (AC-IPC-001 / AC-IPC-002).
 
 use std::collections::HashMap;
@@ -64,7 +66,8 @@ pub struct ServerStats {
     pub credentials_consumed: u64,
 }
 
-/// A loopback server listening on a random `127.0.0.1` port.
+/// A loopback server listening on `127.0.0.1` (random port unless the
+/// caller picked a fixed one via [`LocalServer::bind_on`]).
 #[derive(Debug)]
 pub struct LocalServer {
     state: Arc<ServerState>,
@@ -166,7 +169,14 @@ enum HandshakeResult {
 impl LocalServer {
     /// Bind a new server to a random `127.0.0.1` port and start accepting.
     pub fn bind(limits: Limits) -> io::Result<Self> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        Self::bind_on((Ipv4Addr::LOCALHOST, 0).into(), limits)
+    }
+
+    /// Bind a new server to an explicit loopback address and start
+    /// accepting (the daemon envelope endpoint, ADR-0019 decision 5:
+    /// fixed port 37771; port 0 requests an OS-assigned port).
+    pub fn bind_on(addr: SocketAddr, limits: Limits) -> io::Result<Self> {
+        let listener = TcpListener::bind(addr)?;
         listener.set_nonblocking(true)?;
         let addr = listener.local_addr()?;
         let state = Arc::new(ServerState {

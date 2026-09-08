@@ -1043,7 +1043,6 @@ pub(crate) mod tests {
     use super::*;
     use dsh_daemon::envelope::now_timestamp_like;
     use dsh_daemon::server::DaemonServer;
-    use std::net::TcpListener;
     use std::sync::atomic::AtomicUsize;
 
     /// Scripted answer for one invocation.
@@ -1480,18 +1479,16 @@ pub(crate) mod tests {
 
     struct TestDaemon {
         server: Arc<DaemonServer>,
-        _claim: TcpListener,
     }
 
+    // Fixed-port envelope (0.2.1 M6-C): DaemonServer::bind owns the port
+    // itself - the envelope listener is the claim (single instance) and
+    // the probe target in one.
     fn spawn_in_process_daemon(claim_port: u16) -> TestDaemon {
         let server = Arc::new(
             DaemonServer::bind(Limits::default(), claim_port).expect("binds envelope server"),
         );
-        let claim = TcpListener::bind(("127.0.0.1", claim_port)).expect("binds claim probe");
-        TestDaemon {
-            server,
-            _claim: claim,
-        }
+        TestDaemon { server }
     }
 
     fn serve_one(test: &TestDaemon) {
@@ -1707,7 +1704,6 @@ pub(crate) mod tests {
             DaemonServer::bind_with_catalog(Limits::default(), claim_port, catalog)
                 .expect("binds envelope server"),
         );
-        let claim = TcpListener::bind(("127.0.0.1", claim_port)).expect("binds claim probe");
 
         // main.rs startup shape: the daemon wrote a bootstrap credential
         // file before serving.
@@ -1790,7 +1786,6 @@ pub(crate) mod tests {
             .expect("terminal.status over the reconnected startup connection");
         assert_eq!(status["count"], 0);
         client2.shutdown();
-        drop(claim);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1810,7 +1805,6 @@ pub(crate) mod tests {
             DaemonServer::bind_with_catalog(Limits::default(), claim_port, catalog)
                 .expect("binds envelope server"),
         );
-        let claim = TcpListener::bind(("127.0.0.1", claim_port)).expect("binds claim probe");
         let startup = server.issue_credential(Duration::from_secs(3600));
         CredentialFile::new(
             "0.1.0-test",
@@ -1920,7 +1914,6 @@ pub(crate) mod tests {
             .expect("fresh connection still serves");
         assert_eq!(status["count"], 0);
         assert_eq!(attempts.load(Ordering::Relaxed), 1, "no further reconnect");
-        drop(claim);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

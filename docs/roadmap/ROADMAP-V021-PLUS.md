@@ -7,12 +7,16 @@ stabilization debt comes first.
 
 ## 0.2.1 · Stabilization (engineering debt, no UX features)
 
-- M6-C debt: daemon lease revocation on disconnect (broker revoke with
-  LeaseRevocationReason::Disconnect), envelope fixed port, + inventory of
-  the remaining M6-C TODO(s) in code.
-- M6-C4 debt: browser navigation state reporting to the daemon
-  (navigate_session TODO), remaining C4 TODO(s).
-- live-daemon-qa into CI (sidecar staging pattern established).
+- M6-C debt (DONE 2026-09-08): daemon lease revocation on disconnect
+  (revoke_agent_grants reason parameter; Disconnect), envelope fixed
+  port 37771 (LocalServer::bind_on; single instance + probe + connect in
+  one), TODO inventory closed with the fixes.
+- M6-C4 debt (DONE 2026-09-08): render-side navigation state reporting
+  to the daemon - browser.navigate / browser.load-failed envelope
+  methods, provider record_navigation (terminal ready state with the
+  final url), desktop URL-aware mirror + out-of-line fail-open reports.
+- live-daemon-qa into CI (job exists; evidence upload added so every
+  main-push run keeps its QA evidence).
 
 ## 0.3.0 · Dev workbench Phase 1 (WI-M10-WORKBENCH-FS + -GIT)
 
@@ -37,6 +41,9 @@ profile/plugin snapshot strategy, budget, UX surfacing.
 
 ## Deferred backlog
 
+- Browser C4 remainder: daemon-initiated navigate/snapshot envelope
+  methods, handover re-attach flow after a Shell restart (0.2.1 shipped
+  the render->daemon navigation sync half).
 - Timer UI (WI-M9-TIMER-UI): design pass still needed (modes/presets).
 - Terminal automation for agents (M3 debt; agent-safety design).
 - Concurrent multi-profile B2 (M10+).

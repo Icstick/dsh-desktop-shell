@@ -1,20 +1,23 @@
 //! dsh-desktop-daemon entry (ADR-0019 decision 1: standalone, UI-less
 //! process; the Shell is the only tauri process).
-//!
-//! Startup sequence:
+//! Startup sequence (0.2.1 M6-C: the envelope server owns the fixed
+//! port 37771 - single instance, presence probe and connect endpoint in
+//! one listener, ADR-0019 decision 5):
 //!
 //! 1. resolve the data directory (`--data-dir` > `DSH_DAEMON_DATA_DIR` >
-//!    `%APPDATA%\dev.dsh.desktop-shell`); `--claim-port` overrides the
-//!    single-instance claim port (default 37771; M6-D test isolation);
-//! 2. acquire the single-instance guard — claim port 37771 ownership +
-//!    start lock file (ADR-0019 decision 4; a second daemon exits with
-//!    code 3);
-//! 3. bind the envelope server and issue a one-time credential;
+//!    `%APPDATA%`\dev.dsh.desktop-shell); `--claim-port` overrides the
+//!    fixed envelope port (default 37771; M6-D test isolation);
+//! 2. bind the envelope server on the fixed loopback port (authoritative
+//!    single-instance check: a second daemon fails the bind and exits
+//!    with code 3) and issue a one-time credential;
+//! 3. take the start lock file (stale-tolerant; conflicts exit code 4);
 //! 4. write the credential file (`daemon-credential.json`) the Shell
 //!    reads at startup (ADR-0019 decision 5);
 //! 5. serve connections until the process is stopped (Ctrl+C / taskkill;
-//!    the claim port is the authoritative liveness probe).
+//!    the envelope port is the authoritative liveness probe).
 //!
+//! Exit codes: 0 clean, 1 runtime error, 2 usage, 3 already running
+//! (envelope port owned), 4 lock file conflict.
 //! Exit codes: 0 clean, 1 runtime error, 2 usage, 3 already running
 //! (claim port owned), 4 lock file conflict.
 
@@ -86,37 +89,41 @@ fn main() -> ExitCode {
     let data_dir = data_dir_override.unwrap_or_else(data_dir);
     let claim_port = claim_port_override.unwrap_or(CLAIM_PORT);
 
-    // --- 1) single-instance guard (claim port + lock file) ---
-    let _guard = match InstanceGuard::acquire(&data_dir, claim_port) {
-        Ok(guard) => guard,
-        Err(dsh_daemon::singleton::InstanceGuardError::ClaimPort(error)) => {
-            eprintln!(
-                "dsh-desktop-daemon: another daemon instance is already running (claim port {claim_port} is in use): {error}"
-            );
-            return ExitCode::from(EXIT_ALREADY_RUNNING);
-        }
-        Err(dsh_daemon::singleton::InstanceGuardError::Lock(error)) => {
-            eprintln!("dsh-desktop-daemon: cannot take the lock file: {error}");
-            return ExitCode::from(EXIT_LOCK_CONFLICT);
-        }
-    };
-
-    // --- 2) envelope server ---
-    // The Shell keeps one long-lived connection (event bridge + repeated
-    // invocations); the transport default 30s idle read deadline would drop
-    // it whenever the user pauses longer than that, leaving every later
-    // invoke failing as a closed transport. Raise the idle deadline to 24h:
-    // the Shell restarts daily and the credential-lease maintenance keeps
-    // the file token fresh while the daemon idles (M6 bootstrap fix).
+    // --- 1) envelope server on the fixed loopback port ---
+    // Single-instance authority + Shell presence probe + connect endpoint
+    // in one listener (0.2.1 M6-C, ADR-0019 decision 5: fixed-port
+    // envelope). The Shell keeps one long-lived connection (event bridge
+    // + repeated invocations); the transport default 30s idle read
+    // deadline would drop it whenever the user pauses longer than that,
+    // leaving every later invoke failing as a closed transport. Raise the
+    // idle deadline to 24h: the Shell restarts daily and the
+    // credential-lease maintenance keeps the file token fresh while the
+    // daemon idles (M6 bootstrap fix).
     let limits = Limits {
         read_deadline: std::time::Duration::from_secs(24 * 60 * 60),
         ..Limits::default()
     };
     let server = match DaemonServer::bind(limits, claim_port) {
         Ok(server) => server,
+        Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+            eprintln!(
+                "dsh-desktop-daemon: another daemon instance is already running (envelope port {claim_port} is in use): {error}"
+            );
+            return ExitCode::from(EXIT_ALREADY_RUNNING);
+        }
         Err(error) => {
             eprintln!("dsh-desktop-daemon: cannot bind the envelope server: {error}");
             return ExitCode::FAILURE;
+        }
+    };
+
+    // --- 2) start lock file (stale-tolerant; the port bind above is the
+    // authoritative single-instance check) ---
+    let _guard = match InstanceGuard::acquire(&data_dir) {
+        Ok(guard) => guard,
+        Err(error) => {
+            eprintln!("dsh-desktop-daemon: cannot take the lock file: {error}");
+            return ExitCode::from(EXIT_LOCK_CONFLICT);
         }
     };
 
@@ -139,8 +146,10 @@ fn main() -> ExitCode {
 
     println!("dsh-desktop-daemon {DAEMON_VERSION} started");
     println!("  pid:          {}", std::process::id());
-    println!("  claim port:   {claim_port} (presence probe / single instance)");
-    println!("  envelope:     127.0.0.1:{}", server.addr().port());
+    println!(
+        "  envelope:     127.0.0.1:{} (fixed port; presence probe / single instance)",
+        server.addr().port()
+    );
     println!(
         "  credential:   {}",
         data_dir.join(CREDENTIAL_FILE_NAME).display()

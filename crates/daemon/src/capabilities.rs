@@ -57,6 +57,8 @@ pub const BROWSER_CREATE_METHOD: &str = "browser.create";
 pub const BROWSER_LIST_METHOD: &str = "browser.list";
 pub const BROWSER_STATUS_METHOD: &str = "browser.status";
 pub const BROWSER_CLOSE_METHOD: &str = "browser.close";
+pub const BROWSER_NAVIGATE_METHOD: &str = "browser.navigate";
+pub const BROWSER_LOAD_FAILED_METHOD: &str = "browser.load-failed";
 
 /// `terminal` capability — real since M6-C1 (the daemon holds the PTY
 /// registry). Envelope methods are the namespaced `terminal.*` form.
@@ -241,6 +243,8 @@ pub fn dispatch(
             BROWSER_LIST_METHOD => browser::handle_list(context),
             BROWSER_STATUS_METHOD => browser::handle_status(context),
             BROWSER_CLOSE_METHOD => browser::handle_close(context, payload),
+            BROWSER_NAVIGATE_METHOD => browser::handle_navigate(context, payload),
+            BROWSER_LOAD_FAILED_METHOD => browser::handle_load_failed(context, payload),
             _ => Err(DaemonMethodError::MethodNotFound {
                 capability: capability.clone(),
                 method: method.to_string(),

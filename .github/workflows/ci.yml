@@ -143,6 +143,14 @@ jobs:
       - name: M7 live QA (CDP shell)
         run: node scripts/qa/live-m7-qa.mjs
 
+      - name: Upload live QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-qa-evidence
+          path: scripts/qa/evidence/**
+          if-no-files-found: warn
+
       - name: Restore tauri config
         working-directory: apps/desktop
         run: git checkout -- src-tauri/tauri.conf.json

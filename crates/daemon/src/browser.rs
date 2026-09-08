@@ -9,10 +9,17 @@
 //! `browser.list` / `browser.status` / `browser.close` — the daemon
 //! registers/observes sessions and broadcasts their lifecycle events
 //! (`browser.session-created` / `browser.session-closed`) through the
-//! `EventRouter`(crate::events). `navigate`/`snapshot` still execute in
-//! the Shell (the render process); the state-sync protocol between Shell
-//! render events and daemon state (attach, navigate/snapshot reporting,
-//! handover re-attach after a Shell restart) is M6-C4.
+//! `EventRouter`(crate::events). `snapshot`/`interact` still execute in
+//! the Shell (the render process).
+//!
+//! M6-C4 navigation state sync (0.2.1): the render side reports every
+//! completed top-level navigation (`browser.navigate`, the terminal
+//! ready state with the final url) and every failed load
+//! (`browser.load-failed`) so the daemon registry - the state authority
+//! - records the document the user actually sees (link clicks,
+//! redirects and history entries included). Remaining C4 gaps, tracked
+//! as deferred: daemon-initiated navigate/snapshot envelope methods,
+//! handover re-attach flow after a Shell restart.
 //!
 //! Wire contract: request/report/event shapes mirror
 //! `specs/browser/*.schema.json` (BrowserCreateRequest/BrowserCloseRequest,
@@ -53,6 +60,13 @@ pub const SCHEMA_VERSION: u8 = 1;
 pub const BROWSER_SESSION_CREATED_EVENT: &str = "browser.session-created";
 pub const BROWSER_SESSION_CLOSED_EVENT: &str = "browser.session-closed";
 
+/// Envelope method names of the navigation-state sync path (M6-C4,
+/// 0.2.1): the render side reports every completed top-level navigation
+/// (`browser.navigate`) and every failed load (`browser.load-failed`) so
+/// the daemon session registry - the state authority - stays current.
+pub const BROWSER_NAVIGATE_METHOD: &str = "browser.navigate";
+pub const BROWSER_LOAD_FAILED_METHOD: &str = "browser.load-failed";
+
 /// Current time in unix milliseconds (lifecycle event timestamps).
 pub fn now_unix_ms() -> u64 {
     std::time::SystemTime::now()
@@ -87,6 +101,44 @@ impl BrowserCreateRequest {
 pub struct BrowserCloseRequest {
     pub schema_version: u8,
     pub session_id: String,
+}
+
+/// `browser.navigate` request (browser-navigate-request.schema.json): a
+/// completed top-level navigation reported by the render side (M6-C4) -
+/// the session authority records the final URL as its ready state.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserNavigateRequest {
+    pub schema_version: u8,
+    pub session_id: String,
+    pub url: String,
+}
+
+impl BrowserNavigateRequest {
+    /// Wire-valid when the schema version matches and the session id
+    /// looks like one of ours (the URL itself is validated by the
+    /// provider policy in `handle_navigate`).
+    pub fn is_valid(&self) -> bool {
+        self.schema_version == SCHEMA_VERSION && valid_session_id(&self.session_id)
+    }
+}
+
+/// `browser.load-failed` request: a failed navigation reported by the
+/// render side (M6-C4) - the session authority records the error state.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserLoadFailedRequest {
+    pub schema_version: u8,
+    pub session_id: String,
+    pub message: String,
+}
+
+impl BrowserLoadFailedRequest {
+    pub fn is_valid(&self) -> bool {
+        self.schema_version == SCHEMA_VERSION
+            && valid_session_id(&self.session_id)
+            && !self.message.trim().is_empty()
+    }
 }
 
 /// `browser.create` / `browser.list` / `browser.status` report
@@ -337,8 +389,58 @@ pub fn handle_close(
     Ok(serde_json::to_value(report).expect("browser report serializes"))
 }
 
-/// `browser.list`: live sessions as the registry view
-/// (`{ browsers: [...] }`; the M6-B1 placeholder shape).
+/// `browser.navigate` (M6-C4): the render side reports a completed
+/// top-level navigation; the session authority records the final URL as
+/// its ready state (record_navigation - no loading phase: the page
+/// already loaded). Owner-gated like every mutation; ownerless sessions
+/// (creator disconnected, M6-C4 handover) accept reports from any live
+/// connection. The response is the updated report.
+pub fn handle_navigate(
+    ctx: &CapabilityContext,
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, DaemonMethodError> {
+    let request: BrowserNavigateRequest = parse_request("browser.navigate", payload)?;
+    if !request.is_valid() {
+        return Err(failed(
+            ErrorCode::MalformedMessage,
+            "browser.navigate request is malformed (schemaVersion must be 1 and sessionId must be a valid session id)",
+            false,
+        ));
+    }
+    check_owner(ctx, &request.session_id)?;
+    let session = ctx
+        .browser
+        .registry()
+        .record_navigation(&request.session_id, &request.url)
+        .map_err(map_browser_error)?;
+    Ok(serde_json::to_value(public_report(session)).expect("browser report serializes"))
+}
+
+/// `browser.load-failed` (M6-C4): the render side reports a failed
+/// navigation; the session authority records the error state (the
+/// registry keeps the URL of the failed navigation). Owner-gated like
+/// every mutation. The response is the updated report.
+pub fn handle_load_failed(
+    ctx: &CapabilityContext,
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, DaemonMethodError> {
+    let request: BrowserLoadFailedRequest = parse_request("browser.load-failed", payload)?;
+    if !request.is_valid() {
+        return Err(failed(
+            ErrorCode::MalformedMessage,
+            "browser.load-failed request is malformed (schemaVersion must be 1, sessionId valid and message non-empty)",
+            false,
+        ));
+    }
+    check_owner(ctx, &request.session_id)?;
+    let session = ctx
+        .browser
+        .registry()
+        .mark_load_failed(&request.session_id, &request.message)
+        .map_err(map_browser_error)?;
+    Ok(serde_json::to_value(public_report(session)).expect("browser report serializes"))
+}
+
 pub fn handle_list(ctx: &CapabilityContext) -> Result<serde_json::Value, DaemonMethodError> {
     let reports = ctx.browser.reports();
     Ok(serde_json::json!({ "browsers": reports }))

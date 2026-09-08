@@ -1,6 +1,27 @@
 # Current Project State
 
 
+## 0.2.1 stabilization in progress (2026-09-08, WI-M9-STABILIZATION @ feat/021-stabilization)
+
+- M6-C lease revocation on disconnect: DONE (45473f8) - broker
+  revoke_agent_grants takes a reason (Disconnect vs HumanTakeover),
+  daemon teardown revokes every negotiated lease; supervisor 27 + daemon
+  lib 69 + lease_disconnect integration all green.
+- M6-C fixed-port envelope: DONE (36ac405) - LocalServer::bind_on,
+  daemon envelope binds 37771 (single instance + probe + connect in one);
+  InstanceGuard lock-file only; ADR-0019 d5 implementation record;
+  workspace tests all green (split_brain 5/5 unchanged).
+- M6-C TODO inventory: markers closed with the fixes; remaining markers
+  are the M6-C4 pair (browser.rs 634/712).
+- M6-C4 navigation state sync: DONE (c79b694 daemon + c56a8e6 desktop) -
+  browser.navigate / browser.load-failed envelope methods, provider
+  record_navigation, desktop URL-aware mirror + fail-open out-of-line
+  reports; TODO(M6-C4) markers closed; C4 remainder (daemon-initiated
+  navigate/snapshot, handover re-attach) filed in ROADMAP deferred.
+- live-daemon-qa CI: evidence upload added to ci.yml (every main-push
+  run keeps its QA evidence artifact).
+- NEXT: squash-merge feat/021-stabilization to main + push + verify CI.
+
 ## Roadmap decided (2026-09-08)
 
 See docs/roadmap/ROADMAP-V021-PLUS.md: 0.2.1 stabilization debt → 0.3.0

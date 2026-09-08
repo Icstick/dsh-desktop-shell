@@ -25,10 +25,12 @@
 //! - A replay of the *current* activation is an idempotent retry; any
 //!   other activation id is a new activation or a stale/revoked one and
 //!   is refused (fail-closed).
-//! - Human takeover (AC-BRW-002): [`Broker::revoke_agent_grants`] revokes
-//!   every lease of an activation with `human_takeover` and durably
-//!   marks the activation revoked so the same result can never be
-//!   re-issued.
+//! - Human takeover (AC-BRW-002) and disconnect (M6-C): the caller
+//!   revokes every lease of an activation via
+//!   [`Broker::revoke_agent_grants`] with the matching
+//!   [`LeaseRevocationReason`]; the activation is durably marked revoked
+//!   in both cases so the same result can never be re-issued (a
+//!   disconnected participant reconnects with a fresh activation).
 //! - Fail-closed: no agreement, conformance not `Known`, nothing
 //!   granted or no bounded lease policy never creates broker state.
 
@@ -341,9 +343,13 @@ impl<C: Clock> Broker<C> {
         })
     }
 
-    /// Human takeover (AC-BRW-002): revokes every lease of an activation
-    /// with `human_takeover` and durably marks the activation revoked,
-    /// so replaying the same negotiation result is refused forever.
+    /// Revokes every lease of an activation with the given reason and
+    /// durably marks the activation revoked, so replaying the same
+    /// negotiation result is refused forever. Callers pass
+    /// [`LeaseRevocationReason::HumanTakeover`] (AC-BRW-002 human
+    /// takeover) or [`LeaseRevocationReason::Disconnect`] (M6-C: the
+    /// owning participant disconnected; a reconnect negotiates a fresh
+    /// activation).
     ///
     /// Idempotent: revoking again returns 0. Unknown activation ids are a
     /// no-op. Grants are left in place - without a valid lease the
@@ -351,7 +357,11 @@ impl<C: Clock> Broker<C> {
     /// requires a fresh negotiation anyway (ADR-0018 decision 1).
     ///
     /// Returns the number of leases revoked (observability).
-    pub fn revoke_agent_grants(&mut self, activation_id: &str) -> usize {
+    pub fn revoke_agent_grants(
+        &mut self,
+        activation_id: &str,
+        reason: LeaseRevocationReason,
+    ) -> usize {
         let at_unix_ms = self.now_unix_ms();
         let targets: Vec<(String, u64)> = self
             .agent_activations
@@ -370,10 +380,7 @@ impl<C: Clock> Broker<C> {
                     && lease.generation == *generation
                     && lease.revoked.is_none()
                 {
-                    lease.revoked = Some(LeaseRevocation {
-                        reason: LeaseRevocationReason::HumanTakeover,
-                        at_unix_ms,
-                    });
+                    lease.revoked = Some(LeaseRevocation { reason, at_unix_ms });
                     revoked += 1;
                 }
             }

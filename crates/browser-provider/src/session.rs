@@ -265,6 +265,51 @@ impl SessionRegistry {
         Ok(report)
     }
 
+    /// Record a completed top-level navigation as the session terminal
+    /// state (`-> ready`, final URL recorded) and push a
+    /// `navigation_changed` event. The render host calls this when the
+    /// webview reports a page finished loading for navigations the host
+    /// never commanded (link clicks, redirects, history entries,
+    /// restores) - the session authority must track the document the
+    /// user actually sees, not only the last commanded URL.
+    ///
+    /// Unlike [`SessionRegistry::navigate`] no loading phase is created:
+    /// the page already loaded. An `error` session recovers through a
+    /// recorded navigation (a later successful load clears the failure);
+    /// a `created` session accepts its first recorded page.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BrowserError::NotFound`] for unknown ids,
+    /// [`BrowserError::Closed`] for closed sessions and
+    /// [`BrowserError::InvalidUrl`] when the URL violates the policy
+    /// (the session state is left untouched in that case).
+    pub fn record_navigation(
+        &self,
+        session_id: &str,
+        url: &str,
+    ) -> Result<BrowserSession, BrowserError> {
+        let url = UrlPolicy::validate(url).map_err(BrowserError::InvalidUrl)?;
+        let report = {
+            let mut guard = self.sessions_guard()?;
+            let session = Self::live_session(&mut guard, session_id)?;
+            session.state = SessionState::Ready;
+            session.current_url = Some(url.clone());
+            session.error = None;
+            session.snapshot = None;
+            touch(session);
+            session.report()
+        };
+        self.push_event(BrowserEvent {
+            session_id: session_id.to_string(),
+            kind: BrowserEventKind::NavigationChanged,
+            occurred_at_unix_ms: unix_ms(),
+            url: Some(url),
+            title: None,
+        });
+        Ok(report)
+    }
+
     /// Mark a `loading` session as `ready` (host calls this when
     /// the webview reports navigation completed). No-op for sessions that
     /// are not loading.
@@ -693,6 +738,81 @@ mod tests {
         );
         assert!(navigated.last_activity_unix_ms.is_some());
         assert!(navigated.last_activity_unix_ms.unwrap() >= navigated.created_at_unix_ms);
+    }
+
+    #[test]
+    fn record_navigation_sets_ready_with_final_url() {
+        let registry = SessionRegistry::new();
+        let created = registry.create().unwrap();
+        // A navigation the host never commanded (link click): the session
+        // moves straight to ready with the final url recorded.
+        let recorded = registry
+            .record_navigation(&created.session_id, "https://example.com/landed")
+            .unwrap();
+        assert_eq!(recorded.state, SessionState::Ready);
+        assert_eq!(
+            recorded.current_url.as_deref(),
+            Some("https://example.com/landed")
+        );
+        assert!(recorded.error.is_none());
+        // The recorded navigation pushes a navigation_changed event.
+        let events = registry.drain_events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].kind,
+            crate::event::BrowserEventKind::NavigationChanged
+        );
+        assert_eq!(events[0].url.as_deref(), Some("https://example.com/landed"));
+    }
+
+    #[test]
+    fn record_navigation_recovers_error_and_replaces_url() {
+        let registry = SessionRegistry::new();
+        let created = registry.create().unwrap();
+        registry
+            .navigate(&created.session_id, "https://example.com/first")
+            .unwrap();
+        registry
+            .mark_load_failed(&created.session_id, "connection reset")
+            .unwrap();
+        // A later successful (uncommanded) load clears the failure.
+        let recovered = registry
+            .record_navigation(&created.session_id, "https://example.com/second")
+            .unwrap();
+        assert_eq!(recovered.state, SessionState::Ready);
+        assert_eq!(recovered.error, None);
+        assert_eq!(
+            recovered.current_url.as_deref(),
+            Some("https://example.com/second")
+        );
+    }
+
+    #[test]
+    fn record_navigation_rejects_invalid_url_without_state_change() {
+        let registry = SessionRegistry::new();
+        let created = registry.create().unwrap();
+        assert_eq!(
+            registry.record_navigation(&created.session_id, "ftp://nope.example"),
+            Err(BrowserError::InvalidUrl(UrlError::UnsupportedScheme))
+        );
+        let unchanged = registry.get(&created.session_id).unwrap();
+        assert_eq!(unchanged.state, SessionState::Created);
+        assert!(unchanged.current_url.is_none());
+    }
+
+    #[test]
+    fn record_navigation_unknown_and_closed_sessions_are_rejected() {
+        let registry = SessionRegistry::new();
+        let created = registry.create().unwrap();
+        assert_eq!(
+            registry.record_navigation("brw-0-0", "https://example.com"),
+            Err(BrowserError::NotFound)
+        );
+        registry.close(&created.session_id).unwrap();
+        assert_eq!(
+            registry.record_navigation(&created.session_id, "https://example.com"),
+            Err(BrowserError::Closed)
+        );
     }
 
     #[test]

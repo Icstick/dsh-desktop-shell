@@ -1,85 +1,52 @@
-//! Single-instance guard (ADR-0019 decision 4, M6-B1 minimal form).
+//! Single-instance guard (ADR-0019 decision 4, M6-B1 minimal form;
+//! 0.2.1 M6-C rework: the envelope server owns the authoritative port).
 //!
-//! Two independent checks, both fail-closed:
+//! Since 0.2.1 (M6-C fixed-port envelope) the single-instance authority
+//! is the envelope bind itself: the daemon binds the fixed loopback port
+//! CLAIM_PORT (37771) in DaemonServer::bind and a second daemon (or any
+//! conflicting process) fails with AddrInUse - the daemon then exits with
+//! the "already running" code. The Shell probes daemon presence with a
+//! plain TCP connect to 127.0.0.1:37771 (the envelope listener answers
+//! the connect; an unauthenticated probe is dropped after the handshake
+//! deadline).
 //!
-//! 1. **Claim port ownership** — bind the fixed loopback port
-//!    [`CLAIM_PORT`](crate::credential::CLAIM_PORT) (37771) and hold it
-//!    for the daemon lifetime. A second daemon (or any conflicting
-//!    process) fails the bind with `AddrInUse` → the daemon exits with
-//!    the "already running" code. The claim listener also accepts and
-//!    drops connections, so the Shell can probe daemon presence with a
-//!    plain TCP connect to 127.0.0.1:37771.
-//! 2. **Start lock file** — create `daemon.lock` (pid payload) with
-//!    `create_new`; an existing file whose port is *free* is a stale
-//!    lock from a crashed daemon (the port check is authoritative), so
-//!    it is removed and re-taken. Any other failure aborts startup.
-//!
-//! The named-mutex variant and split-brain tests are M6-D (ADR-0019
-//! decision 4 risk: Windows mutex semantics + port race details).
+//! This module keeps only the **start lock file** half of the original
+//! guard: create daemon.lock (pid payload) with create_new; an existing
+//! file whose port is *free* is a stale lock from a crashed daemon (the
+//! port check is authoritative), so it is removed and re-taken. Any other
+//! failure aborts startup. The named-mutex variant stays an M6-D open
+//! item (ADR-0019 decision 4 risk).
 
 use std::fs::{self, OpenOptions};
 use std::io;
-use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::time::Duration;
 
 use crate::credential::LOCK_FILE_NAME;
 
 /// Exit code when another daemon (or a conflicting process) owns the
-/// claim port.
+/// envelope port (mapped from the bind failure in main.rs).
 pub const EXIT_ALREADY_RUNNING: u8 = 3;
 
 /// Exit code when the lock file cannot be taken even though the port is
 /// free (unexpected file-system state).
 pub const EXIT_LOCK_CONFLICT: u8 = 4;
 
-/// The single-instance guard: owns the claim port listener and the lock
-/// file for the daemon lifetime. Dropping it releases both (the accept
-/// thread is joined first so the port is actually free again; the lock
-/// file removal is best-effort).
+/// The single-instance lock file guard: owns daemon.lock for the daemon
+/// lifetime. Dropping it removes the file (best-effort); a crashed daemon
+/// leaves a stale lock which the next start recovers (the port bind is
+/// authoritative and happens before the lock).
 pub struct InstanceGuard {
-    _claim_listener: TcpListener,
-    shutdown: Arc<AtomicBool>,
-    accept_thread: Option<thread::JoinHandle<()>>,
     lock_path: PathBuf,
     _lock_file: fs::File,
 }
 
 impl InstanceGuard {
-    /// Acquire the guard: bind the claim port first (authoritative), then
-    /// take the lock file (stale-tolerant).
-    pub fn acquire(data_dir: &Path, claim_port: u16) -> Result<Self, InstanceGuardError> {
-        // 1) Port ownership: authoritative single-instance check.
-        let listener =
-            TcpListener::bind(("127.0.0.1", claim_port)).map_err(InstanceGuardError::ClaimPort)?;
-
-        // Accept-and-drop probe connections so the Shell can test daemon
-        // presence without a protocol exchange. Non-blocking accept + a
-        // shutdown flag so `Drop` can join the thread and release the port.
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let accept_thread = {
-            let listener = listener
-                .try_clone()
-                .map_err(InstanceGuardError::ClaimPort)?;
-            let shutdown = Arc::clone(&shutdown);
-            thread::spawn(move || {
-                let _ = listener.set_nonblocking(true);
-                loop {
-                    if shutdown.load(Ordering::Relaxed) {
-                        return;
-                    }
-                    match listener.accept() {
-                        Ok((stream, _)) => drop(stream),
-                        Err(_) => thread::sleep(Duration::from_millis(5)),
-                    }
-                }
-            })
-        };
-
-        // 2) Lock file: fast-fail + stale recovery.
+    /// Acquire the start lock file. Stale-tolerant by design: the caller
+    /// (main.rs) has ALREADY proven the envelope port is free (the bind is
+    /// the authoritative single-instance check), so any existing lock file
+    /// can only be a crashed daemon's residue and is taken over. A live
+    /// second daemon never reaches this call - its envelope bind failed.
+    pub fn acquire(data_dir: &Path) -> Result<Self, InstanceGuardError> {
         fs::create_dir_all(data_dir).map_err(InstanceGuardError::Lock)?;
         let lock_path = data_dir.join(LOCK_FILE_NAME);
         let lock_file = match OpenOptions::new()
@@ -105,9 +72,6 @@ impl InstanceGuard {
         let _ = fs::write(&lock_path, std::process::id().to_string());
 
         Ok(Self {
-            _claim_listener: listener,
-            shutdown,
-            accept_thread: Some(accept_thread),
             lock_path,
             _lock_file: lock_file,
         })
@@ -121,14 +85,8 @@ impl InstanceGuard {
 
 impl Drop for InstanceGuard {
     fn drop(&mut self) {
-        // Stop the accept thread first: its listener clone would keep the
-        // claim port bound after this guard is gone.
-        self.shutdown.store(true, Ordering::Relaxed);
-        if let Some(handle) = self.accept_thread.take() {
-            let _ = handle.join();
-        }
         // Best-effort: a crashed daemon leaves a stale lock, which the
-        // next start recovers via the port check.
+        // next start recovers via the port bind.
         let _ = fs::remove_file(&self.lock_path);
     }
 }
@@ -136,8 +94,6 @@ impl Drop for InstanceGuard {
 /// Single-instance acquisition failures.
 #[derive(Debug)]
 pub enum InstanceGuardError {
-    /// Claim port already owned by another daemon or process.
-    ClaimPort(io::Error),
     /// Lock file could not be taken.
     Lock(io::Error),
 }
@@ -145,22 +101,12 @@ pub enum InstanceGuardError {
 impl std::fmt::Display for InstanceGuardError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ClaimPort(error) => write!(
-                f,
-                "claim port already in use (another daemon running?): {error}"
-            ),
             Self::Lock(error) => write!(f, "cannot take daemon lock file: {error}"),
         }
     }
 }
 
 impl std::error::Error for InstanceGuardError {}
-
-/// Probe daemon presence by connecting to the claim port. `true` means a
-/// process owns the port (a daemon, or an unrelated listener).
-pub fn probe_present(claim_port: u16) -> bool {
-    TcpStream::connect(("127.0.0.1", claim_port)).is_ok()
-}
 
 #[cfg(test)]
 mod tests {
@@ -174,53 +120,33 @@ mod tests {
         dir
     }
 
-    /// Bind a free loopback port for the test (claim port must not
-    /// collide with a real daemon on 37771).
-    fn free_port() -> u16 {
-        TcpListener::bind(("127.0.0.1", 0))
-            .expect("bind")
-            .local_addr()
-            .expect("addr")
-            .port()
-    }
-
     #[test]
-    fn second_acquisition_is_rejected() {
+    fn second_acquisition_takes_over_stale_lock() {
+        // The lock file is stale-tolerant: a live second daemon is
+        // rejected at the envelope bind (split_brain integration test),
+        // never here - an existing lock at this point is residue of a
+        // crashed daemon and is taken over (pid rewritten).
         let dir = temp_dir("double");
-        let port = free_port();
-        let first = InstanceGuard::acquire(&dir, port).expect("first acquire");
-        let second = InstanceGuard::acquire(&dir, port);
-        assert!(matches!(second, Err(InstanceGuardError::ClaimPort(_))));
-        drop(first);
-        // After release the guard can be re-acquired.
-        let again = InstanceGuard::acquire(&dir, port).expect("re-acquire");
-        drop(again);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn stale_lock_is_recovered_when_port_is_free() {
-        let dir = temp_dir("stale");
-        let port = free_port();
-        // A crashed daemon left a lock file behind.
-        fs::write(dir.join(LOCK_FILE_NAME), "99999").expect("stale lock");
-        let guard = InstanceGuard::acquire(&dir, port).expect("stale recovery");
-        let content = fs::read_to_string(guard.lock_path()).expect("lock content");
+        let first = InstanceGuard::acquire(&dir).expect("first acquire");
+        let second = InstanceGuard::acquire(&dir).expect("takeover is stale-tolerant");
+        let content = fs::read_to_string(second.lock_path()).expect("lock content");
         assert_eq!(content, std::process::id().to_string());
-        drop(guard);
+        drop(second);
+        drop(first);
         assert!(!dir.join(LOCK_FILE_NAME).exists(), "lock removed on drop");
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn probe_detects_present_guard() {
-        let dir = temp_dir("probe");
-        let port = free_port();
-        let guard = InstanceGuard::acquire(&dir, port).expect("acquire");
-        assert!(probe_present(port));
+    fn stale_lock_is_recovered() {
+        let dir = temp_dir("stale");
+        // A crashed daemon left a lock file behind.
+        fs::write(dir.join(LOCK_FILE_NAME), "99999").expect("stale lock");
+        let guard = InstanceGuard::acquire(&dir).expect("stale recovery");
+        let content = fs::read_to_string(guard.lock_path()).expect("lock content");
+        assert_eq!(content, std::process::id().to_string());
         drop(guard);
-        // After release the port is free again.
-        assert!(!probe_present(port));
+        assert!(!dir.join(LOCK_FILE_NAME).exists(), "lock removed on drop");
         let _ = fs::remove_dir_all(&dir);
     }
 }

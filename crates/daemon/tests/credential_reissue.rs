@@ -18,7 +18,7 @@ use dsh_daemon::capabilities::{
     RUNTIME_KIND, SYSTEM_API_VERSION, SYSTEM_KIND, TERMINAL_API_VERSION, TERMINAL_KIND,
     TERMINAL_STATUS_METHOD,
 };
-use dsh_daemon::credential::{CLAIM_PORT, CredentialFile};
+use dsh_daemon::credential::CredentialFile;
 use dsh_daemon::envelope::{ErrorCode, ProtocolCoordinate, UnavailableReason};
 use dsh_daemon::server::DaemonServer;
 use dsh_local_transport::{AuthError, Credential, Limits, LocalClient, TransportError};
@@ -76,8 +76,7 @@ fn disconnect_reissues_bootstrap_credential() {
     let catalog = dir.join("environments.json");
 
     let server = Arc::new(
-        DaemonServer::bind_with_catalog(Limits::default(), CLAIM_PORT, catalog)
-            .expect("bind daemon server"),
+        DaemonServer::bind_with_catalog(Limits::default(), 0, catalog).expect("bind daemon server"),
     );
     let addr = server.addr();
     let startup_credential = server.issue_credential(Duration::from_secs(300));
@@ -85,7 +84,7 @@ fn disconnect_reissues_bootstrap_credential() {
     let startup_file = CredentialFile::new(
         "0.1.0",
         std::process::id(),
-        CLAIM_PORT,
+        addr.port(),
         addr.port(),
         startup_credential.token(),
         startup_credential.expires_at(),
@@ -130,7 +129,9 @@ fn disconnect_reissues_bootstrap_credential() {
         fresh.credential.token, original_token,
         "token must be re-issued"
     );
-    assert_eq!(fresh.claim_port, CLAIM_PORT);
+    // Fixed-port envelope (0.2.1 M6-C): the recorded claim port equals
+    // the envelope port (the daemon owns one listener for both).
+    assert_eq!(fresh.claim_port, addr.port());
     assert_eq!(fresh.port, addr.port());
 
     // The fresh token authenticates (a restarted Shell connects).
@@ -225,8 +226,8 @@ fn idle_daemon_refreshes_expiring_credential() {
     std::fs::create_dir_all(&dir).expect("create temp dir");
     let catalog = dir.join("environments.json");
 
-    let server = DaemonServer::bind_with_catalog(Limits::default(), CLAIM_PORT, catalog)
-        .expect("bind daemon server");
+    let server =
+        DaemonServer::bind_with_catalog(Limits::default(), 0, catalog).expect("bind daemon server");
 
     // Short TTL (< BOOTSTRAP_REFRESH_LEAD): the recorded expiry is already
     // inside the refresh window, so the very next maintenance must rewrite
@@ -268,8 +269,8 @@ fn maintenance_restores_missing_credential_file() {
     std::fs::create_dir_all(&dir).expect("create temp dir");
     let catalog = dir.join("environments.json");
 
-    let server = DaemonServer::bind_with_catalog(Limits::default(), CLAIM_PORT, catalog)
-        .expect("bind daemon server");
+    let server =
+        DaemonServer::bind_with_catalog(Limits::default(), 0, catalog).expect("bind daemon server");
     let file = server
         .issue_bootstrap_credential_file(Duration::from_secs(3600))
         .expect("issue bootstrap credential")

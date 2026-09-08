@@ -29,7 +29,9 @@
 //! use dsh_local_transport::{Limits, LocalClient, LocalServer};
 //!
 //! # fn main() -> Result<(), dsh_local_transport::TransportError> {
-//! let server = LocalServer::bind(Limits::default())?;
+//! let server = LocalServer::bind(Limits::default())?; // random loopback port
+//! // or a fixed endpoint: LocalServer::bind_on(([127,0,0,1], 37771).into(), ...)
+//!
 //! let credential = server.issue_credential(Duration::from_secs(300));
 //! let mut client = LocalClient::connect(server.addr(), &credential, &Limits::default())?;
 //! client.send(b"hello")?;

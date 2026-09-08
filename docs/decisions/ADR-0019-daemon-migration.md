@@ -44,6 +44,12 @@ ADR-0008 冻结了演进路径：P0 Supervisor 在 Tauri 进程内，M6 拆为�
 
 ### 决策 5：统一外源 API 服务端（M5-B2 升级）
 - daemon 内 local-transport bind（固定 loopback 端口）+ envelope 服务端（external-api-example 的 serve_connection/handle_envelope + GrantPolicy→broker 驱动——M5-E1 授权桥）。
+- **实现记录（0.2.1 M6-C，2026-09-08）**：固定端口 envelope 落地——`LocalServer::bind_on`
+  （local-transport 新增显式地址 bind，默认 bind 仍随机），daemon envelope 直接绑定
+  37771；单实例权威 = envelope bind（原 claim guard listener 移除，仅留 start lockfile，
+  exit codes 3/4 语义不变）；Shell presence probe = TCP connect 37771（envelope listener
+  应答；未认证 probe 连接由握手超时清理）。credential 文件保留 claimPort/port 字段
+  （恒等于实际 envelope 端口，schema 兼容）。split_brain 5 tests 原样通过。
 - 能力面：system.ping、browser.*（list/status）、terminal.*（status）、runtime.*（managed 状态）、notification.*（M5-C 事件流转发）。
 - 认证：local-transport 一次性 credential（daemon 签发）+ broker grant/lease（agent 协商沿用 M5 链路）。
 - Event 路由：daemon 内订阅路由（external-api-example 缺的 Event 订阅补上）。

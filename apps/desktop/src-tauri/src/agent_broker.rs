@@ -25,8 +25,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 
 use dsh_supervisor::{
-    AgentBridgeError, AgentGrant, AgentNegotiationResult, Broker, BrokerError, CapabilityId, Scope,
-    SystemClock,
+    AgentBridgeError, AgentGrant, AgentNegotiationResult, Broker, BrokerError, CapabilityId,
+    LeaseRevocationReason, Scope, SystemClock,
 };
 
 /// Browser capability coordinate (specs/protocol/fixtures/envelope.agreement.valid.json).
@@ -214,7 +214,7 @@ impl BrokerState {
                     Ok(broker) => broker,
                     Err(_) => return revoked,
                 };
-                broker.revoke_agent_grants(activation_id)
+                broker.revoke_agent_grants(activation_id, LeaseRevocationReason::HumanTakeover)
             };
             revoked += count;
             if let Ok(mut owners) = self.activation_owners.lock() {

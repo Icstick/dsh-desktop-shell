@@ -1,0 +1,33 @@
+schema_version: 1
+id: WI-M9-STABILIZATION
+title: "0.2.1 stabilization: M6-C/M6-C4 engineering debt + live-daemon-qa CI"
+status: review
+milestone: M9
+module: MOD-SUPERVISOR
+owner_role: milestone-owner
+claimed_by: "agent session 20260908 (S1)"
+session: SESSION-20260908-021-STABILIZATION
+branch_or_worktree: feat/021-stabilization
+claim_expires_at: "2026-09-09T05:00:00Z"
+dependencies: []
+acceptance_criteria:
+  - "M6-C: a connection disconnect revokes every broker lease it negotiated (LeaseRevocationReason::Disconnect) instead of waiting out the 3600s TTL."
+  - "M6-C: the envelope server binds a fixed loopback port; the random-port + credential-file indirection is removed or explicitly re-documented with rationale."
+  - "M6-C: code TODO(M6-C) markers are inventoried; closed ones removed, remaining ones re-filed with an owner."
+  - "M6-C4: render-side (WebView) navigation state is reported to the daemon session registry so the daemon state authority stays current."
+  - "M6-C4: code TODO(M6-C4) markers are inventoried; the attach/handover sync gap is documented with a decision."
+  - "live-daemon-qa runs on every main push in CI with its evidence uploaded (gap vs current job closed or explicitly filed)."
+  - "cargo fmt --check / clippy -D warnings / workspace tests green; desktop pnpm check + vitest green."
+security_impact: "Lease revocation shrinks the post-disconnect authorization window from TTL-bounded (3600s) to immediate - fail-closed improvement. Fixed-port envelope bind keeps the loopback listener on a well-known port (single-instance semantics preserved; no new trust boundary: credentials still gate the handshake)."
+compatibility_impact: "Envelope port semantics change (fixed instead of dynamic) - credential-file port field stays for schema compatibility; broker revoke_agent_grants gains a reason parameter (callers pass HumanTakeover, unchanged wire semantics)."
+evidence:
+  - "M6-C lease revocation: supervisor 27 tests (incl. Disconnect reason), daemon lib 69 + lease_disconnect integration green (commit 45473f8)"
+  - "M6-C fixed port: local-transport bind_on tests 3, split_brain 5/5 unchanged, workspace cargo test all green (commit 36ac405)"
+  - "M6-C4 navigation sync: provider record_navigation 4 tests, daemon wire tests 3 (browser_navigation_sync), desktop mirror/sync 6 tests; fmt/clippy green (commits c79b694 + c56a8e6)"
+  - "CI: live-qa evidence upload added to ci.yml; TODO(M6-C4) markers closed; C4 remainder filed in ROADMAP deferred"
+  - "M6-C lease revocation: supervisor 27 tests (incl. disconnect reason), daemon 69 lib tests + lease_disconnect integration (commit 45473f8)"
+  - "M6-C fixed port: local-transport bind_on tests 3, daemon split_brain 5/5 unchanged, credential_reissue 4/4, workspace cargo test all green (commit 36ac405)"
+blocked_by: []
+next_action: "Merge feat/021-stabilization to main (squash), push origin, delete branch; verify CI on main (live-qa job with evidence upload)."
+handoff: null
+updated_at: "2026-09-08T04:10:00Z"

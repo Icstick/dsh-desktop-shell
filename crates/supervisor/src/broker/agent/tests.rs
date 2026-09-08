@@ -296,7 +296,10 @@ fn human_takeover_revokes_activation_and_blocks_replay() {
         .unwrap();
 
     // takeover revokes the activation leases with human_takeover
-    assert_eq!(broker.revoke_agent_grants("act-0001"), 1);
+    assert_eq!(
+        broker.revoke_agent_grants("act-0001", LeaseRevocationReason::HumanTakeover),
+        1
+    );
     let lease = &broker.leases_for(&capability)[0];
     assert_eq!(
         lease.revoked.as_ref().unwrap().reason,
@@ -325,8 +328,90 @@ fn human_takeover_revokes_activation_and_blocks_replay() {
     assert_eq!(broker.lease_count(), 1);
 
     // revoking again is an idempotent no-op; unknown ids are a no-op
-    assert_eq!(broker.revoke_agent_grants("act-0001"), 0);
-    assert_eq!(broker.revoke_agent_grants("act-9999"), 0);
+    assert_eq!(
+        broker.revoke_agent_grants("act-0001", LeaseRevocationReason::HumanTakeover),
+        0
+    );
+    assert_eq!(
+        broker.revoke_agent_grants("act-9999", LeaseRevocationReason::HumanTakeover),
+        0
+    );
+}
+
+// ----------------------------------------------------------------------
+// Disconnect (M6-C: daemon connection teardown)
+// ----------------------------------------------------------------------
+
+#[test]
+fn disconnect_revokes_activation_leases_and_fresh_activation_succeeds() {
+    let clock = FakeClock::new(T0);
+    let mut broker = Broker::with_clock(clock.clone());
+    let capability = terminal();
+    broker
+        .register_provider(echo_provider("terminal-provider", &capability))
+        .unwrap();
+    let grant = broker
+        .broker_grant_from_negotiation(AGENT, known_result("act-0001", vec![capability.clone()]))
+        .unwrap();
+
+    // disconnect revokes the activation leases with the disconnect reason
+    // (M6-C: no TTL wait; the lease dies with its connection)
+    assert_eq!(
+        broker.revoke_agent_grants("act-0001", LeaseRevocationReason::Disconnect),
+        1
+    );
+    let revocation = broker.leases_for(&capability)[0].revoked.clone().unwrap();
+    assert_eq!(revocation.reason, LeaseRevocationReason::Disconnect);
+    assert_eq!(revocation.at_unix_ms, T0);
+    assert!(broker.agent_activation_revoked(AGENT, "act-0001"));
+
+    // mutation dispatch is now rejected (fail-closed)
+    let err = broker
+        .dispatch(
+            "terminal-provider",
+            &invoke(&capability, AGENT, grant.generation, &grant.scope),
+        )
+        .unwrap_err();
+    assert_eq!(err, BrokerError::LeaseRevoked);
+    assert_eq!(err.protocol_code(), "UNAUTHORIZED");
+
+    // replaying the disconnected activation is refused forever
+    let err = broker
+        .broker_grant_from_negotiation(AGENT, known_result("act-0001", vec![capability.clone()]))
+        .unwrap_err();
+    assert_eq!(err, AgentBridgeError::ActivationRevoked);
+
+    // a reconnect negotiates a fresh activation at the next generation
+    // and dispatches again (the disconnect did not ban the agent)
+    let grant2 = broker
+        .broker_grant_from_negotiation(AGENT, known_result("act-0002", vec![capability.clone()]))
+        .unwrap();
+    assert_eq!(grant2.generation, grant.generation + 1);
+    assert!(
+        broker
+            .dispatch(
+                "terminal-provider",
+                &invoke(&capability, AGENT, grant2.generation, &grant2.scope),
+            )
+            .is_ok()
+    );
+    // the disconnected lease keeps its disconnect record; the fresh
+    // activation's lease is live (superseded at gen 2)
+    let live = broker.leases_for(&capability);
+    assert_eq!(live.len(), 2);
+    let old = live
+        .iter()
+        .find(|lease| lease.id.contains("act-0001"))
+        .expect("disconnected lease is kept for audit");
+    assert_eq!(
+        old.revoked.as_ref().map(|r| r.reason),
+        Some(LeaseRevocationReason::Disconnect)
+    );
+    let fresh = live
+        .iter()
+        .find(|lease| lease.id.contains("act-0002"))
+        .expect("fresh activation lease is present");
+    assert_eq!(fresh.revoked, None);
 }
 
 // ----------------------------------------------------------------------

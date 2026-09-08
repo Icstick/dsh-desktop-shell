@@ -98,7 +98,8 @@ fn daemon_status_reports_identity_and_placeholders() {
     assert!(status["pid"].as_u64().is_some_and(|pid| pid > 0));
     assert!(status["startedAt"].as_str().is_some());
     assert!(status["uptimeSeconds"].as_u64().is_some());
-    assert_eq!(status["claimPort"], dsh_daemon::credential::CLAIM_PORT);
+    // Fixed-port envelope (0.2.1 M6-C): claim port == envelope port.
+    assert_eq!(status["claimPort"].as_u64(), Some(addr.port().into()));
     assert_eq!(status["port"].as_u64(), Some(addr.port().into()));
     assert_eq!(status["connections"].as_u64(), Some(1));
     assert_eq!(status["credentialsIssued"].as_u64(), Some(1));

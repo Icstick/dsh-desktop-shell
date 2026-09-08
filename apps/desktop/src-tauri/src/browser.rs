@@ -68,7 +68,7 @@ use dsh_browser_provider::{
 };
 use dsh_daemon::capabilities::{
     BROWSER_API_VERSION, BROWSER_CLOSE_METHOD, BROWSER_CREATE_METHOD, BROWSER_KIND,
-    BROWSER_LIST_METHOD,
+    BROWSER_LIST_METHOD, BROWSER_LOAD_FAILED_METHOD, BROWSER_NAVIGATE_METHOD,
 };
 use dsh_daemon::envelope::ProtocolCoordinate;
 
@@ -631,8 +631,9 @@ fn browser_coordinate() -> ProtocolCoordinate {
 /// authority) and returns the opaque session id; the Shell adopts it
 /// locally so the render-side navigate/snapshot/interact paths (which stay
 /// Shell-side, ADR-0019 decision 2) can operate on it, then spawns the
-/// WebView window. TODO(M6-C4): report local navigation state back to the
-/// daemon once a browser.navigate envelope method exists daemon-side.
+/// WebView window. Completed page loads are reported back to the daemon
+/// session authority (browser.navigate / browser.load-failed, 0.2.1 M6-C4
+/// state sync - see mirror_page_finished and the on_page_load wiring).
 pub(crate) async fn create_browser(
     app: &AppHandle,
     connector: &dyn DaemonConnector,
@@ -708,10 +709,11 @@ fn attach_daemon_session(
         .map_err(|_| BrowserCommandError::state_unavailable())
 }
 
-/// Registry-only part of navigate (URL policy + state machine).
-/// TODO(M6-C4): once a browser.navigate envelope method exists daemon-side,
-/// report the accepted navigation (session id + url) back to the daemon so
-/// the daemon state authority stays current with render-side navigation.
+/// Registry-only part of navigate (URL policy + state machine). The
+/// terminal state of every navigation - commanded or not - is reported
+/// to the daemon session authority when the page finishes loading
+/// (browser.navigate / browser.load-failed, 0.2.1 M6-C4 state sync; see
+/// sync_report_navigation and the on_page_load wiring).
 pub(crate) fn navigate_session(
     state: &BrowserState,
     request: &BrowserNavigateRequest,
@@ -775,6 +777,7 @@ pub(crate) async fn navigate_browser(
         let url = Url::parse(request.url()).map_err(|_| BrowserCommandError::malformed())?;
         window.navigate(url).map_err(|_| {
             let _ = mark_browser_load_failed(state, request.session_id(), "navigation failed");
+            spawn_load_failed_report(app, request.session_id(), "navigation failed");
             BrowserCommandError::unavailable("Browser navigation failed.", true)
         })?;
     }
@@ -1187,7 +1190,10 @@ pub(crate) fn take_over_browser<C: dsh_supervisor::Clock>(
         .lock()
         .map_err(|_| BrowserCommandError::state_unavailable())?;
     for activation_id in &bound_activations {
-        let _ = broker.revoke_agent_grants(activation_id);
+        let _ = broker.revoke_agent_grants(
+            activation_id,
+            dsh_supervisor::LeaseRevocationReason::HumanTakeover,
+        );
     }
     Ok(public_report(session))
 }
@@ -1291,6 +1297,9 @@ fn execute_interact(
 
 /// Record a finished page load (state ready). The bootstrap about:blank
 /// load is skipped by the caller so the create-time navigation intent wins.
+/// The runtime page-load path goes through [`mirror_page_finished`]
+/// (URL-aware, M6-C4); this plain variant is kept for tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mark_browser_ready(
     state: &BrowserState,
     session_id: &str,
@@ -1319,6 +1328,104 @@ pub(crate) fn mark_browser_load_failed(
         .registry()
         .mark_load_failed(session_id, message)
         .map_err(map_browser_error)
+}
+
+// ----------------------------- M6-C4 daemon state sync -----------------------------
+
+/// Mirror a finished page load in the local registry with URL awareness
+/// (M6-C4): a load whose url matches the last commanded navigation only
+/// flips the state (`mark_ready`); anything else - link clicks,
+/// redirects, history entries the host never commanded - records the
+/// final url as the session terminal state (`record_navigation`). URLs
+/// that fail the navigation policy (should not happen past the gate)
+/// degrade to a plain `mark_ready`.
+pub(crate) fn mirror_page_finished(
+    state: &BrowserState,
+    session_id: &str,
+    url: &str,
+) -> Result<BrowserSession, BrowserCommandError> {
+    let mut bridge = state
+        .inner
+        .lock()
+        .map_err(|_| BrowserCommandError::state_unavailable())?;
+    let registry = bridge.registry();
+    let commanded = registry
+        .get(session_id)
+        .map(|session| session.current_url.as_deref() == Some(url))
+        .unwrap_or(false);
+    if commanded {
+        registry.mark_ready(session_id).map_err(map_browser_error)
+    } else {
+        registry
+            .record_navigation(session_id, url)
+            .or_else(|_| registry.mark_ready(session_id))
+            .map_err(map_browser_error)
+    }
+}
+
+/// M6-C4: synchronously report a completed navigation to the daemon
+/// session authority (`browser.navigate`). Fail-open: the report is
+/// best-effort state sync, never a rendering gate; failures are logged.
+pub(crate) fn sync_report_navigation(connector: &dyn DaemonConnector, session_id: &str, url: &str) {
+    let payload = serde_json::json!({
+        "schemaVersion": SCHEMA_VERSION,
+        "sessionId": session_id,
+        "url": url,
+    });
+    if let Err(error) = connector.invoke(browser_coordinate(), BROWSER_NAVIGATE_METHOD, payload) {
+        eprintln!("[browser] daemon navigation report failed session={session_id}: {error}");
+    }
+}
+
+/// M6-C4: synchronously report a failed load to the daemon session
+/// authority (`browser.load-failed`). Fail-open, same as
+/// [`sync_report_navigation`].
+pub(crate) fn sync_report_load_failed(
+    connector: &dyn DaemonConnector,
+    session_id: &str,
+    message: &str,
+) {
+    let payload = serde_json::json!({
+        "schemaVersion": SCHEMA_VERSION,
+        "sessionId": session_id,
+        "message": message,
+    });
+    if let Err(error) = connector.invoke(browser_coordinate(), BROWSER_LOAD_FAILED_METHOD, payload)
+    {
+        eprintln!("[browser] daemon load-failed report failed session={session_id}: {error}");
+    }
+}
+
+/// M6-C4: report a completed navigation out-of-line - the WebView2
+/// event thread must never block on the envelope roundtrip. No-op when
+/// the daemon is not connected (the next restore re-syncs via
+/// browser.list/status).
+#[cfg(not(test))]
+fn spawn_navigation_report(app: &AppHandle, session_id: &str, url: &str) {
+    let Some(connector) = app
+        .state::<crate::daemon_client::DaemonClientState>()
+        .connector()
+    else {
+        return;
+    };
+    let session_id = session_id.to_string();
+    let url = url.to_string();
+    std::thread::spawn(move || sync_report_navigation(connector.as_ref(), &session_id, &url));
+}
+
+/// M6-C4: report a failed load out-of-line (see
+/// [`spawn_navigation_report`]).
+#[cfg(not(test))]
+fn spawn_load_failed_report(app: &AppHandle, session_id: &str, message: &str) {
+    let Some(connector) = app
+        .state::<crate::daemon_client::DaemonClientState>()
+        .connector()
+    else {
+        return;
+    };
+    let session_id = session_id.to_string();
+    let message = message.to_string();
+    std::thread::spawn(move || sync_report_load_failed(connector.as_ref(), &session_id, &message));
 }
 
 // ----------------------------- Native surface (Windows) -----------------------------
@@ -1370,10 +1477,18 @@ fn spawn_browser_window(
     })
     .on_new_window(|_, _| NewWindowResponse::Deny)
     .on_download(|_, _| false)
-    .on_page_load(move |_, payload| {
+    .on_page_load(move |window, payload| {
         let url = payload.url().as_str().to_string();
         if payload.event() == PageLoadEvent::Finished && url != "about:blank" {
-            let _ = mark_browser_ready(&page_state, &page_session_id);
+            // M6-C4: URL-aware mirror update, then report the completed
+            // navigation to the daemon session authority (the daemon must
+            // record the document the user actually sees - link clicks,
+            // redirects and history entries included, not only the last
+            // commanded navigation). Fail-open: a dead daemon only costs
+            // a log line.
+            if mirror_page_finished(&page_state, &page_session_id, &url).is_ok() {
+                spawn_navigation_report(window.app_handle(), &page_session_id, &url);
+            }
         }
     })
     // Document titles flow into the mirror registry (WI-M9-BROWSER-TABS):
@@ -1472,6 +1587,9 @@ fn install_windows_deny_hooks(
     blocked_navigation: Arc<AtomicBool>,
 ) -> Result<(), BrowserCommandError> {
     let (sender, receiver) = mpsc::sync_channel(1);
+    // M6-C4: daemon state sync from the native event thread (the report is
+    // spawned out-of-line so this callback never blocks on the envelope).
+    let app = webview.app_handle().clone();
     webview
         .with_webview(move |platform| {
             let result = (|| -> Result<(), ()> {
@@ -1536,6 +1654,11 @@ fn install_windows_deny_hooks(
                                 if !cancelled {
                                     let _ = mark_browser_load_failed(
                                         &state,
+                                        &session_id,
+                                        "navigation failed",
+                                    );
+                                    spawn_load_failed_report(
+                                        &app,
                                         &session_id,
                                         "navigation failed",
                                     );
@@ -2546,6 +2669,96 @@ mod tests {
         )
         .expect("local navigate on the attached session");
         assert_eq!(navigated.state, "loading");
+    }
+
+    // ------------------------------------------------------------------
+    // M6-C4 render-side navigation state sync (mirror + daemon report)
+    // ------------------------------------------------------------------
+
+    fn attach_loading(state: &BrowserState, session_id: &str, url: &str) {
+        let report = serde_json::json!({
+            "schemaVersion": 1,
+            "sessionId": session_id,
+            "state": "loading",
+            "mode": "human_surface",
+            "currentUrl": url,
+            "createdAtUnixMs": 1_787_000_000_000u64,
+            "lastActivityUnixMs": 1_787_000_000_100u64,
+            "error": null,
+        });
+        let report: BrowserReport = serde_json::from_value(report).expect("loading report parses");
+        attach_daemon_session(state, &report).expect("attach");
+    }
+
+    #[test]
+    fn mirror_page_finished_keeps_commanded_url() {
+        let state = BrowserState::default();
+        attach_loading(&state, "brw-m1", "https://example.com/commanded");
+        // The finished page matches the last commanded navigation: the
+        // session flips to ready and keeps the commanded url.
+        let ready = mirror_page_finished(&state, "brw-m1", "https://example.com/commanded")
+            .expect("mirror ready");
+        assert_eq!(ready.state, SessionState::Ready);
+        assert_eq!(
+            ready.current_url.as_deref(),
+            Some("https://example.com/commanded")
+        );
+    }
+
+    #[test]
+    fn mirror_page_finished_records_uncommanded_url() {
+        let state = BrowserState::default();
+        attach_loading(&state, "brw-m2", "https://example.com/commanded");
+        // A link click / redirect / history entry the host never commanded:
+        // the final url is recorded as the terminal state.
+        let ready = mirror_page_finished(&state, "brw-m2", "https://example.com/landed")
+            .expect("mirror ready");
+        assert_eq!(ready.state, SessionState::Ready);
+        assert_eq!(
+            ready.current_url.as_deref(),
+            Some("https://example.com/landed")
+        );
+    }
+
+    #[test]
+    fn mirror_page_finished_degrades_policy_violation_to_ready() {
+        let state = BrowserState::default();
+        attach_loading(&state, "brw-m3", "https://example.com/commanded");
+        // A url that fails the navigation policy (should not happen past
+        // the gate) degrades to a plain ready keeping the known url.
+        let ready =
+            mirror_page_finished(&state, "brw-m3", "ftp://nope.example").expect("degraded ready");
+        assert_eq!(ready.state, SessionState::Ready);
+        assert_eq!(
+            ready.current_url.as_deref(),
+            Some("https://example.com/commanded")
+        );
+    }
+
+    #[test]
+    fn sync_reports_navigation_and_load_failure_to_daemon() {
+        let connector = MockConnector::ok(daemon_report_json("brw-report"));
+        sync_report_navigation(&connector, "brw-report", "https://example.com/landed");
+        sync_report_load_failed(&connector, "brw-report", "navigation failed");
+        let calls = connector.calls();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].0, "Browser");
+        assert_eq!(calls[0].1, BROWSER_NAVIGATE_METHOD);
+        assert_eq!(calls[0].2["sessionId"], "brw-report");
+        assert_eq!(calls[0].2["url"], "https://example.com/landed");
+        assert_eq!(calls[1].1, BROWSER_LOAD_FAILED_METHOD);
+        assert_eq!(calls[1].2["sessionId"], "brw-report");
+        assert_eq!(calls[1].2["message"], "navigation failed");
+    }
+
+    #[test]
+    fn sync_reports_stay_fail_open_on_daemon_errors() {
+        // A dead daemon must never break the render path: both report
+        // functions swallow the error (logged) and return.
+        let connector = MockConnector::error(DaemonCommandError::NotConnected);
+        sync_report_navigation(&connector, "brw-report", "https://example.com/landed");
+        sync_report_load_failed(&connector, "brw-report", "navigation failed");
+        assert_eq!(connector.calls().len(), 2, "both reports were attempted");
     }
 
     #[test]

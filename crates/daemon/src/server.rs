@@ -31,12 +31,10 @@
 //! environment catalog read from the daemon data directory; the Shell
 //! talks to it through the `runtime.*` envelope methods.
 //!
-//! Remaining M6-C/D TODOs:
-//! - connection-scoped lease revocation on disconnect (broker `revoke`
-//!   with `LeaseRevocationReason::Disconnect`) — TODO(M6-C)
-//! - fixed-port envelope bind: `dsh-local-transport` only binds a random
-//!   loopback port; the daemon owns the fixed claim port 37771 and the
-//!   real port travels in the credential file. — TODO(M6-C)
+//! M6-C (0.2.1): connection-scoped lease revocation on disconnect is
+//! wired in [`DaemonServer::serve_connection`] teardown — every lease a
+//! connection negotiated is revoked with `LeaseRevocationReason::Disconnect`
+//! (broker `revoke_agent_grants` with the reason parameter, crates/supervisor).
 
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -49,7 +47,7 @@ use std::time::{Duration, SystemTime};
 use dsh_local_transport::{Credential, Limits, LocalServer, ServerConn};
 use dsh_supervisor::{
     AgentBridgeError, AgentConformanceState, AgentLeaseConstraints, AgentNegotiationResult, Broker,
-    BrokerError, CapabilityId, Scope, SystemClock,
+    BrokerError, CapabilityId, LeaseRevocationReason, Scope, SystemClock,
 };
 
 use crate::browser::{BrowserEventPayload, BrowserHost};
@@ -159,12 +157,14 @@ pub struct DaemonServer {
 }
 
 impl DaemonServer {
-    /// Bind the envelope server (dynamic loopback port; the fixed claim
-    /// port is owned by the single-instance guard) and build the broker.
-    /// Bind the envelope server (dynamic loopback port; the fixed claim
-    /// port is owned by the single-instance guard) and build the broker.
-    /// The Managed runtime host resolves environments from the default
-    /// catalog path (the daemon data directory).
+    /// Bind the envelope server on the fixed loopback envelope port and
+    /// build the broker (ADR-0019 decision 5: fixed-port envelope;
+    /// 0.2.1 M6-C closes the random-port + credential indirection - the
+    /// daemon owns the port itself, which is also the single-instance
+    /// authority and the Shell presence probe). Port 0 requests an
+    /// OS-assigned port (test isolation). The Managed runtime host
+    /// resolves environments from the default catalog path (the daemon
+    /// data directory).
     pub fn bind(limits: Limits, claim_port: u16) -> io::Result<Self> {
         Self::bind_with_catalog(limits, claim_port, default_catalog_path())
     }
@@ -177,8 +177,15 @@ impl DaemonServer {
         claim_port: u16,
         catalog_path: std::path::PathBuf,
     ) -> io::Result<Self> {
+        let transport = LocalServer::bind_on(
+            SocketAddr::new(std::net::Ipv4Addr::LOCALHOST.into(), claim_port),
+            limits,
+        )?;
+        // Port 0 = OS-assigned: record the actual port so the credential
+        // file and diagnostics carry the real endpoint (tests pass 0).
+        let actual_port = transport.addr().port();
         let server = Self {
-            transport: LocalServer::bind(limits)?,
+            transport,
             broker: Arc::new(Mutex::new(Broker::<SystemClock>::new())),
             scheduler: Arc::new(Scheduler::new()),
             terminal: Arc::new(TerminalHost::new()),
@@ -186,7 +193,11 @@ impl DaemonServer {
             browser: Arc::new(BrowserHost::new()),
             runtime: Arc::new(ManagedRuntimeHost::new(catalog_path)),
             events: EventRouter::spawn(),
-            claim_port,
+            claim_port: if claim_port == 0 {
+                actual_port
+            } else {
+                claim_port
+            },
             started_at: SystemTime::now(),
             file_credential_expiry: Mutex::new(None),
         };
@@ -307,9 +318,18 @@ impl DaemonServer {
         // close/hand over the surviving sessions (ownerless sessions are
         // admitted by check_owner; WI-M9-BROWSER-TABS).
         self.browser.release_connection_ownership(connection_key);
-        // TODO(M6-C): revoke this connection session leases on disconnect
-        // (broker `revoke` with `LeaseRevocationReason::Disconnect`); the
-        // lease TTL bounds them until then.
+        // Revoke every broker lease this connection negotiated (M6-C,
+        // 0.2.1): the lease TTL no longer bounds a disconnected
+        // participant - the grant dies with its connection, fail-closed.
+        // A reconnect negotiates a fresh activation at the next broker
+        // generation (ADR-0018 decision 1); the revocation record stays
+        // durable (first record wins).
+        {
+            let mut broker = self.broker.lock().expect("broker lock poisoned");
+            for activation_id in state.activations.keys() {
+                broker.revoke_agent_grants(activation_id, LeaseRevocationReason::Disconnect);
+            }
+        }
     }
 
     /// Issue a fresh bootstrap credential and atomically rewrite the
