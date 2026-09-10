@@ -1,7 +1,21 @@
 # Current Project State
 
 
+## 审计修复已合并 main（2026-09-10 晚）
+
+- 分支 fix/audit-20260910-security-hardening（含 docs/peer-survey-20260909 的调研文档）
+  squash 合并 main @ f813d7a 并推送；两条远程分支已删。
+- 合并前本地全门禁（CI 口径）：fmt clean / clippy -D warnings exit 0（main CI 红因
+  browser.rs doc list 缩进，本次修复）/ cargo test --workspace --test-threads=1 全绿 /
+  specs 63 schemas + 133 fixtures ALL PASS / tsc + vitest 112/112 / ACL 40 commands passed。
+- CI run 34483524355 已触发（验证中）；此前的 34191183850 / 34191163709 失败即 clippy 项。
+- WI 状态：WI-M10-AUDIT-FIXES done、WI-M10-CLIPPY-DOCLIST done、
+  WI-M10-IDENTITY-BINDING review（ADR-0021 proposed，等用户接受；H-2 仍为部分收敛，
+  方案 A/B 留给 ADR-0022）。
+
 ## 安全审计修复（2026-09-10, WI-M10-AUDIT-FIXES @ fix/audit-20260910-security-hardening）
+
+### 历史记录：分支工作期（2026-09-10, WI-M10-AUDIT-FIXES @ fix/audit-20260910-security-hardening）
 
 - 依据 docs/audits/audit-summary-2026-09-10.md 落地 6 条 desktop-shell 侧修复，每条一个 commit，**未 push**：
   - H-1 `6695c7f` daemon 凭据文件 0600/目录 0700（Unix，rename 前设权限）+ `data_dir()` 不再退化到 cwd（XDG/HOME 或明确报错）；`daemon_client::StartupOptions::try_default`、`default_catalog_path` 随之改为 fallible。

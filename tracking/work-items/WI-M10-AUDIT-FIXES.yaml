@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M10-AUDIT-FIXES
 title: "安全性审计修复（desktop-shell 侧 H-1/H-3 + Medium 契约门禁簇）"
-status: in_progress
+status: done
 milestone: M10
 module: MOD-PROCESS-MANAGER
 owner_role: security-owner
@@ -32,6 +32,6 @@ evidence:
   - "Follow-up (2026-09-10 PM): clippy restored green (35f61b0, WI-M10-CLIPPY-DOCLIST); ADR-0021 proposed (1b0a4a4) and its option-C slice implemented (612bff6, WI-M10-IDENTITY-BINDING) - activation authority class + fail-closed identity mixing, 3 new tests, negative check proves they fail with the gate short-circuited. H-2 stays PARTIALLY MITIGATED: option C does not stop a same-user process holding the token from claiming the Shell identity."
   - "NOT done: H-2 (hello self-attested identity) needs ADR-0021 before any code change; pre-existing clippy failure (crates/daemon/src/browser.rs:20-22) and the browser_integration ownership-race flake (measured 2/20 serial, 5/20 parallel; no browser file touched by these commits) are unrelated and left untouched"
 blocked_by: []
-next_action: "Human review of the branch; ADR-0021 (proposed) awaits acceptance; H-2 must stay \"partially mitigated\" until option A or B lands."
+next_action: "Merged to main @ f813d7a; ADR-0021 (proposed) awaits acceptance; H-2 stays \"partially mitigated\" until option A or B lands."
 handoff: null
 updated_at: "2026-09-10T12:30:00Z"

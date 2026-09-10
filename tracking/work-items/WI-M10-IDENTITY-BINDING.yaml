@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M10-IDENTITY-BINDING
 title: "ADR-0021：Shell–Daemon 身份绑定（control plane 不再靠自报）"
-status: in_progress
+status: review
 milestone: M10
 module: MOD-PROCESS-MANAGER
 owner_role: runtime-and-security-owner
@@ -24,6 +24,6 @@ evidence:
   - "Gates: cargo clippy --workspace --all-targets -- -D warnings exit=0; cargo test --workspace (44 blocks incl. identity_binding) 569 passed with --skip browser_session_ownership_is_connection_scoped (pre-existing flake); fmt clean"
   - "NOT closed: H-2 remains partially mitigated - a same-user process holding the credential can still claim the Shell identity; options A (handshake identity) and B (OS peer identity) are registered for ADR-0022"
 blocked_by: []
-next_action: "Implement the option-C slice (authority class + fail-closed identity mixing), then re-run cargo test --workspace and clippy -D warnings."
+next_action: "Option-C slice implemented and merged (f813d7a, identity_binding.rs); ADR-0021 waits for user acceptance; ADR-0022 input (option A/B) awaits the direction decision."
 handoff: null
 updated_at: "2026-09-10T13:58:00Z"
