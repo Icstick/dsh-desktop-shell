@@ -17,9 +17,9 @@
 //! ready state with the final url) and every failed load
 //! (`browser.load-failed`) so the daemon registry - the state authority
 //! - records the document the user actually sees (link clicks,
-//! redirects and history entries included). Remaining C4 gaps, tracked
-//! as deferred: daemon-initiated navigate/snapshot envelope methods,
-//! handover re-attach flow after a Shell restart.
+//!   redirects and history entries included). Remaining C4 gaps, tracked
+//!   as deferred: daemon-initiated navigate/snapshot envelope methods,
+//!   handover re-attach flow after a Shell restart.
 //!
 //! Wire contract: request/report/event shapes mirror
 //! `specs/browser/*.schema.json` (BrowserCreateRequest/BrowserCloseRequest,

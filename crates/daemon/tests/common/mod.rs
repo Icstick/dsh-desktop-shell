@@ -34,6 +34,9 @@ pub struct AgreementInfo {
 pub struct TestClient {
     transport: LocalClient,
     participant: Participant,
+    /// The identity this client was constructed with (`component`, `facet`),
+    /// so a test that swaps the claimed identity can restore it.
+    identity: (String, String),
     generation: u64,
     activation: Option<AgreementInfo>,
     /// Event envelopes received while waiting for invocation Results
@@ -42,6 +45,9 @@ pub struct TestClient {
 }
 
 impl TestClient {
+    /// Used by a subset of test binaries (each integration test compiles
+    /// this module separately), so allow dead_code.
+    #[allow(dead_code)]
     pub fn connect(addr: SocketAddr, credential: &Credential) -> Self {
         Self::connect_as(addr, credential, "dsh-desktop-shell", "test-client")
     }
@@ -62,6 +68,7 @@ impl TestClient {
                 facet: facet.into(),
                 activation_id: None,
             },
+            identity: (component.into(), facet.into()),
             generation: 0,
             activation: None,
             events: Vec::new(),
@@ -137,38 +144,12 @@ impl TestClient {
     }
 
     pub fn negotiate(&mut self, supports: Vec<ProtocolCoordinate>) -> AgreementInfo {
-        let payload = serde_json::to_value(HelloPayload {
-            instance_id: format!(
-                "test-client-{:016x}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_nanos())
-                    .unwrap_or(0)
-            ),
-            supports,
-            requires: Vec::new(),
-        })
-        .expect("hello serializes");
-        let hello = self.outgoing(EnvelopeKind::Hello, None, None, Some(payload));
-        self.transport.send_json(&hello).expect("send hello");
-        // Events are pushed asynchronously by the daemon writer thread and
-        // may arrive before the Agreement (PTY output ordering differs by
-        // platform); buffer them and keep reading until the Agreement.
-        let reply = loop {
-            match self.transport.recv_json::<Envelope>() {
-                Ok(Some(envelope)) if envelope.kind == EnvelopeKind::Event => {
-                    self.events.push(envelope);
-                }
-                Ok(Some(envelope)) => break envelope,
-                Ok(None) => panic!("Agreement: connection closed"),
-                Err(error) => panic!("Agreement: recv error {error}"),
-            }
-        };
+        let (hello_id, reply) = self.send_hello(supports);
         assert_eq!(reply.kind, EnvelopeKind::Agreement, "expected Agreement");
         validate_envelope(&reply).expect("Agreement must be frame-valid");
         assert_eq!(
             reply.reply_to.as_deref(),
-            Some(hello.id.as_str()),
+            Some(hello_id.as_str()),
             "Agreement must answer the Hello"
         );
         let payload: AgreementPayload = reply
@@ -185,6 +166,59 @@ impl TestClient {
         self.participant.activation_id = Some(payload.activation_id);
         self.activation = Some(info.clone());
         info
+    }
+
+    /// Replace the participant identity this client claims on its
+    /// connection (ADR-0021 negative tests: a connection must not be able
+    /// to change identity classes after an activation exists).
+    #[allow(dead_code)]
+    pub fn set_identity(&mut self, component: &str, facet: &str) {
+        self.participant.component = component.into();
+        self.participant.facet = facet.into();
+        self.participant.activation_id = None;
+    }
+
+    /// Restore the identity the client was constructed with.
+    #[allow(dead_code)]
+    pub fn restore_identity(&mut self) {
+        self.participant.component = self.identity.0.clone();
+        self.participant.facet = self.identity.1.clone();
+    }
+
+    /// Send one Hello and return `(helloId, first non-Event reply)`.
+    ///
+    /// Negative-path tests need the raw reply: a rejected Hello answers
+    /// with an error Result instead of an Agreement (ADR-0021 identity
+    /// binding), and `negotiate` above asserts an Agreement.
+    pub fn send_hello(&mut self, supports: Vec<ProtocolCoordinate>) -> (String, Envelope) {
+        let payload = serde_json::to_value(HelloPayload {
+            instance_id: format!(
+                "test-client-{:016x}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0)
+            ),
+            supports,
+            requires: Vec::new(),
+        })
+        .expect("hello serializes");
+        let hello = self.outgoing(EnvelopeKind::Hello, None, None, Some(payload));
+        self.transport.send_json(&hello).expect("send hello");
+        // Events are pushed asynchronously by the daemon writer thread and
+        // may arrive before the reply (PTY output ordering differs by
+        // platform); buffer them and keep reading until the reply.
+        let reply = loop {
+            match self.transport.recv_json::<Envelope>() {
+                Ok(Some(envelope)) if envelope.kind == EnvelopeKind::Event => {
+                    self.events.push(envelope);
+                }
+                Ok(Some(envelope)) => break envelope,
+                Ok(None) => panic!("Hello reply: connection closed"),
+                Err(error) => panic!("Hello reply: recv error {error}"),
+            }
+        };
+        (hello.id, reply)
     }
 
     // Used by a subset of test binaries (each integration test compiles

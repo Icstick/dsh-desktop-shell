@@ -509,7 +509,7 @@ fn mount_windows_surface(
         eprintln!(
             "[dsh-surface] page_load {:?} url={}",
             payload.event(),
-            payload.url()
+            redact_url_for_log(payload.url())
         );
         if !is_exact_surface_origin(payload.url(), port) {
             return;
@@ -901,6 +901,51 @@ fn close_existing(app: &AppHandle) -> Result<(), DshSurfaceError> {
     Ok(())
 }
 
+/// Credential-free rendering of a URL for diagnostics (ADR-0012 / AC-LOG-001:
+/// tokens, query strings and full bootstrap URLs never leave the process).
+///
+/// The Managed bootstrap URL is `http://127.0.0.1:<port>/?token=<43 chars>`
+/// (specs/runtime/managed-runtime-binding-report.schema.json), so the page
+/// load diagnostic — which used to print `payload.url()` verbatim — wrote a
+/// usable web token into stderr on every mount (security audit 2026-09-10,
+/// H-3). Only the scheme, host, port and path survive; the query string and
+/// any userinfo are dropped.
+///
+/// Best-effort by construction: an unparsable URL never falls back to the raw
+/// input, it degrades to `<unprintable-url>`.
+fn redact_url_for_log(url: &Url) -> String {
+    if let Some(rest) = url.as_str().strip_prefix("about:") {
+        return format!("about:{}", sanitize_about_path(rest));
+    }
+    let mut redacted = url.clone();
+    redacted.set_query(None);
+    redacted.set_fragment(None);
+    // Userinfo is a credential too; a URL without a host (e.g. `file:`) has
+    // no meaningful userinfo to drop.
+    if redacted.host().is_some() {
+        let _ = redacted.set_username("");
+        let _ = redacted.set_password(None);
+    }
+    redacted.to_string()
+}
+
+/// `about:` URLs carry their payload in the "path" (`about:blank`,
+/// `about:srcdoc`); allow only a short, plain token so nothing opaque can be
+/// smuggled into the log line.
+fn sanitize_about_path(rest: &str) -> String {
+    if rest.is_empty() {
+        String::new()
+    } else if rest.len() <= 32
+        && rest
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        rest.to_string()
+    } else {
+        "<redacted>".to_string()
+    }
+}
+
 fn is_bootstrap_url(url: &Url) -> bool {
     url.scheme() == "about" && url.as_str() == "about:blank"
 }
@@ -987,6 +1032,38 @@ mod tests {
         assert!(!invalid.is_valid());
     }
 
+    /// H-3 regression: the page_load diagnostic must never carry the
+    /// bootstrap token (or any query string) into stderr.
+    #[test]
+    fn log_url_redaction_drops_token_query_and_fragment() {
+        let token = "a".repeat(43);
+        let bootstrap = Url::parse(&format!("http://127.0.0.1:13579/?token={token}")).unwrap();
+        let rendered = redact_url_for_log(&bootstrap);
+        assert_eq!(rendered, "http://127.0.0.1:13579/");
+        assert!(!rendered.contains(&token));
+        assert!(!rendered.contains("token"));
+
+        // Host + path survive, so the diagnostic stays useful.
+        let path = Url::parse("http://127.0.0.1:13579/index.html?token=abc#frag").unwrap();
+        assert_eq!(
+            redact_url_for_log(&path),
+            "http://127.0.0.1:13579/index.html"
+        );
+
+        // Userinfo is a credential too.
+        let userinfo = Url::parse("http://user:secret@127.0.0.1:13579/x").unwrap();
+        assert_eq!(redact_url_for_log(&userinfo), "http://127.0.0.1:13579/x");
+
+        // The bootstrap placeholder and ordinary about: URLs stay readable.
+        assert_eq!(
+            redact_url_for_log(&Url::parse("about:blank").unwrap()),
+            "about:blank"
+        );
+        assert_eq!(
+            redact_url_for_log(&Url::parse("about:srcdoc").unwrap()),
+            "about:srcdoc"
+        );
+    }
     #[test]
     fn native_navigation_only_allows_bootstrap_or_exact_origin() {
         assert!(is_bootstrap_url(&Url::parse("about:blank").unwrap()));

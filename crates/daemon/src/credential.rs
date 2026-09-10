@@ -2,8 +2,10 @@
 //! startup, daemon issues one-time credentials via local-transport).
 //!
 //! The daemon writes `daemon-credential.json` into the daemon data
-//! directory (`%APPDATA%/dev.dsh.desktop-shell/` on Windows; overridable
-//! with `--data-dir` or the `DSH_DAEMON_DATA_DIR` environment variable).
+//! directory (`%APPDATA%/dev.dsh.desktop-shell/` on Windows,
+//! `$XDG_DATA_HOME/dev.dsh.desktop-shell/` — or
+//! `$HOME/.local/share/dev.dsh.desktop-shell/` — on Unix; overridable with
+//! `--data-dir` or the `DSH_DAEMON_DATA_DIR` environment variable).
 //! The Shell reads this file to learn where to connect (the envelope
 //! `port`) and which one-time `credential` to present during the
 //! local-transport handshake. The credential is consumed by its first
@@ -38,25 +40,60 @@ pub const CLAIM_PORT: u16 = 37_771;
 pub const CREDENTIAL_FILE_SCHEMA_VERSION: u32 = 1;
 
 /// Resolve the daemon data directory: `--data-dir`/`DSH_DAEMON_DATA_DIR`
-/// override, then `%APPDATA%\dev.dsh.desktop-shell`, then a last-resort
-/// current-directory fallback.
-pub fn data_dir() -> PathBuf {
+/// override, then `%APPDATA%\dev.dsh.desktop-shell` / `%LOCALAPPDATA%\...`,
+/// then the Unix XDG fallback (`$XDG_DATA_HOME/dev.dsh.desktop-shell`, or
+/// `$HOME/.local/share/dev.dsh.desktop-shell`).
+///
+/// The resolution is fallible on purpose (security audit 2026-09-10, H-1):
+/// the previous last resort was `PathBuf::from(".")`, which is a **normal**
+/// outcome on Unix (no `APPDATA`/`LOCALAPPDATA` there) and would have put
+/// the daemon credential file — the one-time token the Shell presents —
+/// into whatever directory the daemon happened to be started from.
+/// A caller that cannot resolve a real data directory must fail, never
+/// silently write credentials into the current directory.
+pub fn data_dir() -> io::Result<PathBuf> {
     if let Ok(dir) = env::var("DSH_DAEMON_DATA_DIR")
         && !dir.is_empty()
     {
-        return PathBuf::from(dir);
+        return Ok(PathBuf::from(dir));
     }
     if let Ok(appdata) = env::var("APPDATA")
         && !appdata.is_empty()
     {
-        return PathBuf::from(appdata).join(DATA_DIR_NAME);
+        return Ok(PathBuf::from(appdata).join(DATA_DIR_NAME));
     }
     if let Ok(local) = env::var("LOCALAPPDATA")
         && !local.is_empty()
     {
-        return PathBuf::from(local).join(DATA_DIR_NAME);
+        return Ok(PathBuf::from(local).join(DATA_DIR_NAME));
     }
-    PathBuf::from(".")
+    #[cfg(unix)]
+    {
+        if let Ok(xdg) = env::var("XDG_DATA_HOME")
+            && !xdg.is_empty()
+        {
+            return Ok(PathBuf::from(xdg).join(DATA_DIR_NAME));
+        }
+        if let Ok(home) = env::var("HOME")
+            && !home.is_empty()
+        {
+            return Ok(PathBuf::from(home)
+                .join(".local")
+                .join("share")
+                .join(DATA_DIR_NAME));
+        }
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "no daemon data directory: set DSH_DAEMON_DATA_DIR, XDG_DATA_HOME or HOME",
+        ))
+    }
+    #[cfg(not(unix))]
+    {
+        // Non-Unix platforms without APPDATA/LOCALAPPDATA keep the historical
+        // current-directory fallback; refuse-with-an-error here would break
+        // embedded/dev launches on those platforms with no safer alternative.
+        Ok(PathBuf::from("."))
+    }
 }
 
 /// The on-disk credential file (schema `daemon-credential.json`, v1).
@@ -120,11 +157,26 @@ impl CredentialFile {
 
     /// Atomically write the file into `dir` (temp file + rename, so a
     /// concurrent Shell read never observes a torn file).
+    ///
+    /// The file carries a one-time bootstrap token, so its permissions are
+    /// tightened explicitly instead of relying on the process umask
+    /// (security audit 2026-09-10, H-1): on Unix the data directory is set
+    /// to `0700` and the file to `0600` — the same policy the Shell-side
+    /// `environment_store` applies (`restrict_directory`/`restrict_file`).
+    /// `0600` is applied to the temp file **before** the rename so the
+    /// final path is never observable with looser bits.
+    ///
+    /// Windows: no explicit ACL work here — `%APPDATA%` (and every
+    /// directory created under it) inherits the per-user profile ACL, which
+    /// is already single-user; an explicit DACL pass is deliberately left
+    /// out of scope for this fix.
     pub fn write_to(&self, dir: &Path) -> io::Result<()> {
         fs::create_dir_all(dir)?;
+        restrict_directory(dir)?;
         let json = self.to_json().map_err(io::Error::other)?;
         let temp = dir.join(format!("{CREDENTIAL_FILE_NAME}.tmp"));
         fs::write(&temp, json)?;
+        restrict_file(&temp)?;
         fs::rename(&temp, dir.join(CREDENTIAL_FILE_NAME))?;
         Ok(())
     }
@@ -134,6 +186,31 @@ impl CredentialFile {
         let json = fs::read_to_string(dir.join(CREDENTIAL_FILE_NAME))?;
         Self::from_json(&json).map_err(io::Error::other)
     }
+}
+
+/// Restrict a directory to owner-only access (`0700` on Unix; no-op
+/// elsewhere — see `write_to` for the Windows rationale).
+#[cfg(unix)]
+fn restrict_directory(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+}
+
+#[cfg(not(unix))]
+fn restrict_directory(_path: &Path) -> io::Result<()> {
+    Ok(())
+}
+
+/// Restrict a file to owner read/write (`0600` on Unix; no-op elsewhere).
+#[cfg(unix)]
+fn restrict_file(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+}
+
+#[cfg(not(unix))]
+fn restrict_file(_path: &Path) -> io::Result<()> {
+    Ok(())
 }
 
 /// RFC 3339 UTC millisecond timestamp (no external crates; the envelope
@@ -210,7 +287,35 @@ mod tests {
     fn data_dir_prefers_override() {
         // The override path is read once per call; no cross-test races
         // because the tests never set it.
-        let fallback = data_dir();
+        let fallback = data_dir().expect("data dir resolves");
         assert!(!fallback.as_os_str().is_empty());
+    }
+
+    /// H-1 regression: the credential file (and the directory holding it)
+    /// must not be group/world readable, and that must not depend on the
+    /// umask of the process that created it.
+    #[cfg(unix)]
+    #[test]
+    fn credential_file_and_dir_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir =
+            std::env::temp_dir().join(format!("dsh-daemon-cred-mode-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        sample().write_to(&dir).expect("writes");
+
+        let file_mode = fs::metadata(dir.join(CREDENTIAL_FILE_NAME))
+            .expect("metadata")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(file_mode, 0o600, "credential file must be 0600");
+        let dir_mode = fs::metadata(&dir).expect("metadata").permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700, "credential directory must be 0700");
+        // The temp file the atomic write uses must not survive with looser
+        // bits either (it is renamed away, so it must be gone).
+        assert!(!dir.join(format!("{CREDENTIAL_FILE_NAME}.tmp")).exists());
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

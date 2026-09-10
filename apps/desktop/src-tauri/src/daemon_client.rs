@@ -772,14 +772,19 @@ pub struct StartupOptions {
     pub spawn_daemon: bool,
 }
 
-impl Default for StartupOptions {
-    fn default() -> Self {
-        Self {
-            data_dir: data_dir(),
+impl StartupOptions {
+    /// Default startup options. Fallible on purpose: the daemon data
+    /// directory is (security audit 2026-09-10, H-1 — `data_dir` refuses to
+    /// degrade to the current working directory on Unix), and the Shell
+    /// must not start a daemon whose credential file lands somewhere it
+    /// did not intend.
+    pub fn try_default() -> io::Result<Self> {
+        Ok(Self {
+            data_dir: data_dir()?,
             claim_port: CLAIM_PORT,
             daemon_exe: None,
             spawn_daemon: true,
-        }
+        })
     }
 }
 

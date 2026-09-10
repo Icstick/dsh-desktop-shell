@@ -22,3 +22,4 @@ ADR 是 ownership、public contract、状态机、transport、trust boundary、�
 - [ADR-0012](ADR-0012-authenticated-managed-web-bootstrap.md)
 - [ADR-0013](ADR-0013-supervisor-restart-recovery.md)
 - [ADR-0014](ADR-0014-capability-broker-grant-lease.md)
+- [ADR-0021](ADR-0021-shell-daemon-identity-binding.md) — proposed（Shell–Daemon 身份绑定；本索引 0015-0020 未登记，属既有漂移）

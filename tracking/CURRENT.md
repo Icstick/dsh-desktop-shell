@@ -1,6 +1,19 @@
 # Current Project State
 
 
+## 安全审计修复（2026-09-10, WI-M10-AUDIT-FIXES @ fix/audit-20260910-security-hardening）
+
+- 依据 docs/audits/audit-summary-2026-09-10.md 落地 6 条 desktop-shell 侧修复，每条一个 commit，**未 push**：
+  - H-1 `6695c7f` daemon 凭据文件 0600/目录 0700（Unix，rename 前设权限）+ `data_dir()` 不再退化到 cwd（XDG/HOME 或明确报错）；`daemon_client::StartupOptions::try_default`、`default_catalog_path` 随之改为 fallible。
+  - H-3 `d30e5e6` DSH Surface `page_load` 诊断不再把带 43 字符 web token 的 bootstrap URL 写进 stderr（保留 host/path，抹 query/fragment/userinfo）。
+  - theme D `a1e9b2b` `harness.path` 成为显式信任边界：`validate_launch_target` 在 `save_environment` 与 `start_managed_environment` 两处校验存在性/文件类型/可执行性/路径归一化。
+  - theme B `0da7bf7` `scripts/validate-specs.mjs` 的未支持关键字检查不再是死代码（递归 + 计入退出码；顺带实现 `minProperties`）。
+  - theme B `f82cfd8` terminal create/write/resize 在 Shell 层落地 schema 边界（cols/rows/shell/cwd/data）。
+  - theme B `676e61c` `tests/contract` 变成真实 workspace 成员 crate（4 个契约测试），接入 `cargo test --workspace` 与根 `pnpm test`。
+- 门禁：基线 cargo 550 / vitest 112 / specs 63-133 ALL PASS → 复检 cargo **567** / vitest 112 / specs ALL PASS，`cargo fmt --check` 干净。
+- 未做（需先写 ADR）：**H-2 hello 身份自证 + 请求即授予**（建议 ADR-0021，要点见修复报告）。
+- 预存问题（本次未动，需单独 WI）：`crates/daemon/src/browser.rs:20-22` clippy `-D warnings` 失败；`browser_integration::browser_session_ownership_is_connection_scoped` 并行下约 40% flake。
+- 产物：`docs/audits/fixes-desktop-shell-2026-09-10.md`（逐条修复 + 证据 + 遗留风险）。
 ## 0.2.1 stabilization in progress (2026-09-08, WI-M9-STABILIZATION @ feat/021-stabilization)
 
 - M6-C lease revocation on disconnect: DONE (45473f8) - broker

@@ -20,7 +20,7 @@ const root = process.argv[2] ?? ".";
 const SUPPORTED = new Set([
   "type", "enum", "const", "properties", "required", "additionalProperties",
   "pattern", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum",
-  "exclusiveMaximum", "minItems", "maxItems", "items", "oneOf", "allOf", "anyOf",
+  "exclusiveMaximum", "minItems", "maxItems", "minProperties", "items", "oneOf", "allOf", "anyOf",
   "if", "then", "else", "not", "title", "description", "$id", "$schema", "$defs", "$ref", "uniqueItems", "format",
 ]);
 
@@ -33,10 +33,52 @@ function walk(dir, out = []) {
   return out;
 }
 
+// Keywords whose value is a schema (or a map/list of schemas) and must
+/// therefore be walked as well: an unsupported keyword buried in `$defs`,
+/// `properties` or a `oneOf` branch is just as silent as a top-level one.
+const SCHEMA_MAP_KEYS = new Set(["properties", "$defs", "definitions", "patternProperties", "dependentSchemas"]);
+const SCHEMA_LIST_KEYS = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
+const SCHEMA_SINGLE_KEYS = new Set([
+  "items", "additionalProperties", "not", "if", "then", "else", "contains",
+  "propertyNames", "unevaluatedProperties", "unevaluatedItems",
+]);
+
 function checkKeywords(schema, path, errors) {
   for (const key of Object.keys(schema)) {
     if (!SUPPORTED.has(key)) {
       errors.push(`unsupported schema keyword "${key}" at ${path}`);
+    }
+  }
+}
+
+// Recursively check every schema position of one document. `visited` guards
+/// against shared/cyclic subschemas; `path` is the JSON path of the node so
+/// the diagnostic names the exact location.
+function checkKeywordsDeep(schema, path, errors, visited) {
+  if (schema === null || typeof schema !== "object" || Array.isArray(schema)) return;
+  if (visited.has(schema)) return;
+  visited.add(schema);
+  checkKeywords(schema, path, errors);
+  for (const [key, value] of Object.entries(schema)) {
+    if (SCHEMA_MAP_KEYS.has(key) && value && typeof value === "object") {
+      for (const [name, sub] of Object.entries(value)) {
+        checkKeywordsDeep(sub, `${path}.${key}.${name}`, errors, visited);
+      }
+    } else if (SCHEMA_LIST_KEYS.has(key) && Array.isArray(value)) {
+      value.forEach((sub, index) =>
+        checkKeywordsDeep(sub, `${path}.${key}[${index}]`, errors, visited));
+    } else if (SCHEMA_SINGLE_KEYS.has(key)) {
+      checkKeywordsDeep(value, `${path}.${key}`, errors, visited);
+    }
+  }
+  // `$ref` bodies are checked through the resolved target: resolve() maps
+  // both local `#/$defs/...` and file refs onto ordinary documents, which are
+  // walked by their own registration or by this walk.
+  if (typeof schema.$ref === "string" && schema.$ref.startsWith("#/$defs/")) {
+    const name = schema.$ref.slice("#/$defs/".length);
+    const defs = schema.$defs;
+    if (defs && typeof defs === "object" && name in defs) {
+      checkKeywordsDeep(defs[name], `${path}.$ref(${schema.$ref})`, errors, visited);
     }
   }
 }
@@ -146,6 +188,9 @@ function validate(instance, schema, path, errors, defs, registry, schemaDir) {
     for (const key of schema.required ?? []) {
       if (!(key in instance)) errors.push(`${path}: missing required "${key}"`);
     }
+    if (schema.minProperties !== undefined && Object.keys(instance).length < schema.minProperties) {
+      errors.push(`${path}: fewer than minProperties ${schema.minProperties}`);
+    }
     if (schema.additionalProperties === false) {
       for (const key of Object.keys(instance)) {
         if (!(key in props)) errors.push(`${path}: unexpected property "${key}"`);
@@ -193,7 +238,15 @@ function main() {
     try {
       const doc = JSON.parse(readFileSync(file, "utf8"));
       schemaDocs.set(file, doc);
-      checkKeywords(doc, file, []);
+      // Unsupported keywords must fail loudly (the file header says so).
+      // The result used to be dropped into an anonymous array, which made
+      // the loud-failure rule dead code (audit 2026-09-10, contract gate).
+      const keywordErrors = [];
+      checkKeywordsDeep(doc, relative(root, file), keywordErrors, new Set());
+      if (keywordErrors.length > 0) {
+        failures += keywordErrors.length;
+        for (const message of keywordErrors) console.log(`FAIL  ${message}`);
+      }
     } catch (e) {
       failures++;
       console.log(`FAIL  schema parse ${relative(root, file)}: ${e.message}`);

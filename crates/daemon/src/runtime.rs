@@ -45,9 +45,10 @@ use crate::capabilities::{CapabilityContext, DaemonMethodError};
 use crate::envelope::ErrorCode;
 
 /// Default catalog path: the daemon data directory (same directory the
-/// Shell writes the catalog into).
-pub fn default_catalog_path() -> PathBuf {
-    crate::credential::data_dir().join(CATALOG_FILE_NAME)
+/// Shell writes the catalog into). Fallible because resolving the data
+/// directory is (see `credential::data_dir`: no silent cwd fallback).
+pub fn default_catalog_path() -> std::io::Result<PathBuf> {
+    Ok(crate::credential::data_dir()?.join(CATALOG_FILE_NAME))
 }
 
 /// Why a runtime operation could not run against the catalog/host.
@@ -70,12 +71,6 @@ pub enum RuntimeHostError {
 pub struct ManagedRuntimeHost {
     state: ManagedRuntimeState,
     catalog_path: PathBuf,
-}
-
-impl Default for ManagedRuntimeHost {
-    fn default() -> Self {
-        Self::new(default_catalog_path())
-    }
 }
 
 impl ManagedRuntimeHost {

@@ -34,3 +34,14 @@ DSH/platform/std 特定差异集中在既定 adapter/provider；本模块不得�
 ## Milestone exit
 
 实现、测试、文档、tracking、evidence 与 handoff 同时完成；没有 evidence 时状态不得高于 `review`。
+
+## Layout
+
+```text
+tests/contract/
+  Cargo.toml                     # workspace member: pure test harness
+  README.md                      # coverage table + honest gaps
+  tests/terminal_contract.rs     # schema <-> provider <-> wire types
+```
+
+运行方式：`cargo test -p dsh-desktop-shell-contract-tests`（在根 `pnpm test` 里已接线）。

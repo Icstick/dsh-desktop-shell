@@ -12,6 +12,8 @@
     "check:acl": "pnpm --dir apps/desktop check:acl",
     "desktop:dev": "pnpm --dir apps/desktop tauri dev",
     "desktop:build": "pnpm --dir apps/desktop tauri build",
-    "test": "pnpm --dir apps/desktop test"
+    "test": "pnpm --dir apps/desktop test && pnpm test:contract",
+    "test:contract": "cargo test -p dsh-desktop-shell-contract-tests",
+    "test:specs": "node scripts/validate-specs.mjs"
   }
 }

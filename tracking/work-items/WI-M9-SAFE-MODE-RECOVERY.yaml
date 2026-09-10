@@ -1,0 +1,30 @@
+schema_version: 1
+id: WI-M9-SAFE-MODE-RECOVERY
+title: "Safe Mode: isolated recovery profile that never mutates the normal profile"
+status: proposed
+milestone: M9
+module: MOD-SUPERVISOR
+owner_role: runtime-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "From a failed or degraded start, the user can launch an isolated recovery profile without modifying the normal profile, Desktop state, or DSH_HOME sessions."
+  - "The recovery surface shows collected fault evidence read-only: last start error, supervisor/runtime status, profile and plugin load diagnostics."
+  - "Third-party plugin disabling inside recovery is reversible and explicitly confirmed; no automatic repair is performed (INVARIANTS #11 keeps plugin management in DSH)."
+  - "Leaving recovery returns to the normal profile unchanged; evidence of both starts is retained in diagnostics."
+security_impact: "Starts a second isolated runtime; must not read or write credentials, must not weaken local transport auth (INVARIANTS #13/#14). Read-only evidence, user-confirmed reversible plugin toggles only."
+compatibility_impact: "Adds a recovery start mode alongside Managed/Attached; no change to existing envelope methods or capability versions."
+scope:
+  - crates/supervisor/ (isolated start mode)
+  - crates/managed-runtime/ (isolated dshHome/profile selection)
+  - crates/daemon/ (diagnostics export)
+  - apps/desktop/ (recovery surface + i18n)
+  - specs/ + docs/operations/RECOVERY.md
+evidence: []
+blocked_by: []
+next_action: "ADR draft: isolation boundary (separate DSH_HOME vs separate profile), what recovery may read, reversibility model, and how Safe Stop relates to Safe Mode."
+handoff: null
+updated_at: "2026-09-09T12:30:00.000Z"

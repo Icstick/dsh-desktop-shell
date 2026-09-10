@@ -44,6 +44,7 @@
 - [Clean-room Policy](compliance/CLEAN_ROOM.md)
 - [Research Synthesis](research/SYNTHESIS.md)
 - [External Baseline](research/EXTERNAL_BASELINE.md)
+- [Peer Survey: 桌面壳同行调研与可吸纳方法](research/PEER-SURVEY-20260909.md)
 
 ## 路线图与计划
 

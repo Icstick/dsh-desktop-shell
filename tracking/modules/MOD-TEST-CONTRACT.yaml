@@ -3,11 +3,14 @@ id: MOD-TEST-CONTRACT
 name: "contract-tests"
 path: "tests/contract"
 owner_role: test-owner
-status: proposed
+status: review
 milestone: M2
 interfaces: []
 depends_on:
   - MOD-PROTOCOL-FIXTURES
 security_review: not_required
-updated_at: "2026-08-25T06:49:34Z"
-next_action: "在所属 milestone 开始前完成 module contract review。"
+evidence:
+  - "tests/contract is a real workspace member crate (dsh-desktop-shell-contract-tests) with 4 tests aligning specs/terminal schemas, the terminal-provider bounds and the daemon wire types; wired into cargo test --workspace and root pnpm test (test:contract) - WI-M10-AUDIT-FIXES, 2026-09-10"
+  - "scripts/validate-specs.mjs now fails on unsupported schema keywords (was dead code); 63 schemas / 133 fixtures ALL PASS"
+updated_at: "2026-09-10T12:34:00Z"
+next_action: "Extend the suite to the browser/runtime request families; the Shell-side tauri crate stays outside this crate's reach and keeps its in-crate tests."

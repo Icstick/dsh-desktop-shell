@@ -787,6 +787,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dsh-desktop-shell-contract-tests"
+version = "0.1.0"
+dependencies = [
+ "dsh-daemon",
+ "dsh-terminal-provider",
+ "serde_json",
+]
+
+[[package]]
 name = "dsh-external-api-example"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,37 @@
+schema_version: 1
+id: WI-M10-AUDIT-FIXES
+title: "安全性审计修复（desktop-shell 侧 H-1/H-3 + Medium 契约门禁簇）"
+status: in_progress
+milestone: M10
+module: MOD-PROCESS-MANAGER
+owner_role: security-owner
+claimed_by: "audit-fix session 20260910"
+session: SESSION-20260910-AUDIT-FIXES
+branch_or_worktree: fix/audit-20260910-security-hardening
+claim_expires_at: "2026-09-11T12:00:00Z"
+dependencies: []
+acceptance_criteria:
+  - "H-1: the daemon credential file is written 0600 and its data directory 0700 on Unix; the Unix data-directory resolution no longer degrades to the current working directory (XDG_DATA_HOME/HOME or a loud error)."
+  - "H-3: the DSH Surface page_load diagnostic no longer writes the bootstrap URL (which carries the 43-char web token) to stderr."
+  - "Medium: harness.path validation tightens the explicit trust boundary before Supervisor spawn (exists / is a file / normalized absolute path)."
+  - "Medium: scripts/validate-specs.mjs turns unsupported-schema-keyword detection into a real exit-code failure."
+  - "Medium: the terminal command family enforces its schema bounds (cols/rows/shell/cwd/data) in the Shell layer."
+  - "Medium: tests/contract/ carries real contract tests for the terminal bounds and the protocol schemas, wired into pnpm test."
+  - "cargo test --workspace --no-fail-fast, pnpm --dir apps/desktop test and node scripts/validate-specs.mjs stay green."
+security_impact: "Closes two High findings (credential file permissions, token written to stderr) and tightens two trust boundaries (harness.path before Supervisor spawn, terminal request schema). No new trust boundary is introduced; the H-2 hello-identity finding is explicitly deferred to an ADR."
+compatibility_impact: "Unix-only behavior change: the daemon data directory resolves via XDG_DATA_HOME/HOME/.local/share and fails loudly instead of falling back to the cwd. Terminal requests that already violated the published schema (cols/rows/shell/cwd/data bounds) are now rejected in the Shell instead of being forwarded to the daemon."
+evidence:
+  - "baseline (before): cargo test --workspace --no-fail-fast 550 passed / 0 failed (39 test binaries); pnpm --dir apps/desktop test 112 passed; node scripts/validate-specs.mjs 63 schemas, 133 fixtures, ALL PASS (docs/audits/_fix-baseline-cargo.log, _fix-baseline-vitest.log)"
+  - "H-1 6695c7f: credential.rs write_to 0700 dir / 0600 file before rename, data_dir() -> io::Result with XDG/HOME on Unix and a loud error instead of cwd; daemon lib 69 tests green; cargo check --target x86_64-unknown-linux-gnu green (Unix branches compile)"
+  - "H-3 d30e5e6: page_load logs redact_url_for_log(url) (scheme/host/port/path only); desktop lib 171 tests green incl. the token-redaction regression"
+  - "theme D a1e9b2b: harness.path is now an explicit trust boundary (validate_launch_target at save_environment + start_managed_environment); 7 new tests prove the fail-closed ordering"
+  - "theme B 0da7bf7: validate-specs.mjs collects unsupported keywords recursively and fails the run; injecting x-probe-unsupported now exits 1 (before: silent pass), reverting returns to 63/133 ALL PASS"
+  - "theme B f82cfd8: terminal create/write/resize enforce the published schema bounds in the Shell (5 new boundary tests)"
+  - "theme B 676e61c: tests/contract is a real workspace member crate with 4 contract tests; wired into cargo test --workspace and root pnpm test (test:contract)"
+  - "recheck (after): cargo test --workspace --no-fail-fast 567 passed / 0 failed (40 test binaries); pnpm --dir apps/desktop test 112 passed; node scripts/validate-specs.mjs 63/133 ALL PASS; cargo fmt --all --check clean; docs/audits/_fix-final-*.log"
+  - "Follow-up (2026-09-10 PM): clippy restored green (35f61b0, WI-M10-CLIPPY-DOCLIST); ADR-0021 proposed (1b0a4a4) and its option-C slice implemented (612bff6, WI-M10-IDENTITY-BINDING) - activation authority class + fail-closed identity mixing, 3 new tests, negative check proves they fail with the gate short-circuited. H-2 stays PARTIALLY MITIGATED: option C does not stop a same-user process holding the token from claiming the Shell identity."
+  - "NOT done: H-2 (hello self-attested identity) needs ADR-0021 before any code change; pre-existing clippy failure (crates/daemon/src/browser.rs:20-22) and the browser_integration ownership-race flake (measured 2/20 serial, 5/20 parallel; no browser file touched by these commits) are unrelated and left untouched"
+blocked_by: []
+next_action: "Human review of the branch; ADR-0021 (proposed) awaits acceptance; H-2 must stay \"partially mitigated\" until option A or B lands."
+handoff: null
+updated_at: "2026-09-10T12:30:00Z"

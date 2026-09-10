@@ -1,0 +1,24 @@
+schema_version: 1
+id: WI-M10-CLIPPY-DOCLIST
+title: "daemon browser.rs 模块文档的 doc list 缩进（CI clippy -D warnings 恢复绿）"
+status: in_progress
+milestone: M10
+module: MOD-BROWSER-PROVIDER
+owner_role: maintenance-owner
+claimed_by: "audit-fix session 20260910"
+session: SESSION-20260910-AUDIT-FIXES
+branch_or_worktree: fix/audit-20260910-security-hardening
+claim_expires_at: "2026-09-11T12:00:00Z"
+dependencies: []
+acceptance_criteria:
+  - "cargo clippy --workspace --all-targets -- -D warnings exits 0 on a clean checkout of this branch."
+  - "No behavior change: the fix is documentation indentation only."
+  - "cargo test --workspace --no-fail-fast stays green at 567 passed."
+security_impact: "None - module documentation formatting only."
+compatibility_impact: "None - no code, signature or wire shape changes."
+evidence:
+  - "Before: cargo clippy --workspace --all-targets -- -D warnings exit=101 with 3x `doc list item without indentation` at crates/daemon/src/browser.rs:20:5, 21:5, 22:5 (pre-existing: browser.rs is not among the 20 files changed by the audit-fix commits)"
+blocked_by: []
+next_action: "Indent the continuation lines of the M6-C4 list in the browser.rs module doc, then re-run clippy and the workspace tests."
+handoff: null
+updated_at: "2026-09-10T13:55:00Z"

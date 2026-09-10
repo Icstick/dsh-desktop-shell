@@ -1,0 +1,30 @@
+schema_version: 1
+id: WI-M10-MULTI-BACKEND-FLEET
+title: "Multi-backend fleet: mixed local/remote session list and self-healing tunnels"
+status: proposed
+milestone: M10
+module: MOD-ENVIRONMENT-SETTINGS
+owner_role: runtime-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Sessions from local and remote environments appear in one list with environment origin, running state, and relative time."
+  - "A dropped remote tunnel reconnects automatically with bounded backoff and resumes after Desktop restart; the failure and recovery are visible in diagnostics."
+  - "Remote environment registry uses atomic writes plus rolling backups; deletion requires explicit confirmation."
+  - "Remote hosts stay loopback-only; Desktop reaches them only through the tunnel (INVARIANTS #13)."
+security_impact: "Introduces remote endpoints and tunnel lifecycle; no credential storage in logs/tracking (INVARIANTS #14); remote must not be reachable from LAN by default."
+compatibility_impact: "Extends the environment catalog and supervisor to heterogeneous backends; session list becomes multi-origin. Coordinates with 0.5.0 WI-M10-WORKBENCH-SSH."
+scope:
+  - crates/supervisor/ (remote backend lifecycle)
+  - crates/local-transport/ (tunnel transport)
+  - crates/daemon/ (tunnel watchdog + health)
+  - specs/config/environment-catalog.schema.json
+  - apps/desktop/ (mixed session list)
+evidence: []
+blocked_by: []
+next_action: "Design pass after WI-M10-WORKBENCH-SSH: decide whether the tunnel manager lives in daemon or supervisor, and define the mixed-list data source."
+handoff: null
+updated_at: "2026-09-09T12:30:00.000Z"

@@ -41,10 +41,13 @@ pub fn run() {
             let browser_state = app.state::<browser::BrowserState>();
             browser::start_event_drain(handle.clone(), browser_state.inner().clone());
             let daemon_state = app.state::<daemon_client::DaemonClientState>();
+            // Resolving the daemon data directory can fail (H-1: it never
+            // silently degrades to the cwd on Unix) — surface it as a setup
+            // error instead of starting a daemon against a wrong directory.
             daemon_client::start_background(
                 handle,
                 daemon_state.inner().clone(),
-                daemon_client::StartupOptions::default(),
+                daemon_client::StartupOptions::try_default()?,
             );
             Ok(())
         })

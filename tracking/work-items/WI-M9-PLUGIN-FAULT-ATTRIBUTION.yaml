@@ -1,0 +1,29 @@
+schema_version: 1
+id: WI-M9-PLUGIN-FAULT-ATTRIBUTION
+title: "Plugin fault attribution: evidence chain from symptom to responsible plugin"
+status: proposed
+milestone: M9
+module: MOD-RUNTIME-DIAGNOSTICS
+owner_role: runtime-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "Given a failed start or broken profile, the tool resolves ownership along profile manifest -> lockfile -> bundles -> loader entry ids -> slot conflicts -> dependencies -> Cordis patch rows and emits a structured verdict."
+  - "Output names the responsible plugin/entry when evidence is sufficient, and reports unknown with the exact unresolved link when it is not (INVARIANTS #15: no guessed success)."
+  - "Read-only: no profile mutation, no plugin install/remove, no network."
+  - "Verdict is reproducible from a saved evidence bundle."
+security_impact: "Reads profile metadata and logs; must not copy credentials, tokens, or raw session content into the verdict (INVARIANTS #14)."
+compatibility_impact: "New diagnostics capability with its own apiVersion + kind (INVARIANTS #7); no change to runtime control semantics."
+scope:
+  - crates/daemon/ (evidence collection)
+  - crates/adapter-dsh/ (profile/loader/patch introspection)
+  - specs/ (attribution report schema + fixtures)
+  - apps/desktop/ (diagnostics view)
+evidence: []
+blocked_by: []
+next_action: "Design pass: enumerate the resolution links available from the DSH profile surface, define the verdict schema, and pick fixtures from the existing broken-profile cases."
+handoff: null
+updated_at: "2026-09-09T12:30:00.000Z"

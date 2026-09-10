@@ -27,6 +27,9 @@ use crate::notification::{self, NotificationError};
 use crate::usage::{self, UsageError};
 
 const RESERVED_ARGUMENTS: [&str; 4] = ["--host", "--port", "--no-open", "--trusted-host"];
+/// Upper bound of a stored launch-source path (mirrors the discovery
+/// module's MAX_PATH_LENGTH); anything longer is not a real path.
+const MAX_LAUNCH_PATH_CHARS: usize = 4096;
 const CATALOG_FILE_NAME: &str = "environment-catalog-v1.json";
 static ERROR_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
@@ -202,6 +205,16 @@ impl CommandError {
         }
     }
 
+    /// A launch source that cannot be spawned: shape-valid but not usable.
+    fn invalid_launch_target(message: &str) -> Self {
+        Self {
+            code: "MALFORMED_MESSAGE",
+            message: message.to_string(),
+            retryable: false,
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
+    }
     fn malformed_setup_assist() -> Self {
         Self::unavailable("Setup assistance request is malformed.", false)
     }
@@ -632,6 +645,10 @@ pub fn save_environment(
     if !validation.is_valid() {
         return Err(CommandError::invalid_environment(validation.issues));
     }
+    // Explicit trust boundary (audit 2026-09-10, theme D): the persisted
+    // harness.path becomes the daemon spawn target, so it must resolve to a
+    // real launchable file/directory before it is written to the catalog.
+    validate_launch_target(&environment)?;
 
     environment_store::save_environment(&catalog_path(&app)?, environment)
         .map_err(CommandError::from_store)
@@ -772,6 +789,9 @@ pub async fn start_managed_environment(
         .environment(request.environment_id())
         .cloned()
         .ok_or_else(|| CommandError::unavailable("Managed environment is unavailable.", false))?;
+    // Re-check at the launch boundary: the catalog can be edited outside this
+    // process, and this is the value that becomes the spawned program.
+    validate_launch_target(&environment)?;
     let connector = daemon
         .connector()
         .ok_or_else(|| CommandError::unavailable("The daemon is not connected.", true))?;
@@ -1117,11 +1137,36 @@ pub(crate) fn validate_environment_value(environment: DshEnvironment) -> Environ
             "Label must contain 1-128 characters.",
         ));
     }
-    if environment.harness.path.trim().is_empty() {
+    let harness_path = environment.harness.path.trim();
+    if harness_path.is_empty() {
         issues.push(issue(
             "harness.path",
             "UNAVAILABLE",
             "Select an existing DSH launch source.",
+        ));
+    } else if harness_path.chars().count() > MAX_LAUNCH_PATH_CHARS {
+        issues.push(issue(
+            "harness.path",
+            "MALFORMED_VALUE",
+            "The launch source path is longer than 4096 characters.",
+        ));
+    } else if harness_path.chars().any(char::is_control) {
+        // Control characters (a bare newline is the dangerous one) must not
+        // survive into a spawn argument or into the persisted catalog.
+        issues.push(issue(
+            "harness.path",
+            "MALFORMED_VALUE",
+            "The launch source path must not contain control characters.",
+        ));
+    }
+    if let Some(cwd) = environment.harness.cwd.as_deref()
+        && (!cwd.trim().is_empty())
+        && (cwd.chars().count() > MAX_LAUNCH_PATH_CHARS || cwd.chars().any(char::is_control))
+    {
+        issues.push(issue(
+            "harness.cwd",
+            "MALFORMED_VALUE",
+            "The working directory must be a 1-4096 character path without control characters.",
         ));
     }
     if environment.dsh_home.trim().is_empty() {
@@ -1191,6 +1236,160 @@ pub(crate) fn validate_environment_value(environment: DshEnvironment) -> Environ
     }
 }
 
+/// Strict check of the value that becomes the Supervisor's spawn target
+/// (security audit 2026-09-10, theme D / `harness.path`).
+///
+/// `validate_environment_value` stays a pure shape check so drafts can be
+/// edited before anything exists on disk; this function is the explicit
+/// trust boundary and runs where the value is actually about to be used —
+/// persisting an environment (`save_environment`) or launching one
+/// (`start_managed_environment`). The value ends up as `executable` in the
+/// daemon's `LaunchSpec` (`crates/managed-runtime/src/supervisor.rs`), so
+/// "exists / is a file / is normalized" is the minimum that keeps the
+/// field from being an arbitrary spawn primitive.
+///
+/// A `command` source is the one exception: it is a PATH-resolved program
+/// name, so it is validated as a bare command token (no separators, no
+/// arguments) or as an absolute existing file.
+fn validate_launch_target(environment: &DshEnvironment) -> Result<(), CommandError> {
+    let raw = environment.harness.path.trim();
+    if environment.ownership == Ownership::Attached {
+        // Attached environments are never spawned by the Supervisor (the
+        // launch source is discovery metadata for the endpoint probe).
+        return Ok(());
+    }
+    if raw.is_empty() {
+        return Err(CommandError::invalid_launch_target(
+            "The launch source is empty.",
+        ));
+    }
+    // A `command` source is a program name resolved through PATH, so it is
+    // the one mode that need not be an absolute path; it is checked as a
+    // bare token instead. An absolute path is still accepted when it points
+    // at a real executable.
+    if environment.harness.mode == HarnessMode::Command {
+        let candidate = PathBuf::from(raw);
+        if candidate.is_absolute() {
+            let absolute = normalize_path(&candidate);
+            if absolute.is_file() && is_executable_file(&absolute) {
+                return Ok(());
+            }
+        }
+        if is_safe_command_name(raw) {
+            return Ok(());
+        }
+        return Err(CommandError::invalid_launch_target(
+            "A command source must be a program name or an absolute executable path.",
+        ));
+    }
+
+    let candidate = PathBuf::from(raw);
+    if !candidate.is_absolute() {
+        return Err(CommandError::invalid_launch_target(
+            "The launch source must be an absolute path.",
+        ));
+    }
+    // Flatten `.`/`..` without requiring existence, so `a/../b` and `b` are
+    // the same target (and no `..` traversal survives into the spawn
+    // argument).
+    let normalized = normalize_path(&candidate);
+    if normalized.as_os_str().is_empty() {
+        return Err(CommandError::invalid_launch_target(
+            "The launch source does not resolve to a path.",
+        ));
+    }
+    match environment.harness.mode {
+        HarnessMode::Repository => {
+            if !normalized.is_dir() {
+                return Err(CommandError::invalid_launch_target(
+                    "The repository source must point at an existing checkout directory.",
+                ));
+            }
+        }
+        HarnessMode::Executable => {
+            if !normalized.is_file() {
+                return Err(CommandError::invalid_launch_target(
+                    "The executable source must point at an existing file.",
+                ));
+            }
+            if !is_executable_file(&normalized) {
+                return Err(CommandError::invalid_launch_target(
+                    "The executable source is not an executable file.",
+                ));
+            }
+        }
+        HarnessMode::Command => unreachable!("command sources return above"),
+    }
+    Ok(())
+}
+
+/// True when `path` is an executable file: the Unix execute bit, or a
+/// Windows executable extension (`CreateProcess` needs one).
+fn is_executable_file(path: &std::path::Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        return std::fs::metadata(path)
+            .map(|meta| meta.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false);
+    }
+    #[cfg(not(unix))]
+    {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        matches!(extension.as_str(), "exe" | "cmd" | "bat" | "com")
+    }
+}
+
+/// A bare program name that `Command::new` resolves through PATH: one path
+/// component, no separators, no arguments, no quoting (so the value can
+/// never smuggle a second program or a shell fragment).
+fn is_safe_command_name(value: &str) -> bool {
+    let mut characters = value.chars();
+    match characters.next() {
+        Some(first) if first.is_ascii_alphanumeric() => {}
+        _ => return false,
+    }
+    value
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' || c == '+')
+}
+
+/// Lexically normalize a path: drop `.` segments and resolve `..` against
+/// the preceding segment. Never touches the filesystem, so it works for
+/// targets that do not exist yet and cannot be redirected by a symlink.
+fn normalize_path(path: &std::path::Path) -> PathBuf {
+    use std::path::Component;
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                // `PathBuf::pop` removes the last component, so it must not
+                // be used to resolve `..`: on a suffix-less path such as
+                // `..` it removes that very component instead of reporting
+                // that the path cannot go higher.
+                let pops_into_parent = matches!(
+                    normalized.components().next_back(),
+                    Some(Component::Normal(_))
+                );
+                if pops_into_parent {
+                    normalized.pop();
+                } else {
+                    normalized.push("..");
+                }
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
+}
 fn issue(field: &'static str, code: &'static str, message: &'static str) -> ValidationIssue {
     ValidationIssue {
         field,
@@ -1551,6 +1750,150 @@ mod tests {
             ownership: Ownership::Managed,
             policy: None,
         }
+    }
+
+    // ---- harness.path trust boundary (audit 2026-09-10, theme D) ----
+
+    /// Unique scratch directory for this test process. The name is
+    /// pid-suffixed because Rust test binaries run tests concurrently.
+    fn scratch_dir(tag: &str) -> std::path::PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("dsh-harness-path-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+
+    /// Copy the running test binary so the fixture is a real, executable file.
+    fn real_executable(dir: &std::path::Path) -> String {
+        let exe = std::env::current_exe().expect("test executable path");
+        let target = dir.join(exe.file_name().expect("file name"));
+        std::fs::copy(&exe, &target).expect("copy test executable");
+        target.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn executable_target_must_exist_be_a_file_and_be_executable() {
+        let dir = scratch_dir("exe");
+        let mut value = environment();
+        value.harness.mode = HarnessMode::Executable;
+
+        // A missing target is rejected at the trust boundary.
+        value.harness.path = dir.join("nope").to_string_lossy().to_string();
+        let error = validate_launch_target(&value).expect_err("missing target");
+        assert_eq!(error.code, "MALFORMED_MESSAGE");
+        assert!(error.issues.is_empty());
+
+        // A directory is not a spawn target.
+        value.harness.path = dir.to_string_lossy().to_string();
+        assert!(validate_launch_target(&value).is_err());
+
+        // A relative path is rejected before anything touches the fs.
+        value.harness.path = "dsh".to_string();
+        assert!(validate_launch_target(&value).is_err());
+
+        // A real executable file passes, `..` segments included.
+        let executable = real_executable(&dir);
+        value.harness.path = executable.clone();
+        validate_launch_target(&value).expect("real executable accepted");
+
+        std::fs::create_dir_all(dir.join("sub")).expect("nested dir");
+        let name = std::path::Path::new(&executable)
+            .file_name()
+            .expect("file name")
+            .to_string_lossy()
+            .to_string();
+        let dotted = format!("{}/{}", dir.join("sub").join("..").to_string_lossy(), name);
+        value.harness.path = dotted;
+        validate_launch_target(&value).expect("normalized path accepted");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn repository_target_must_be_a_directory() {
+        let dir = scratch_dir("repo");
+        let mut value = environment();
+        value.harness.mode = HarnessMode::Repository;
+
+        value.harness.path = real_executable(&dir);
+        assert!(validate_launch_target(&value).is_err());
+
+        value.harness.path = dir.to_string_lossy().to_string();
+        validate_launch_target(&value).expect("checkout directory accepted");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn command_target_accepts_a_bare_program_name_only() {
+        let mut value = environment();
+        value.harness.mode = HarnessMode::Command;
+
+        value.harness.path = "dsh".to_string();
+        validate_launch_target(&value).expect("bare program name accepted");
+
+        // No separators, arguments or shell fragments.
+        for rejected in [
+            "../dsh",
+            "bin/dsh",
+            "dsh --profile evil",
+            "dsh;calc",
+            "-dsh",
+            "",
+        ] {
+            value.harness.path = rejected.to_string();
+            assert!(
+                validate_launch_target(&value).is_err(),
+                "{rejected} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn attached_environments_are_not_gated_on_a_launch_target() {
+        let mut value = environment();
+        value.ownership = Ownership::Attached;
+        value.harness.mode = HarnessMode::Executable;
+        value.harness.path = "dsh".to_string();
+        validate_launch_target(&value).expect("attached never spawns");
+    }
+
+    #[test]
+    fn control_characters_in_launch_source_are_malformed() {
+        let mut value = environment();
+        value.harness.path = "C:/tools/dsh.exe\n--profile evil".to_string();
+        let result = validate_environment_value(value);
+        assert!(!result.valid);
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|issue| issue.field == "harness.path" && issue.code == "MALFORMED_VALUE")
+        );
+    }
+
+    #[test]
+    fn safe_command_name_is_a_single_plain_token() {
+        assert!(is_safe_command_name("dsh"));
+        assert!(is_safe_command_name("dsh.cmd"));
+        assert!(is_safe_command_name("node-24"));
+        assert!(!is_safe_command_name(""));
+        assert!(!is_safe_command_name("a/b"));
+        assert!(!is_safe_command_name("a b"));
+        assert!(!is_safe_command_name("a;b"));
+    }
+
+    #[test]
+    fn path_normalization_flattens_dot_segments_without_touching_the_fs() {
+        let input = std::path::PathBuf::from("toplevel")
+            .join("a")
+            .join("..")
+            .join("b");
+        let normalized = normalize_path(&input);
+        assert_eq!(normalized, std::path::PathBuf::from("toplevel").join("b"));
+        let traversal = normalize_path(&std::path::PathBuf::from("..").join("..").join("etc"));
+        assert!(traversal.starts_with(".."));
     }
 
     #[test]

@@ -36,7 +36,7 @@ use dsh_local_transport::Limits;
 
 fn usage() -> String {
     format!(
-        "dsh-desktop-daemon {DAEMON_VERSION}\n\nUSAGE:\n    dsh-desktop-daemon [--data-dir <dir>] [--claim-port <port>] [--version]\n\nOPTIONS:\n    --data-dir <dir>      override the daemon data directory (default: %APPDATA%\\dev.dsh.desktop-shell)\n    --claim-port <port>   override the single-instance claim port (default: 37771; test isolation)\n    --version             print the daemon version and exit"
+        "dsh-desktop-daemon {DAEMON_VERSION}\n\nUSAGE:\n    dsh-desktop-daemon [--data-dir <dir>] [--claim-port <port>] [--version]\n\nOPTIONS:\n    --data-dir <dir>      override the daemon data directory (default: %APPDATA%\\dev.dsh.desktop-shell on Windows; $XDG_DATA_HOME/dev.dsh.desktop-shell or $HOME/.local/share/dev.dsh.desktop-shell on Unix)\n    --claim-port <port>   override the single-instance claim port (default: 37771; test isolation)\n    --version             print the daemon version and exit"
     )
 }
 
@@ -86,7 +86,20 @@ fn main() -> ExitCode {
         i += 1;
     }
 
-    let data_dir = data_dir_override.unwrap_or_else(data_dir);
+    // Resolving the data directory is fallible (credential.rs: no silent
+    // cwd fallback — the file carries the bootstrap token). Fail with a
+    // precise message before the bind, so a resolution failure is never
+    // misreported as an envelope-port problem.
+    let data_dir = match data_dir_override {
+        Some(dir) => dir,
+        None => match data_dir() {
+            Ok(dir) => dir,
+            Err(error) => {
+                eprintln!("dsh-desktop-daemon: cannot resolve the data directory: {error}");
+                return ExitCode::FAILURE;
+            }
+        },
+    };
     let claim_port = claim_port_override.unwrap_or(CLAIM_PORT);
 
     // --- 1) envelope server on the fixed loopback port ---

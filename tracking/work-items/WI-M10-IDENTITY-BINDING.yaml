@@ -1,0 +1,29 @@
+schema_version: 1
+id: WI-M10-IDENTITY-BINDING
+title: "ADR-0021：Shell–Daemon 身份绑定（control plane 不再靠自报）"
+status: in_progress
+milestone: M10
+module: MOD-PROCESS-MANAGER
+owner_role: runtime-and-security-owner
+claimed_by: "audit-fix session 20260910"
+session: SESSION-20260910-AUDIT-FIXES
+branch_or_worktree: fix/audit-20260910-security-hardening
+claim_expires_at: "2026-09-11T12:00:00Z"
+dependencies:
+  - WI-M10-AUDIT-FIXES
+acceptance_criteria:
+  - "ADR-0021 lands as `proposed` with the three alternatives, a single explicit recommendation and the honest limitation (option C alone does not close the same-user case)."
+  - "The daemon records an explicit per-activation authority class at Hello instead of re-comparing self-reported strings at dispatch time."
+  - "A negative test proves a non-Shell identity never keeps the broker-relaxed human path, and a second one proves one connection cannot mix identity classes."
+  - "No wire-format, Schema or fixture change: the protocol version, specs and compatibility matrix stay untouched."
+security_impact: "Narrows a trust-boundary defect (audit H-2): the broker-relaxed human path is decided by a server-computed authority class instead of a self-reported string comparison, and identity mixing on one connection is rejected. It does NOT close H-2 — a same-user process holding the credential can still claim the Shell identity; the ADR states this explicitly and registers the OS-level peer-identity follow-up (ADR-0022 candidate)."
+compatibility_impact: "None intended: envelope/Schema/fixtures unchanged. Behavior change is limited to activations that would previously have been accepted while mixing identity classes on one connection (now UNAUTHORIZED)."
+evidence:
+  - "ADR: docs/decisions/ADR-0021-shell-daemon-identity-binding.md (proposed, 2026-09-10), commit 1b0a4a4"
+  - "Implementation (option C slice, commit 612bff6): ActivationAuthority class on Activation, computed once in handle_hello; broker-relaxed + dispatch gates read the class instead of re-comparing self-reported strings; one connection may not mix authority classes (UNAUTHORIZED); 3 tests in crates/daemon/tests/identity_binding.rs; negative check: short-circuiting the gate turns 2 of 3 red"
+  - "Gates: cargo clippy --workspace --all-targets -- -D warnings exit=0; cargo test --workspace (44 blocks incl. identity_binding) 569 passed with --skip browser_session_ownership_is_connection_scoped (pre-existing flake); fmt clean"
+  - "NOT closed: H-2 remains partially mitigated - a same-user process holding the credential can still claim the Shell identity; options A (handshake identity) and B (OS peer identity) are registered for ADR-0022"
+blocked_by: []
+next_action: "Implement the option-C slice (authority class + fail-closed identity mixing), then re-run cargo test --workspace and clippy -D warnings."
+handoff: null
+updated_at: "2026-09-10T13:58:00Z"

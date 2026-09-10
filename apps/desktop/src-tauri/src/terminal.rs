@@ -25,7 +25,7 @@ use dsh_daemon::capabilities::{
     TERMINAL_RESIZE_METHOD, TERMINAL_STATUS_METHOD, TERMINAL_WRITE_METHOD,
 };
 use dsh_daemon::envelope::ProtocolCoordinate;
-use dsh_terminal_provider::{MAX_COLS, MAX_ROWS, MAX_WRITE_BYTES};
+use dsh_terminal_provider::{MAX_COLS, MAX_ROWS, MAX_WRITE_BYTES, MIN_COLS, MIN_ROWS};
 
 use crate::daemon_client::{DaemonCommandError, DaemonConnector};
 
@@ -73,8 +73,36 @@ pub struct TerminalCreateRequest {
 }
 
 impl TerminalCreateRequest {
+    /// Full schema validation of one create request
+    /// (specs/terminal/terminal-create-request.schema.json).
+    ///
+    /// The schema used to be documentation only: `mode`/`agent` were checked
+    /// and everything else (cols 20-500, rows 5-300, the shell enum, cwd
+    /// <= 1024) was forwarded to the daemon verbatim (security audit
+    /// 2026-09-10, Medium: contract gates that never fire). The provider
+    /// bounds the geometry too, so this was not an exploitable hole, but a
+    /// spec the Shell does not enforce is not a contract.
     pub(crate) fn is_valid(&self) -> bool {
         if self.schema_version != SCHEMA_VERSION {
+            return false;
+        }
+        if !(MIN_COLS..=MAX_COLS).contains(&self.cols)
+            || !(MIN_ROWS..=MAX_ROWS).contains(&self.rows)
+        {
+            return false;
+        }
+        if let Some(shell) = self.shell.as_deref()
+            && !is_schema_shell(shell)
+        {
+            return false;
+        }
+        // `cwd` is bounded only by length; the daemon/provider decides
+        // whether the directory is usable.
+        if self
+            .cwd
+            .as_deref()
+            .is_some_and(|cwd| cwd.chars().count() > MAX_CWD_CHARS)
+        {
             return false;
         }
         match self.mode.as_str() {
@@ -85,6 +113,24 @@ impl TerminalCreateRequest {
             _ => false,
         }
     }
+}
+
+/// Cross-platform shell union of the create schema. Platform-specific
+/// narrowing (cmd/powershell on Unix, sh/bash/zsh on Windows) stays with
+/// `terminal-provider`/`resolve_shell`, which is the component that knows
+/// what it can actually spawn.
+const SCHEMA_SHELLS: [&str; 7] = ["default", "cmd", "powershell", "pwsh", "sh", "bash", "zsh"];
+
+/// `cwd` upper bound of the create schema (characters, matching JSON
+/// Schema `maxLength`).
+const MAX_CWD_CHARS: usize = 1024;
+
+fn is_schema_shell(shell: &str) -> bool {
+    SCHEMA_SHELLS.contains(&shell)
+}
+
+fn valid_geometry(cols: u16, rows: u16) -> bool {
+    (MIN_COLS..=MAX_COLS).contains(&cols) && (MIN_ROWS..=MAX_ROWS).contains(&rows)
 }
 
 /// Agent authorization facts carried by an agent_automation create
@@ -179,6 +225,10 @@ impl TerminalWriteRequest {
     pub(crate) fn session_id(&self) -> &str {
         &self.session_id
     }
+
+    pub(crate) fn data(&self) -> &str {
+        &self.data
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,6 +247,14 @@ impl TerminalResizeRequest {
 
     pub(crate) fn session_id(&self) -> &str {
         &self.session_id
+    }
+
+    pub(crate) fn cols(&self) -> u16 {
+        self.cols
+    }
+
+    pub(crate) fn rows(&self) -> u16 {
+        self.rows
     }
 }
 
@@ -235,6 +293,10 @@ pub(crate) fn write_terminal(
             schema_version: request.schema_version(),
             session_id: request.session_id().to_string(),
         })
+        // terminal-write-request.schema.json: data is 1..=8192 *bytes*
+        // (the provider's MAX_WRITE_BYTES is a byte bound).
+        || request.data().is_empty()
+        || request.data().len() > MAX_WRITE_BYTES
     {
         return Err(TerminalCommandError::malformed());
     }
@@ -254,6 +316,8 @@ pub(crate) fn resize_terminal(
             schema_version: request.schema_version(),
             session_id: request.session_id().to_string(),
         })
+        // terminal-resize-request.schema.json geometry bounds.
+        || !valid_geometry(request.cols(), request.rows())
     {
         return Err(TerminalCommandError::malformed());
     }
@@ -496,6 +560,93 @@ mod tests {
 
     fn status_payload(sessions: Vec<serde_json::Value>) -> serde_json::Value {
         serde_json::json!({ "sessions": sessions, "count": sessions.len() })
+    }
+
+    // ---- schema bounds enforcement (audit 2026-09-10, Medium) ----
+
+    #[test]
+    fn create_rejects_out_of_schema_geometry_locally() {
+        let connector = MockConnector::ok(report_json("pty-1"));
+        for (cols, rows) in [
+            (MIN_COLS - 1, 24),
+            (MAX_COLS + 1, 24),
+            (80, MIN_ROWS - 1),
+            (80, MAX_ROWS + 1),
+            (0, 0),
+        ] {
+            let error =
+                create_terminal(&connector, &create_request(cols, rows)).expect_err("geometry");
+            assert_eq!(error.code, "MALFORMED_MESSAGE", "{cols}x{rows}");
+        }
+        // The inclusive schema bounds are accepted.
+        create_terminal(&connector, &create_request(MIN_COLS, MIN_ROWS)).expect("min bounds");
+        create_terminal(&connector, &create_request(MAX_COLS, MAX_ROWS)).expect("max bounds");
+        assert!(connector.calls().is_empty() || connector.calls().len() >= 2);
+    }
+
+    #[test]
+    fn create_rejects_shell_outside_the_schema_enum_locally() {
+        let connector = MockConnector::ok(report_json("pty-1"));
+        let mut request = create_request(80, 24);
+        request.shell = Some("telnet".to_string());
+        let error = create_terminal(&connector, &request).expect_err("shell enum");
+        assert_eq!(error.code, "MALFORMED_MESSAGE");
+
+        // Every value of the cross-platform union passes the Shell gate;
+        // per-platform narrowing belongs to the provider.
+        for shell in SCHEMA_SHELLS {
+            request.shell = Some(shell.to_string());
+            create_terminal(&connector, &request).expect(shell);
+        }
+    }
+
+    #[test]
+    fn create_rejects_cwd_longer_than_the_schema_bound() {
+        let connector = MockConnector::ok(report_json("pty-1"));
+        let mut request = create_request(80, 24);
+        request.cwd = Some("c".repeat(MAX_CWD_CHARS + 1));
+        let error = create_terminal(&connector, &request).expect_err("cwd too long");
+        assert_eq!(error.code, "MALFORMED_MESSAGE");
+
+        request.cwd = Some("c".repeat(MAX_CWD_CHARS));
+        create_terminal(&connector, &request).expect("cwd at the bound");
+    }
+
+    #[test]
+    fn write_rejects_empty_and_oversized_payloads() {
+        let connector = MockConnector::ok(serde_json::json!({}));
+        let error =
+            write_terminal(&connector, &write_request("pty-1", "")).expect_err("empty payload");
+        assert_eq!(error.code, "MALFORMED_MESSAGE");
+
+        let oversized = "x".repeat(MAX_WRITE_BYTES + 1);
+        let error = write_terminal(&connector, &write_request("pty-1", &oversized))
+            .expect_err("oversized payload");
+        assert_eq!(error.code, "MALFORMED_MESSAGE");
+
+        // Only the in-bounds payload reached the daemon.
+        assert!(connector.calls().is_empty());
+        write_terminal(
+            &connector,
+            &write_request("pty-1", &"x".repeat(MAX_WRITE_BYTES)),
+        )
+        .expect("payload at the byte bound");
+        assert_eq!(connector.calls().len(), 1);
+    }
+
+    #[test]
+    fn resize_rejects_out_of_schema_geometry_locally() {
+        let connector = MockConnector::ok(report_json("pty-1"));
+        for (cols, rows) in [(MIN_COLS - 1, 24), (MAX_COLS + 1, 24), (80, MAX_ROWS + 1)] {
+            let error = resize_terminal(&connector, &resize_request("pty-1", cols, rows))
+                .expect_err("geometry");
+            assert_eq!(error.code, "MALFORMED_MESSAGE", "{cols}x{rows}");
+        }
+        // None of the rejected requests left the Shell.
+        assert!(connector.calls().is_empty());
+        resize_terminal(&connector, &resize_request("pty-1", MAX_COLS, MAX_ROWS))
+            .expect("max bounds");
+        assert_eq!(connector.calls().len(), 1);
     }
 
     #[test]

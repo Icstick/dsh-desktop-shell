@@ -1,0 +1,20 @@
+# Contract Tests (MOD-TEST-CONTRACT).
+#
+# This member exists so that `cargo test --workspace` actually runs the
+# contract suite: the repository used to declare Contract Tests in
+# tests/contract/DEVELOPMENT.md while the directory held only markdown
+# (audit 2026-09-10, theme B). The crate holds no production code — it is a
+# pure test harness that validates the published specs against the crates
+# that implement them.
+[package]
+name = "dsh-desktop-shell-contract-tests"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/Icstick/dsh-desktop-shell"
+publish = false
+
+[dependencies]
+dsh-daemon = { path = "../../crates/daemon" }
+dsh-terminal-provider = { path = "../../crates/terminal-provider" }
+serde_json = "=1.0.151"

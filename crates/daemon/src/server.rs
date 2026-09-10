@@ -95,11 +95,32 @@ pub const LEASE_MAX_SECONDS: u64 = 3600;
 /// then fails forever and the GUI stays stuck in bootstrap.
 pub const BOOTSTRAP_REFRESH_LEAD: Duration = Duration::from_secs(60);
 
+/// Authority class of one activation, computed by the daemon at Hello
+/// (ADR-0021 decision 1).
+///
+/// The class is a **server-side** fact derived from the connection's
+/// authenticated handshake plus the participant's claim — never a value
+/// the peer sends. It replaces the string comparisons that used to be
+/// re-evaluated at dispatch time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActivationAuthority {
+    /// The human control plane: the participant claims the Shell identity
+    /// (`SHELL_COMPONENT`/`SHELL_FACET`) on a credential-authenticated
+    /// connection. Only this class may use the broker-relaxed human path
+    /// (ADR-0021 decision 2/3).
+    ShellControl,
+    /// Everything else: an ordinary participant (agent automation, an
+    /// adapter, a tool). Never relaxed.
+    Participant,
+}
+
 /// One negotiated activation on a connection (session-layer view; the
 /// broker holds the authoritative grant/lease state).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Activation {
     pub activation_id: String,
+    /// Authority class computed at Hello (ADR-0021).
+    pub authority: ActivationAuthority,
     /// Participant identity the broker owns the grants for
     /// (`component-facet`; the schema-compatible form of the envelope
     /// participant, M6-C1 — the agentId pattern `^[A-Za-z0-9_-]+$`
@@ -116,6 +137,9 @@ pub struct Activation {
 #[derive(Debug, Default)]
 pub struct SessionState {
     pub activations: HashMap<String, Activation>,
+    /// Authority class already established on this connection, if any
+    /// (ADR-0021 decision 2: one connection cannot mix identity classes).
+    authority: Option<ActivationAuthority>,
     seen_ids: HashSet<String>,
     next_generation: u64,
 }
@@ -166,7 +190,7 @@ impl DaemonServer {
     /// resolves environments from the default catalog path (the daemon
     /// data directory).
     pub fn bind(limits: Limits, claim_port: u16) -> io::Result<Self> {
-        Self::bind_with_catalog(limits, claim_port, default_catalog_path())
+        Self::bind_with_catalog(limits, claim_port, default_catalog_path()?)
     }
 
     /// Bind with an explicit environment-catalog path (M6-C2: tests
@@ -487,6 +511,37 @@ impl DaemonServer {
             envelope.participant.component, envelope.participant.facet
         );
 
+        // Authority class (ADR-0021 decision 1/2/3): computed once, here,
+        // from the connection's authenticated handshake plus the claim.
+        // The envelope layer only ever reaches `handle_hello` for a
+        // connection that already presented a valid credential (see
+        // `serve_connection`), so a claim cannot be honoured on an
+        // unauthenticated channel.
+        let authority = if envelope.participant.component == SHELL_COMPONENT
+            && envelope.participant.facet == SHELL_FACET
+        {
+            ActivationAuthority::ShellControl
+        } else {
+            ActivationAuthority::Participant
+        };
+        // Fail closed on mixed identities: one connection establishes one
+        // class. Re-negotiating the same class is fine (generation bump),
+        // switching is not.
+        if let Some(established) = state.authority
+            && established != authority
+        {
+            return vec![self.error_result(
+                state,
+                &envelope.id,
+                &envelope.id,
+                None,
+                None,
+                ErrorCode::Unauthorized,
+                "this connection already established a different participant authority; open a new connection",
+                false,
+            )];
+        }
+
         // Daemon policy: grant exactly the requested capabilities the
         // daemon implements; everything else is policy_denied (the
         // broker-driven upgrade of the example GrantPolicy).
@@ -539,9 +594,10 @@ impl DaemonServer {
                     // the single-owner grant stays fail-closed (nothing
                     // granted; the invocations are then rejected at the
                     // grant check below).
-                    let shell = envelope.participant.component == SHELL_COMPONENT
-                        && envelope.participant.facet == SHELL_FACET;
-                    if !shell {
+                    // ADR-0021 decision 2: the relaxed path is a property
+                    // of the server-computed authority class, not of a
+                    // string comparison repeated at each decision point.
+                    if authority != ActivationAuthority::ShellControl {
                         unavailable.extend(granted.iter().map(|coordinate| {
                             UnavailableCapability {
                                 coordinate: coordinate.clone(),
@@ -567,12 +623,14 @@ impl DaemonServer {
             activation_id.clone(),
             Activation {
                 activation_id: activation_id.clone(),
+                authority,
                 agent_id,
                 generation,
                 granted: granted.clone(),
                 hello_id: envelope.id.clone(),
             },
         );
+        state.authority = Some(authority);
 
         let mut participant = self.participant(None);
         participant.activation_id = Some(activation_id.clone());
@@ -673,9 +731,7 @@ impl DaemonServer {
         // (HIGH-2 defense-in-depth: handle_hello already fails non-Shell
         // conflicts closed, but the gate must not silently widen if that
         // ever regresses).
-        if activation.generation == 0
-            && activation.agent_id != format!("{SHELL_COMPONENT}-{SHELL_FACET}")
-        {
+        if activation.generation == 0 && activation.authority != ActivationAuthority::ShellControl {
             return vec![self.error_result(
                 state,
                 &envelope.id,
