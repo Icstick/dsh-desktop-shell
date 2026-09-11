@@ -1,0 +1,22 @@
+schema_version: 1
+id: HANDOFF-20260911-DESIGN-SPEC
+work_item: WI-M8-DESIGN-SPEC
+from: "dsh-agent (御影澪 session, 2026-09-11)"
+to: null
+status: open
+completed:
+  - "apps/desktop/DESIGN.md：适用范围（ADR-0004 边界）/ 视觉主张 / 承载面配方 / 颜色 / 状态视觉 / 字体 / 圆角 / 间距 / 命名 / 组件清单 / 检查表 / 已知欠账。"
+  - "tracking/work-items/WI-M8-DESIGN-SPEC.yaml 已建（status: review）。"
+remaining:
+  - "用户审阅措辞与口径三处：字号默认 12px、金色单一强调、圆角收敛为三档。"
+  - "可选后续：把事实调色板（line #ceddeb / muted #586d89 / 成功 / 危险 / 警示）正式提为 CSS 变量，并回填本文件。"
+verification:
+  - "所有数值来自 shell.css 实测读数，非设计意图转述：#marine-* 6 个；独立色值 115 / 出现 583 次；字号 12px 出现 44 次；圆角 999px/8-10px/12-14px；gap 主体 6-12px。"
+  - "承载面配方逐字取自 .surface-frame：border 1px solid #ceddeb; border-radius 14px; linear-gradient(180deg,#ffffff,#f5f8fc); box-shadow inset 0 1px rgb(255 255 255/3%), 0 18px 50px rgb(0 0 0/22%)。"
+  - "契约要求的状态视觉已覆盖：属性选择器 [data-state=...] 39 处、20 个取值（含 unavailable / degraded / attached）；.runtime-badge 48 处为主要状态承载。"
+  - "未运行构建或测试——本次为纯文档变更，无源码、构建清单、Schema 或 workflow 改动，不触发实现门禁。"
+risks:
+  - "文档与实现会随时间分叉。已在文件内写明「先改实现或先改本文」的纪律，但无自动校验；可考虑后续加 lint（如校验 --marine-* 变量与字面色值一致）。"
+  - "本规格约束外层 Shell 自有界面；上游 DSH Web UI 按 ADR-0004 原样承载，文件已显式排除，防止被误读为可以注入样式。"
+next_action: "用户审阅后由维护者合入 main。"
+created_at: "2026-09-11T05:45:00Z"
