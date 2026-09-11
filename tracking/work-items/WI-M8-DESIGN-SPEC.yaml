@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M8-DESIGN-SPEC
 title: "Agent-facing DESIGN.md: 从实现导出的 Shell 视觉规格"
-status: review
+status: done
 milestone: M8
 module: MOD-SHELL-UI
 owner_role: ui-owner
@@ -25,6 +25,8 @@ evidence:
   - "状态机制实测：属性选择器 [data-state=...] 39 处、取值 20 个（含契约要求的 unavailable/degraded/attached）；.runtime-badge 48 处为主要状态承载。"
   - "已知欠账 3 条：调色板未 token 化（#ceddeb 85 次 / #586d89 28 次）、圆角与字号档位过多、is-warning 与 is-warn 同义并存。"
 blocked_by: []
-next_action: "等用户审阅 DESIGN.md 的措辞与口径（尤其字号默认 12px、金色单一强调两条），通过后合入 main。后续可选：把事实调色板正式提为 CSS 变量，并同步更新本文件。"
+  - "合并：PR #1 squash → main aff58fc（2026-09-11），由维护者指示合并，视为接受当前口径。"
+blocked_by: []
+next_action: "无（已合并）。三处口径（正文默认 12px / 金色单一强调 / 圆角三档）如需调整，走新 PR 更新 DESIGN.md；另可把事实调色板正式提为 CSS 变量。"
 handoff: HANDOFF-20260911-DESIGN-SPEC
-updated_at: "2026-09-11T05:45:00Z"
+updated_at: "2026-09-11T06:06:00Z"

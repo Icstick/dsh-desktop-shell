@@ -1,0 +1,19 @@
+schema_version: 1
+id: HANDOFF-20260911-CLIPPY-UNIX
+work_item: WI-M8-CLIPPY-UNIX-NEEDLESS-RETURN
+from: "dsh-agent (御影澪 session, 2026-09-11)"
+to: null
+status: closed
+completed:
+  - "去掉 is_executable_file 中 #[cfg(unix)] 块内多余的 return（该块是函数尾表达式），恢复 macOS/Linux 的 Clippy (deny warnings)。"
+  - "补 WI-M8-CLIPPY-UNIX-NEEDLESS-RETURN.yaml；PR #2 已 squash 合并（main 1d660ca）。"
+remaining:
+  - "无（本项范围）。"
+verification:
+  - "本地：clippy-driver --target x86_64-unknown-linux-gnu -D warnings，修复前 exit 1（needless_return）、修复后 exit 0；Windows 目标 exit 0。"
+  - "CI：PR #2 run 34567557072 四 job 全 pass（ubuntu 3m43s / macos 5m04s / windows 3m45s / live-qa 3m00s）。"
+risks:
+  - "该 lint 属 cfg(unix) 专属，Windows 本地开发无法复现——同类问题今后仍可能只在 CI 暴露。建议把 cargo clippy --target x86_64-unknown-linux-gnu 纳入本地预检（toolchain 1.98.0 已含该 target）。"
+  - "另一独立问题未修：daemon_client 的 reconnect 测试绑定固定端口，CI 上易 AddrInUse（本 PR 首次运行即因此失败，重跑通过）。建议另立 WI 改为绑定端口 0 或加重试。"
+next_action: "无。上述两条风险如需处理，各立新 WI。"
+created_at: "2026-09-11T06:06:00Z"

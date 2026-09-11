@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M8-CLIPPY-UNIX-NEEDLESS-RETURN
 title: "修复 unix-only 的 clippy::needless_return（未定义行为 blocker，CI 长期红）"
-status: in_progress
+status: done
 milestone: M8
 module: MOD-SHELL-UI
 owner_role: ui-owner
@@ -21,6 +21,10 @@ evidence:
   - "CI 复现（既有、非本修复引入）：run 34566946027（PR #1）与 main 的 run 34483574645 均在 test (ubuntu-latest) / test (macos-latest) 的 `Clippy (deny warnings)` 步骤失败，指向 apps/desktop/src-tauri/src/commands.rs:1335:9 clippy::needless_return。"
   - "根因：#[cfg(unix)] 块是函数尾表达式，块内 return 多余；Windows 因该块被 cfg 移除而通过——本地 Windows 开发无法复现。"
 blocked_by: []
-next_action: "提交修复并开 PR，等 CI 三平台转绿。"
-handoff: null
-updated_at: "2026-09-11T06:00:00Z"
+  - "本地红→绿对照（同工具链 1.98.0、目标 x86_64-unknown-linux-gnu）：修复前 clippy-driver 报 error: unneeded return statement → exit 1；修复后 exit 0；Windows 目标亦 exit 0。"
+  - "CI 验证（PR #2 run 34567557072）：test (ubuntu-latest) pass 3m43s、test (macos-latest) pass 5m04s、test (windows-latest) pass 3m45s、live-qa-windows pass 3m00s。首次运行 ubuntu 仅因既有 flaky 测试（daemon_client 固定端口 AddrInUse）失败，同 commit 重跑全绿。"
+  - "合并：PR #2 squash → main 1d660ca（2026-09-11）。"
+blocked_by: []
+next_action: "无。"
+handoff: HANDOFF-20260911-CLIPPY-UNIX
+updated_at: "2026-09-11T06:06:00Z"

@@ -3,7 +3,7 @@ id: HANDOFF-20260911-DESIGN-SPEC
 work_item: WI-M8-DESIGN-SPEC
 from: "dsh-agent (御影澪 session, 2026-09-11)"
 to: null
-status: open
+status: closed
 completed:
   - "apps/desktop/DESIGN.md：适用范围（ADR-0004 边界）/ 视觉主张 / 承载面配方 / 颜色 / 状态视觉 / 字体 / 圆角 / 间距 / 命名 / 组件清单 / 检查表 / 已知欠账。"
   - "tracking/work-items/WI-M8-DESIGN-SPEC.yaml 已建（status: review）。"
@@ -18,5 +18,6 @@ verification:
 risks:
   - "文档与实现会随时间分叉。已在文件内写明「先改实现或先改本文」的纪律，但无自动校验；可考虑后续加 lint（如校验 --marine-* 变量与字面色值一致）。"
   - "本规格约束外层 Shell 自有界面；上游 DSH Web UI 按 ADR-0004 原样承载，文件已显式排除，防止被误读为可以注入样式。"
-next_action: "用户审阅后由维护者合入 main。"
+  - "合并：PR #1 squash → main aff58fc（2026-09-11）。"
+next_action: "无。三处口径如需调整走新 PR。"
 created_at: "2026-09-11T05:45:00Z"
