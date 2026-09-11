@@ -1,0 +1,26 @@
+schema_version: 1
+id: WI-M8-CLIPPY-UNIX-NEEDLESS-RETURN
+title: "修复 unix-only 的 clippy::needless_return（未定义行为 blocker，CI 长期红）"
+status: in_progress
+milestone: M8
+module: MOD-SHELL-UI
+owner_role: ui-owner
+claimed_by: "dsh-agent (御影澪 session, 2026-09-11)"
+session: "2026-09-11 clippy-unix-fix"
+branch_or_worktree: "fix/clippy-unix-needless-return"
+claim_expires_at: "2026-09-12T06:00:00Z"
+dependencies: []
+acceptance_criteria:
+  - "`cargo clippy --workspace --all-targets -- -D warnings` 在 unix 目标下不再报 clippy::needless_return。"
+  - "is_executable_file 的 unix/非 unix 两条分支语义不变（仍返回「是否可执行」）。"
+security_impact: "无行为变化，纯 lint 修复。函数语义保持：unix 看执行位，非 unix 看扩展名。"
+compatibility_impact: "无。不涉及接口、协议或 Schema；仅去掉函数尾表达式上多余的 return。"
+scope:
+  - apps/desktop/src-tauri/src/commands.rs (is_executable_file)
+evidence:
+  - "CI 复现（既有、非本修复引入）：run 34566946027（PR #1）与 main 的 run 34483574645 均在 test (ubuntu-latest) / test (macos-latest) 的 `Clippy (deny warnings)` 步骤失败，指向 apps/desktop/src-tauri/src/commands.rs:1335:9 clippy::needless_return。"
+  - "根因：#[cfg(unix)] 块是函数尾表达式，块内 return 多余；Windows 因该块被 cfg 移除而通过——本地 Windows 开发无法复现。"
+blocked_by: []
+next_action: "提交修复并开 PR，等 CI 三平台转绿。"
+handoff: null
+updated_at: "2026-09-11T06:00:00Z"

@@ -1332,9 +1332,11 @@ fn is_executable_file(path: &std::path::Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        return std::fs::metadata(path)
+        // 该块是函数尾表达式：此处不能写 return（clippy::needless_return，
+        // 且因 #[cfg(unix)] 在 Windows 被移除，本地 Windows 开发看不到这条 lint）。
+        std::fs::metadata(path)
             .map(|meta| meta.permissions().mode() & 0o111 != 0)
-            .unwrap_or(false);
+            .unwrap_or(false)
     }
     #[cfg(not(unix))]
     {
