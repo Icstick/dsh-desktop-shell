@@ -238,6 +238,37 @@ pub struct DaemonServer {
     file_credential_expiry: Mutex<Option<SystemTime>>,
 }
 
+/// Attach the peer-identity carrier next to the TCP endpoint (ADR-0022).
+///
+/// Windows: a named pipe whose name carries a per-process nonce (no
+/// collisions across sessions, not trivially guessable; the Shell learns it
+/// from the credential file - the token plus the kernel identity remain the
+/// actual gate). Other platforms: no carrier yet (the UDS carrier is
+/// WI-M13-UNIX-UDS-CARRIER), so nothing is attached and no endpoint is
+/// published.
+#[cfg(windows)]
+fn attach_peer_identity_carrier(
+    transport: &mut LocalServer,
+    limits: Limits,
+) -> io::Result<Option<String>> {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos())
+        .unwrap_or(0);
+    let name = format!("dsh-desktop-daemon-{}-{nonce:x}", std::process::id());
+    let listener = dsh_local_transport::named_pipe::NamedPipeListener::bind(&name, &limits)?;
+    transport.attach_carrier(listener);
+    Ok(Some(name))
+}
+
+#[cfg(not(windows))]
+fn attach_peer_identity_carrier(
+    _transport: &mut LocalServer,
+    _limits: Limits,
+) -> io::Result<Option<String>> {
+    Ok(None)
+}
+
 impl DaemonServer {
     /// Bind the envelope server on the fixed loopback envelope port and
     /// build the broker (ADR-0019 decision 5: fixed-port envelope;
@@ -277,24 +308,10 @@ impl DaemonServer {
             SocketAddr::new(std::net::Ipv4Addr::LOCALHOST.into(), claim_port),
             limits,
         )?;
-        // ADR-0022: attach the peer-identity carrier. The pipe name carries
-        // a per-process nonce so it neither collides across sessions nor is
-        // trivially guessable; the Shell learns it from the credential file
-        // (the token + the kernel identity remain the actual gate).
-        #[cfg(windows)]
-        let pipe_name: Option<String> = {
-            let nonce = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map(|elapsed| elapsed.as_nanos())
-                .unwrap_or(0);
-            let name = format!("dsh-desktop-daemon-{}-{nonce:x}", std::process::id());
-            let listener =
-                dsh_local_transport::named_pipe::NamedPipeListener::bind(&name, &limits)?;
-            transport.attach_carrier(listener);
-            Some(name)
-        };
-        #[cfg(not(windows))]
-        let pipe_name: Option<String> = None;
+        // ADR-0022: attach the peer-identity carrier when the platform
+        // provides one (the helper keeps the platform split in a single
+        // place, so the Unix build never sees an unused `mut`).
+        let pipe_name = attach_peer_identity_carrier(&mut transport, limits)?;
         // Port 0 = OS-assigned: record the actual port so the credential
         // file and diagnostics carry the real endpoint (tests pass 0).
         let actual_port = transport.addr().port();

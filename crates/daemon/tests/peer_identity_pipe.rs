@@ -5,6 +5,10 @@
 //! binary* connected. Under strict policy that binary must be the expected
 //! Shell image - everything else is degraded to Participant and never
 //! reaches the broker-relaxed control plane.
+//!
+//! The named pipe (and therefore this whole test binary) exists on Windows;
+//! the Unix carrier is WI-M13-UNIX-UDS-CARRIER.
+#![cfg(windows)]
 
 mod common;
 

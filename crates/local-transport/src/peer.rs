@@ -70,13 +70,14 @@ mod windows_impl {
         fn CloseHandle(handle: Handle) -> Bool;
     }
 
-    /// Identity of the client connected to a named pipe instance.
+    /// Identity of the client connected to a named pipe instance (the raw
+    /// handle of a connected server-side instance).
     ///
     /// Verified by the 2026-09-12 spike (docs/research/SPIKE-PEER-IDENTITY-20260912.md):
     /// the PID is the real client process and resolves to its image path.
-    pub(crate) fn peer_identity_of_pipe(pipe: Handle) -> io::Result<PeerIdentity> {
+    pub(crate) fn peer_identity_of_raw_handle(handle: Handle) -> io::Result<PeerIdentity> {
         let mut pid: Dword = 0;
-        let ok = unsafe { GetNamedPipeClientProcessId(pipe, &mut pid) };
+        let ok = unsafe { GetNamedPipeClientProcessId(handle, &mut pid) };
         if ok == 0 {
             return Err(io::Error::last_os_error());
         }
@@ -97,19 +98,13 @@ mod windows_impl {
         }
         Some(String::from_utf16_lossy(&buffer[..size as usize]))
     }
-
-    /// Raw handle of a stream wrapper (the named pipe module owns the
-    /// concrete type; this keeps the FFI in one place).
-    pub(crate) fn peer_identity_of_raw_handle(handle: isize) -> io::Result<PeerIdentity> {
-        peer_identity_of_pipe(handle)
-    }
 }
 
 #[cfg(windows)]
-#[allow(unused_imports)] // consumed by the named-pipe carrier (next slice)
-pub(crate) use windows_impl::{peer_identity_of_pipe, peer_identity_of_raw_handle};
+pub(crate) use windows_impl::peer_identity_of_raw_handle;
 
 #[cfg(target_os = "linux")]
+#[allow(dead_code)] // consumed by the UDS carrier (WI-M13-UNIX-UDS-CARRIER)
 mod unix_impl {
     use super::PeerIdentity;
     use std::io;
@@ -141,6 +136,7 @@ mod unix_impl {
 }
 
 #[cfg(all(unix, not(target_os = "linux")))]
+#[allow(dead_code)] // consumed by the UDS carrier (WI-M13-UNIX-UDS-CARRIER)
 mod unix_impl {
     use super::PeerIdentity;
     use std::io;
@@ -160,6 +156,7 @@ mod unix_impl {
 }
 
 #[cfg(unix)]
+#[allow(unused_imports)] // consumed by the UDS carrier (WI-M13-UNIX-UDS-CARRIER)
 pub(crate) use unix_impl::peer_identity_of_unix_stream;
 
 #[cfg(test)]
