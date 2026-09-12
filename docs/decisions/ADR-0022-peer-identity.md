@@ -99,9 +99,14 @@ libproc。再将该 PID 的可执行路径与「期望的 Shell 可执行文件�
 - 关联：ADR-0007（载体决策，落地后收窄）、ADR-0021（决策 5 的承接）、ADR-0023（手势闸门的
   「issuer 身份有界」前提同样依赖本 ADR）
 
+## 进展注记（2026-09-12）
+
+- Spike（Windows 半）已完成：`docs/research/SPIKE-PEER-IDENTITY-20260912.md` —— Named Pipe + 现有 framing 兼容、`GetNamedPipeClientProcessId` + 镜像路径解析可用、客户端为独立进程可区分。Unix 半（UDS + SO_PEERCRED）待 CI 矩阵验证。决策 2 的 ①③ 已获证据，② 待补。
+
 ## 参考
 
 - `docs/decisions/ADR-0021-shell-daemon-identity-binding.md`（决策 5 与备选方案 B）
+- `docs/research/SPIKE-PEER-IDENTITY-20260912.md`（本 ADR 决策 2 的 spike）
 - `docs/audits/audit-summary-2026-09-10.md` H-2
 - `docs/decisions/ADR-0007-local-transport.md`（原始载体设计）
 - `crates/local-transport/src/lib.rs`（carrier-agnostic framing 与扩展点注释）

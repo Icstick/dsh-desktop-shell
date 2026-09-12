@@ -15,7 +15,10 @@
   PLUGIN-FAULT-ATTRIBUTION → WI-M11 GESTURE-GATE → MULTI-BACKEND-FLEET）。
 - 0.3.0 设计：docs/roadmap/DESIGN-WORKBENCH-PHASE1.md（containment 安全核心、树/编辑/保存、
   git CLI 后端、命令面与分期 FS-M1/M2 + GIT-M1/M2、非目标）。
-- NEXT：claim FS-M1 实现（roots + tree + 只读视图）；或先做 ADR-0022 spike。
+- ADR-0022 spike（Windows 半）已完成：docs/research/SPIKE-PEER-IDENTITY-20260912.md ——
+  Named Pipe + 现有 framing 兼容、GetNamedPipeClientProcessId + 镜像路径可用、独立进程可区分；
+  Unix 半（UDS + SO_PEERCRED）待 CI 矩阵。spike 项目在仓库外 D:\DSH_workspace\.spike-peer-identity（可删）。
+- NEXT：用户回后定 ADR-0022 是否接受 → 开实现 WI（含 Unix spike）；或并行 claim FS-M1。
 ## 审计修复已合并 main（2026-09-10 晚）
 
 - 分支 fix/audit-20260910-security-hardening（含 docs/peer-survey-20260909 的调研文档）
