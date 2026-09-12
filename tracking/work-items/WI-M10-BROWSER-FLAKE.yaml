@@ -1,0 +1,27 @@
+schema_version: 1
+id: WI-M10-BROWSER-FLAKE
+title: "browser_integration ownership flake: stale pre-M6-C4 assertion vs disconnect-release semantics"
+status: done
+milestone: M10
+module: MOD-TEST-INTEGRATION
+owner_role: runtime-owner
+claimed_by: "agent session 20260912"
+session: null
+branch_or_worktree: main (direct fix, test-only)
+claim_expires_at: null
+dependencies: []
+acceptance_criteria:
+  - "The ownership test asserts the current design: a live peer is rejected (NOT_PROCESS_OWNER) and, after the creator disconnects, the ownerless session is manageable by the surviving connection (M6-C4 / WI-M9-BROWSER-TABS release semantics)."
+  - "No ordering assumption on the asynchronous teardown: the test polls with a 5s deadline instead of racing the release."
+  - "Local flake rate goes to zero: 20/20 consecutive green (previously 10/20 failed under default parallel threads)."
+security_impact: "Test-only change; the production ownership semantics (release on disconnect, ownerless admission) are unchanged and were already shipped in v0.2.0."
+compatibility_impact: "None (test file only)."
+scope:
+  - crates/daemon/tests/browser_integration.rs
+evidence:
+  - "Failure sample before the fix: close returned the closed report (release had landed) - the assertion expected the pre-release NOT_PROCESS_OWNER."
+  - "After the rewrite: 20/20 consecutive runs green; daemon suite fully green."
+blocked_by: []
+next_action: "Closed. If a future release changes disconnect semantics again, revisit this test first."
+handoff: null
+updated_at: "2026-09-12T03:00:00.000Z"

@@ -19,7 +19,7 @@ use dsh_daemon::capabilities::{
 use dsh_daemon::envelope::{
     EnvelopeKind, ErrorCode, ProtocolCoordinate, UnavailableReason, validate_envelope,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn browser() -> ProtocolCoordinate {
     ProtocolCoordinate {
@@ -232,10 +232,14 @@ fn browser_events_are_connection_scoped() {
 }
 
 /// 3) Ownership is connection-scoped (an opaque session id is not an
-///    access token): after a Shell reconnect the sessions of the dead
-///    connection stay alive (resource survival, ADR-0008) but their owner
-///    is the old connection — close from the restarted Shell is
-///    NOT_PROCESS_OWNER until the daemon-side handover slice (M6-C TODO).
+///    access token): while the creating connection is alive, another live
+///    connection cannot close its session (NOT_PROCESS_OWNER). On
+///    disconnect the dead connection releases ownership (M6-C4 /
+///    WI-M9-BROWSER-TABS teardown): the session survives (resource
+///    survival, ADR-0008), stays listed, and becomes ownerless - any live
+///    connection may then manage it, so a restarted Shell re-adopts and
+///    closes its surviving session. Teardown is asynchronous: the test
+///    polls until the release lands instead of assuming an ordering.
 #[test]
 fn browser_session_ownership_is_connection_scoped() {
     let (addr, credential, server) = spawn_daemon();
@@ -247,26 +251,44 @@ fn browser_session_ownership_is_connection_scoped() {
         .expect("first session");
     let session_id = report["sessionId"].as_str().expect("sessionId").to_string();
 
-    // The Shell closes (connection drops); the session survives.
+    // A second live connection (the restarted-Shell shape: same identity,
+    // fresh credential) may not close a session owned by a live peer.
+    // Shell identity: the restarted-Shell renegotiation keeps its grants
+    // through the broker-relaxed human path (non-Shell conflicts fail
+    // closed at the broker gate, which would never reach the owner check).
+    let second_credential = server.issue_credential(Duration::from_secs(300));
+    let mut second = TestClient::connect_as(addr, &second_credential, "dsh-desktop-shell", "shell");
+    second.negotiate(vec![browser()]);
+    let error = second
+        .invoke(browser(), BROWSER_CLOSE_METHOD, close_request(&session_id))
+        .expect_err("a live peer is not the session owner");
+    assert_eq!(error.code, ErrorCode::NotProcessOwner);
+
+    // The creating Shell closes (connection drops); the session survives.
     drop(first);
 
-    // A fresh Shell connection (same identity, fresh credential) rejoins
-    // the daemon; the session is still listed in the authority view.
-    let fresh = server.issue_credential(Duration::from_secs(300));
-    let mut restarted = TestClient::connect(addr, &fresh);
-    restarted.negotiate(vec![browser()]);
-    let listed = restarted
+    // The session is still listed in the authority view.
+    let listed = second
         .invoke(browser(), BROWSER_LIST_METHOD, serde_json::json!({}))
-        .expect("restarted browser.list succeeds");
+        .expect("browser.list succeeds");
     assert_eq!(listed["browsers"].as_array().map(Vec::len), Some(1));
     assert_eq!(listed["browsers"][0]["sessionId"], session_id);
 
-    // But ownership stayed with the dead connection: close is rejected
-    // with NOT_PROCESS_OWNER (handover is the M6-C daemon-side TODO).
-    let error = restarted
-        .invoke(browser(), BROWSER_CLOSE_METHOD, close_request(&session_id))
-        .expect_err("restarted connection is not the session owner");
-    assert_eq!(error.code, ErrorCode::NotProcessOwner);
+    // Teardown releases the dead connection ownership asynchronously; once
+    // it lands the session is ownerless and any live connection may close
+    // it (poll with a deadline instead of racing the teardown thread).
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let closed = loop {
+        match second.invoke(browser(), BROWSER_CLOSE_METHOD, close_request(&session_id)) {
+            Ok(closed) => break closed,
+            Err(error) if error.code == ErrorCode::NotProcessOwner && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            Err(other) => panic!("unexpected close error after disconnect: {other:?}"),
+        }
+    };
+    assert_eq!(closed["state"], "closed");
+    assert_eq!(closed["sessionId"], session_id);
 }
 
 /// 4) Malformed requests fail closed with MALFORMED_MESSAGE; unknown or

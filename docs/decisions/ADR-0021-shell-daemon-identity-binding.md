@@ -1,9 +1,14 @@
 ---
 id: ADR-0021
-status: proposed
+status: accepted
 date: 2026-09-10
 owner_role: runtime-and-security-owner
 ---
+
+> **接受记录**：2026-09-12 由项目所有者授权接受（option C 切片已实现并合并 main `f813d7a`：
+> activation authority 类别 + 身份混用 fail-closed + `identity_binding.rs` 负向测试）。
+> 决策 5 的约束继续有效：**H-2 未关闭**，peer identity（方案 A/B）由 ADR-0022 承接。
+> 已接受 ADR 不原地改写结论。
 
 # ADR-0021: Shell–Daemon 身份绑定（control plane 不再靠自报）
 
