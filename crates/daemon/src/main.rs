@@ -30,13 +30,36 @@ use std::time::Duration;
 
 use dsh_daemon::DAEMON_VERSION;
 use dsh_daemon::credential::{CLAIM_PORT, CREDENTIAL_FILE_NAME, data_dir};
-use dsh_daemon::server::DaemonServer;
+use dsh_daemon::server::{DaemonServer, PeerIdentityPolicy};
 use dsh_daemon::singleton::{EXIT_ALREADY_RUNNING, EXIT_LOCK_CONFLICT, InstanceGuard};
 use dsh_local_transport::Limits;
 
+/// Expected Shell image path for the strict peer-identity policy (ADR-0022).
+///
+/// Order: the explicit `DSH_SHELL_EXPECTED_PATH` override, then the Shell
+/// binary next to this daemon (dev layout: target/debug; bundle layout: the
+/// installed product binary). `None` fails closed - the Shell claim then
+/// never earns `shell_control` and the operator gets a startup warning.
+fn expected_shell_path() -> Option<String> {
+    if let Ok(path) = env::var("DSH_SHELL_EXPECTED_PATH")
+        && !path.is_empty()
+    {
+        return Some(path);
+    }
+    let exe = env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    for candidate in ["dsh-desktop-shell.exe", "DSH Desktop Shell.exe"] {
+        let path = dir.join(candidate);
+        if path.is_file() {
+            return Some(path.to_string_lossy().into_owned());
+        }
+    }
+    None
+}
+
 fn usage() -> String {
     format!(
-        "dsh-desktop-daemon {DAEMON_VERSION}\n\nUSAGE:\n    dsh-desktop-daemon [--data-dir <dir>] [--claim-port <port>] [--version]\n\nOPTIONS:\n    --data-dir <dir>      override the daemon data directory (default: %APPDATA%\\dev.dsh.desktop-shell on Windows; $XDG_DATA_HOME/dev.dsh.desktop-shell or $HOME/.local/share/dev.dsh.desktop-shell on Unix)\n    --claim-port <port>   override the single-instance claim port (default: 37771; test isolation)\n    --version             print the daemon version and exit"
+        "dsh-desktop-daemon {DAEMON_VERSION}\n\nUSAGE:\n    dsh-desktop-daemon [--data-dir <dir>] [--claim-port <port>] [--peer-identity-policy <strict|off>] [--version]\n\nOPTIONS:\n    --data-dir <dir>      override the daemon data directory (default: %APPDATA%\\dev.dsh.desktop-shell on Windows; $XDG_DATA_HOME/dev.dsh.desktop-shell or $HOME/.local/share/dev.dsh.desktop-shell on Unix)\n    --claim-port <port>   override the single-instance claim port (default: 37771; test isolation)\n    --peer-identity-policy <strict|off>\n                          control-plane peer-identity policy (default: strict; ADR-0022).\n                          strict requires the Shell claim to come from a process whose image\n                          path matches the expected Shell binary (DSH_SHELL_EXPECTED_PATH or\n                          the Shell binary next to this daemon); off is the legacy/test posture\n                          and must not be used for a real desktop session.\n    --version             print the daemon version and exit"
     )
 }
 
@@ -45,6 +68,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     let mut data_dir_override: Option<PathBuf> = None;
     let mut claim_port_override: Option<u16> = None;
+    let mut policy_off = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -66,6 +90,23 @@ fn main() -> ExitCode {
                     Ok(port) => claim_port_override = Some(port),
                     Err(_) => {
                         eprintln!("invalid --claim-port value \"{value}\"");
+                        return ExitCode::from(2);
+                    }
+                }
+            }
+            "--peer-identity-policy" => {
+                i += 1;
+                let Some(value) = args.get(i) else {
+                    eprintln!("{}", usage());
+                    return ExitCode::from(2);
+                };
+                match value.as_str() {
+                    "strict" => policy_off = false,
+                    "off" => policy_off = true,
+                    other => {
+                        eprintln!(
+                            "invalid --peer-identity-policy value \"{other}\" (expected strict or off)"
+                        );
                         return ExitCode::from(2);
                     }
                 }
@@ -102,6 +143,35 @@ fn main() -> ExitCode {
     };
     let claim_port = claim_port_override.unwrap_or(CLAIM_PORT);
 
+    // ADR-0022: the production entry point defaults to the strict
+    // peer-identity policy where the peer-identity carrier exists (Windows
+    // named pipe). On Unix the UDS carrier is still slice 6: strict there
+    // would refuse every Shell claim and break the control plane, so the
+    // Unix default stays Off with an explicit notice until that slice lands.
+    // Off is otherwise an explicit opt-out (tests/debugging).
+    let policy = if policy_off {
+        PeerIdentityPolicy::Off
+    } else if cfg!(windows) {
+        PeerIdentityPolicy::Strict {
+            expected_shell: expected_shell_path(),
+        }
+    } else {
+        eprintln!(
+            "dsh-desktop-daemon: note: no peer-identity carrier on this platform yet (ADR-0022 slice 6 pending); running with peer-identity policy off - the Shell claim is credential-only here"
+        );
+        PeerIdentityPolicy::Off
+    };
+    if matches!(
+        policy,
+        PeerIdentityPolicy::Strict {
+            expected_shell: None
+        }
+    ) {
+        eprintln!(
+            "dsh-desktop-daemon: warning: strict peer-identity policy is active but no expected Shell path was found (set DSH_SHELL_EXPECTED_PATH); Shell control-plane authority will be refused (fail closed, ADR-0022)"
+        );
+    }
+
     // --- 1) envelope server on the fixed loopback port ---
     // Single-instance authority + Shell presence probe + connect endpoint
     // in one listener (0.2.1 M6-C, ADR-0019 decision 5: fixed-port
@@ -116,7 +186,14 @@ fn main() -> ExitCode {
         read_deadline: std::time::Duration::from_secs(24 * 60 * 60),
         ..Limits::default()
     };
-    let server = match DaemonServer::bind(limits, claim_port) {
+    let catalog_path = match dsh_daemon::runtime::default_catalog_path() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("dsh-desktop-daemon: cannot resolve the catalog path: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let server = match DaemonServer::bind_with_policy(limits, claim_port, catalog_path, policy) {
         Ok(server) => server,
         Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
             eprintln!(
@@ -168,6 +245,19 @@ fn main() -> ExitCode {
         data_dir.join(CREDENTIAL_FILE_NAME).display()
     );
     println!("  data dir:     {}", data_dir.display());
+    match server.pipe_name() {
+        Some(pipe) => println!("  peer pipe:    \\\\.\\pipe\\{pipe} (peer-identity carrier)"),
+        None => println!("  peer pipe:    - (no peer-identity carrier on this platform)"),
+    }
+    match server.peer_identity_policy() {
+        PeerIdentityPolicy::Off => {
+            println!("  identity:     policy off (legacy posture; no kernel identity check)")
+        }
+        PeerIdentityPolicy::Strict { expected_shell } => match expected_shell {
+            Some(path) => println!("  identity:     strict (expected shell: {path})"),
+            None => println!("  identity:     strict (expected shell: NOT FOUND - fail closed)"),
+        },
+    }
 
     // --- 4) serve loop: spawn one thread per authenticated connection ---
     // (dedup by connection id; the transport removes closed connections).

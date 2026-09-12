@@ -17,7 +17,7 @@ use dsh_daemon::envelope::{
     ProtocolCoordinate, UnavailableCapability, new_message_id, now_timestamp, validate_envelope,
 };
 use dsh_daemon::server::DaemonServer;
-use dsh_local_transport::{Credential, Limits, LocalClient};
+use dsh_local_transport::{CarrierStream, Credential, Limits, LocalClient};
 
 /// Negotiation outcome (mirrors the example client AgreementInfo).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,8 +31,8 @@ pub struct AgreementInfo {
 /// A tiny envelope client for tests: real wire, correlation checks on
 /// every Result (replyTo + error.correlationId must match the Invocation
 /// id — semantics.ts correlation-match).
-pub struct TestClient {
-    transport: LocalClient,
+pub struct TestClient<S = std::net::TcpStream> {
+    transport: LocalClient<S>,
     participant: Participant,
     /// The identity this client was constructed with (`component`, `facet`),
     /// so a test that swaps the claimed identity can restore it.
@@ -44,7 +44,7 @@ pub struct TestClient {
     events: Vec<Envelope>,
 }
 
-impl TestClient {
+impl TestClient<std::net::TcpStream> {
     /// Used by a subset of test binaries (each integration test compiles
     /// this module separately), so allow dead_code.
     #[allow(dead_code)]
@@ -61,8 +61,17 @@ impl TestClient {
         component: &str,
         facet: &str,
     ) -> Self {
+        let transport =
+            LocalClient::connect(addr, credential, &Limits::default()).expect("connect");
+        Self::from_transport(transport, component, facet)
+    }
+}
+
+impl<S: CarrierStream> TestClient<S> {
+    /// Wrap an already-handshaken transport (any carrier) as a test client.
+    pub fn from_transport(transport: LocalClient<S>, component: &str, facet: &str) -> Self {
         Self {
-            transport: LocalClient::connect(addr, credential, &Limits::default()).expect("connect"),
+            transport,
             participant: Participant {
                 component: component.into(),
                 facet: facet.into(),
@@ -409,6 +418,53 @@ pub struct RemoteError {
 /// environments from the default (real user) catalog path, which the
 /// runtime integration tests never touch — they use
 /// spawn_daemon_with_catalog.
+/// Connect over the Windows named pipe (ADR-0022): the peer-identity
+/// carrier. The participant claims whatever identity the caller passes -
+/// claiming the Shell identity over the pipe is exactly what the strict
+/// policy gates on the kernel-provided image path.
+#[cfg(windows)]
+#[allow(dead_code)]
+pub fn connect_pipe_as(
+    pipe_name: &str,
+    credential: &Credential,
+    component: &str,
+    facet: &str,
+) -> TestClient<dsh_local_transport::ClientStream> {
+    // The acceptor thread creates the first pipe instance asynchronously;
+    // retry briefly instead of racing it.
+    let stream = {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            match dsh_local_transport::named_pipe::connect(pipe_name) {
+                Ok(stream) => break stream,
+                Err(_) if std::time::Instant::now() < deadline => {
+                    thread::sleep(Duration::from_millis(10))
+                }
+                Err(error) => panic!("pipe connect failed: {error}"),
+            }
+        }
+    };
+    let peer = dsh_local_transport::PeerDesc::NamedPipe(pipe_name.to_string());
+    let transport = LocalClient::connect_stream(
+        dsh_local_transport::ClientStream::NamedPipe(stream),
+        peer,
+        credential,
+        &Limits::default(),
+    )
+    .expect("pipe handshake");
+    TestClient::from_transport(transport, component, facet)
+}
+
+/// Named-pipe Shell client (the shape the real Shell uses).
+#[cfg(windows)]
+#[allow(dead_code)]
+pub fn connect_pipe(
+    pipe_name: &str,
+    credential: &Credential,
+) -> TestClient<dsh_local_transport::ClientStream> {
+    connect_pipe_as(pipe_name, credential, "dsh-desktop-shell", "shell")
+}
+
 #[allow(dead_code)]
 pub fn spawn_daemon() -> (SocketAddr, Credential, Arc<DaemonServer>) {
     // Port 0 = OS-assigned envelope port (parallel-safe across test

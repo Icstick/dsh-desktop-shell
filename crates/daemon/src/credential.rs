@@ -37,7 +37,10 @@ pub const LOCK_FILE_NAME: &str = "daemon.lock";
 pub const CLAIM_PORT: u16 = 37_771;
 
 /// Schema version of the credential file (bump on breaking shape change).
-pub const CREDENTIAL_FILE_SCHEMA_VERSION: u32 = 1;
+/// v2 (ADR-0022): adds the optional `pipeName` field - the peer-identity
+/// carrier endpoint the Shell should prefer. Readers must accept v1 (no
+/// pipe name: TCP only) and v2.
+pub const CREDENTIAL_FILE_SCHEMA_VERSION: u32 = 2;
 
 /// Resolve the daemon data directory: `--data-dir`/`DSH_DAEMON_DATA_DIR`
 /// override, then `%APPDATA%\dev.dsh.desktop-shell` / `%LOCALAPPDATA%\...`,
@@ -96,7 +99,7 @@ pub fn data_dir() -> io::Result<PathBuf> {
     }
 }
 
-/// The on-disk credential file (schema `daemon-credential.json`, v1).
+/// The on-disk credential file (schema `daemon-credential.json`, v2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CredentialFile {
@@ -104,8 +107,15 @@ pub struct CredentialFile {
     pub daemon_version: String,
     pub pid: u32,
     pub claim_port: u16,
-    /// The envelope server port the Shell must connect to.
+    /// The envelope server port the Shell must connect to (the TCP endpoint:
+    /// presence probe and degradation carrier).
     pub port: u16,
+    /// Named pipe endpoint of the peer-identity carrier (ADR-0022), when the
+    /// platform provides one. The Shell prefers it: only a named-pipe
+    /// connection carries a kernel-provided peer identity, which is what
+    /// strict-mode control-plane authority requires.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipe_name: Option<String>,
     pub credential: FileCredential,
     pub issued_at: String,
 }
@@ -137,12 +147,21 @@ impl CredentialFile {
             pid,
             claim_port,
             port,
+            pipe_name: None,
             credential: FileCredential {
                 token: token.into(),
                 expires_at: rfc3339(expires_at),
             },
             issued_at: rfc3339(issued_at),
         }
+    }
+
+    /// Record the peer-identity carrier endpoint (ADR-0022): the Shell
+    /// prefers the named pipe, whose connection carries a kernel-provided
+    /// peer identity; TCP stays the degradation path.
+    pub fn with_pipe_name(mut self, pipe_name: impl Into<String>) -> Self {
+        self.pipe_name = Some(pipe_name.into());
+        self
     }
 
     /// Serialize to the pretty JSON wire shape.
@@ -241,7 +260,7 @@ mod tests {
     fn json_shape_matches_shell_contract() {
         let json = sample().to_json().expect("serializes");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
-        assert_eq!(parsed["schemaVersion"], 1);
+        assert_eq!(parsed["schemaVersion"], 2);
         assert_eq!(parsed["daemonVersion"], "0.1.0");
         assert_eq!(parsed["pid"], 4242);
         assert_eq!(parsed["claimPort"], CLAIM_PORT);
@@ -252,8 +271,22 @@ mod tests {
         );
         assert!(parsed["credential"]["expiresAt"].as_str().is_some());
         assert!(parsed["issuedAt"].as_str().is_some());
-        // no unknown keys
+        // No pipe carrier in this sample: the field is omitted entirely
+        // (v1-compatible shape), so there are no unknown keys.
+        assert!(parsed.get("pipeName").is_none());
         assert_eq!(parsed.as_object().map(|o| o.len()), Some(7));
+    }
+
+    #[test]
+    fn pipe_name_is_published_and_round_trips() {
+        // ADR-0022: the peer-identity carrier endpoint travels in the file.
+        let file = sample().with_pipe_name("dsh-desktop-daemon-7-abc");
+        let json = file.to_json().expect("serializes");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+        assert_eq!(parsed["pipeName"], "dsh-desktop-daemon-7-abc");
+        assert_eq!(parsed.as_object().map(|o| o.len()), Some(8));
+        let round_trip = CredentialFile::from_json(&json).expect("parses");
+        assert_eq!(round_trip, file);
     }
 
     #[test]

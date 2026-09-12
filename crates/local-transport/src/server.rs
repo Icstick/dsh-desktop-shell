@@ -9,18 +9,20 @@
 //! (AC-IPC-001 / AC-IPC-002).
 
 use std::collections::HashMap;
-use std::io::{self, Write};
-use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+use std::io;
+use std::net::{Ipv4Addr, SocketAddr, TcpListener};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
+use crate::carrier::{CarrierListener, CarrierStream, PeerDesc};
 use crate::credential::{AuthError, Credential, CredentialIssuer};
 use crate::error::{TransportError, is_timeout_kind};
 use crate::framing::{FrameReadError, encode_frame, read_frame};
 use crate::handshake::{ClientHello, ServerHello};
 use crate::limits::Limits;
+use crate::peer::PeerIdentity;
 
 /// Sleep between non-blocking accept attempts.
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(5);
@@ -73,6 +75,10 @@ pub struct LocalServer {
     state: Arc<ServerState>,
     addr: SocketAddr,
     accept_handle: Option<JoinHandle<()>>,
+    /// Secondary carriers sharing this server's supervision state (same
+    /// credentials/connections/stats). ADR-0022: the daemon attaches the
+    /// peer-identity carrier (named pipe) next to the TCP endpoint.
+    attached: Vec<CarrierAttachment>,
 }
 
 #[derive(Debug)]
@@ -135,7 +141,11 @@ impl ConnLimiter {
 #[derive(Debug, Clone)]
 pub struct ServerConn {
     id: u64,
-    peer: SocketAddr,
+    peer: PeerDesc,
+    /// Kernel-provided peer identity when the carrier can provide one
+    /// (named pipes / UDS); None on loopback TCP, which is identity-less
+    /// by design (ADR-0022).
+    identity: Option<PeerIdentity>,
     max_frame: usize,
     write_tx: mpsc::SyncSender<WriteRequest>,
     read_rx: Arc<Mutex<mpsc::Receiver<Vec<u8>>>>,
@@ -197,6 +207,7 @@ impl LocalServer {
             state,
             addr,
             accept_handle: Some(accept_handle),
+            attached: Vec::new(),
         })
     }
 
@@ -238,12 +249,47 @@ impl LocalServer {
         self.state.conns.lock().unwrap().values().cloned().collect()
     }
 
-    /// Stop the accept loop. Idempotent; also called from `Drop`.
+    /// Attach a secondary carrier to this server: its connections share the
+    /// same supervision state (credential registry, connection table, limits
+    /// and stats) and are served by the same worker rules. Used by the daemon
+    /// to run the peer-identity carrier (ADR-0022) next to the TCP endpoint.
+    pub fn attach_carrier<L: CarrierListener + Send + 'static>(&mut self, listener: L) {
+        let state = Arc::clone(&self.state);
+        let join = thread::spawn(move || accept_loop(state, listener));
+        self.attached.push(CarrierAttachment { join: Some(join) });
+    }
+
+    /// Stop the accept loop(s). Idempotent; also called from `Drop`.
     pub fn stop(&mut self) {
         if let Some(handle) = self.accept_handle.take() {
             self.state.shutdown.store(true, Ordering::Relaxed);
             let _ = handle.join();
         }
+        for attachment in &mut self.attached {
+            attachment.stop();
+        }
+    }
+}
+
+/// Handle to an attached secondary carrier's accept loop. Stopping joins the
+/// loop (the shared shutdown flag ends it; dropping the listener wakes any
+/// carrier-side blocking accept).
+#[derive(Debug)]
+pub struct CarrierAttachment {
+    join: Option<JoinHandle<()>>,
+}
+
+impl CarrierAttachment {
+    fn stop(&mut self) {
+        if let Some(join) = self.join.take() {
+            let _ = join.join();
+        }
+    }
+}
+
+impl Drop for CarrierAttachment {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 
@@ -259,9 +305,16 @@ impl ServerConn {
         self.id
     }
 
-    /// Peer address of the connected client.
-    pub fn peer(&self) -> SocketAddr {
-        self.peer
+    /// Where the connected client came from (wire-independent).
+    pub fn peer(&self) -> &PeerDesc {
+        &self.peer
+    }
+
+    /// Kernel-provided identity of the connecting process, when the carrier
+    /// can provide one (ADR-0022). Loopback TCP connections return None and
+    /// must not earn control-plane authority.
+    pub fn identity(&self) -> Option<&PeerIdentity> {
+        self.identity.as_ref()
     }
 
     /// Block until the client sends one frame; `None` once the client is gone.
@@ -320,7 +373,8 @@ impl ServerConn {
     }
 }
 
-fn accept_loop(state: Arc<ServerState>, listener: TcpListener) {
+fn accept_loop<L: CarrierListener>(state: Arc<ServerState>, listener: L) {
+    let _ = listener.set_nonblocking();
     loop {
         if state.shutdown.load(Ordering::Relaxed) {
             return;
@@ -328,9 +382,13 @@ fn accept_loop(state: Arc<ServerState>, listener: TcpListener) {
         match listener.accept() {
             Ok((stream, peer)) => {
                 state.stats.lock().unwrap().accepted += 1;
+                // Kernel-provided identity when the carrier has one; an
+                // identity probe failure is recorded as None (fail closed at
+                // the authority layer, never "assume trusted").
+                let identity = listener.peer_identity(&stream).ok().flatten();
                 if state.limiter.try_acquire() {
                     let worker_state = Arc::clone(&state);
-                    thread::spawn(move || connection_worker(worker_state, stream, peer));
+                    thread::spawn(move || connection_worker(worker_state, stream, peer, identity));
                 } else {
                     state.stats.lock().unwrap().rejected_busy += 1;
                     reject_busy(Arc::clone(&state), stream);
@@ -345,7 +403,7 @@ fn accept_loop(state: Arc<ServerState>, listener: TcpListener) {
 /// Best-effort reply to a connection refused because the server is busy.
 /// Written inline (bounded by the handshake deadline) so a flood of
 /// rejected connections cannot spawn one thread each (FH-2, AC-IPC-002).
-fn reject_busy(state: Arc<ServerState>, mut stream: TcpStream) {
+fn reject_busy<S: CarrierStream>(state: Arc<ServerState>, mut stream: S) {
     // Drain the client hello first (bounded) so the socket closes with a
     // clean FIN: see REJECT_READ_TIMEOUT. Best-effort on both sides.
     let _ = stream.set_read_timeout(Some(REJECT_READ_TIMEOUT));
@@ -355,17 +413,22 @@ fn reject_busy(state: Arc<ServerState>, mut stream: TcpStream) {
 }
 
 /// Runs one accepted connection: handshake, then supervised message loop.
-fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: SocketAddr) {
+fn connection_worker<S: CarrierStream>(
+    state: Arc<ServerState>,
+    mut stream: S,
+    peer: PeerDesc,
+    identity: Option<PeerIdentity>,
+) {
     let limits = state.limits;
     let id = state.next_conn_id.fetch_add(1, Ordering::Relaxed);
 
-    // Accepted sockets inherit the listener's non-blocking mode (set for the
-    // accept poll loop). Restore blocking I/O so the handshake and worker
-    // loops can rely on their deadlines via SO_RCVTIMEO/SO_SNDTIMEO: on a
-    // non-blocking socket a partial read followed by WouldBlock discards
-    // already-consumed frame bytes and desyncs the stream (observed as
-    // Oversized protocol errors on exactly-max 64 KiB frames).
-    if stream.set_nonblocking(false).is_err() {
+    // Restore blocking semantics for the accepted stream (the accept loop
+    // polls a non-blocking listener; TCP sockets inherit that flag). The
+    // handshake and worker loops rely on their deadlines: on a non-blocking
+    // socket a partial read followed by WouldBlock discards already-consumed
+    // frame bytes and desyncs the stream (observed as Oversized protocol
+    // errors on exactly-max 64 KiB frames).
+    if stream.prepare_accepted().is_err() {
         state.stats.lock().unwrap().closed_io += 1;
         state.limiter.release();
         return;
@@ -422,6 +485,7 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
     let conn = ServerConn {
         id,
         peer,
+        identity,
         max_frame: limits.max_frame_bytes,
         write_tx,
         read_rx: Arc::new(Mutex::new(read_rx)),
@@ -451,7 +515,7 @@ fn connection_worker(state: Arc<ServerState>, mut stream: TcpStream, peer: Socke
 }
 
 /// Reads the client hello and checks it against the credential registry.
-fn perform_handshake(state: &ServerState, stream: &mut TcpStream) -> HandshakeResult {
+fn perform_handshake<S: std::io::Read>(state: &ServerState, stream: &mut S) -> HandshakeResult {
     match read_frame(stream, state.limits.max_frame_bytes) {
         Ok(Some(bytes)) => match serde_json::from_slice::<ClientHello>(&bytes) {
             Ok(hello) => match authenticate(state, &hello.token) {
@@ -499,7 +563,11 @@ fn reason_str(auth_error: AuthError) -> &'static str {
 }
 
 /// Write a framed `ServerHello`. Returns `false` when the write failed.
-fn write_handshake_reply(stream: &mut TcpStream, accepted: bool, reason: Option<&str>) -> bool {
+fn write_handshake_reply<S: std::io::Write>(
+    stream: &mut S,
+    accepted: bool,
+    reason: Option<&str>,
+) -> bool {
     let reply = ServerHello {
         accepted,
         reason: reason.map(str::to_string),
@@ -511,8 +579,8 @@ fn write_handshake_reply(stream: &mut TcpStream, accepted: bool, reason: Option<
 }
 
 /// Supervised message loop: framing check, read deadline, write queue (AC-IPC-002).
-fn worker_loop(
-    stream: &mut TcpStream,
+fn worker_loop<S: CarrierStream>(
+    stream: &mut S,
     read_tx: &mpsc::SyncSender<Vec<u8>>,
     write_rx: &mpsc::Receiver<WriteRequest>,
     limits: Limits,
@@ -573,6 +641,6 @@ fn worker_loop(
     }
 }
 
-fn write_frame_all(stream: &mut TcpStream, payload: &[u8]) -> io::Result<()> {
+fn write_frame_all<S: std::io::Write>(stream: &mut S, payload: &[u8]) -> io::Result<()> {
     stream.write_all(&encode_frame(payload))
 }

@@ -95,6 +95,51 @@ pub const LEASE_MAX_SECONDS: u64 = 3600;
 /// then fails forever and the GUI stays stuck in bootstrap.
 pub const BOOTSTRAP_REFRESH_LEAD: Duration = Duration::from_secs(60);
 
+/// Control-plane peer-identity policy (ADR-0022).
+///
+/// The credential proves possession of a one-time token; it says nothing
+/// about which process is on the other end. On carriers with kernel support
+/// (the Windows named pipe) the daemon can additionally check *which
+/// binary* connected - that is what distinguishes the Shell from another
+/// same-user process holding the token (audit H-2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeerIdentityPolicy {
+    /// Legacy/test posture: a credential-authenticated Shell claim is
+    /// honoured without a kernel identity check. Keep this out of the
+    /// production entry point (main.rs uses strict by default).
+    Off,
+    /// Strict posture: the Shell claim additionally requires a
+    /// kernel-provided peer identity whose image path matches
+    /// `expected_shell`. A missing identity (identity-less TCP carrier),
+    /// a missing expected path, or a path mismatch fails closed - the
+    /// claim degrades to Participant.
+    Strict { expected_shell: Option<String> },
+}
+
+impl PeerIdentityPolicy {
+    /// Strict policy pinned to one expected Shell image path.
+    pub fn strict(expected_shell: impl Into<String>) -> Self {
+        Self::Strict {
+            expected_shell: Some(expected_shell.into()),
+        }
+    }
+
+    /// Whether this connection may hold Shell control-plane authority.
+    ///
+    /// Fail-closed by construction: only an identity that resolves to the
+    /// configured expected path passes; everything else (including "no
+    /// expected path configured") is refused (ADR-0022 decision 3).
+    fn allows(&self, identity: Option<&dsh_local_transport::PeerIdentity>) -> bool {
+        match self {
+            Self::Off => true,
+            Self::Strict { expected_shell } => match (identity, expected_shell) {
+                (Some(identity), Some(expected)) => identity.image_matches(expected),
+                _ => false,
+            },
+        }
+    }
+}
+
 /// Authority class of one activation, computed by the daemon at Hello
 /// (ADR-0021 decision 1).
 ///
@@ -140,13 +185,21 @@ pub struct SessionState {
     /// Authority class already established on this connection, if any
     /// (ADR-0021 decision 2: one connection cannot mix identity classes).
     authority: Option<ActivationAuthority>,
+    /// Kernel-provided identity of the connecting process, when the carrier
+    /// can provide one (ADR-0022; None on identity-less TCP). Read once at
+    /// connection start and used by the Hello authority computation.
+    identity: Option<dsh_local_transport::PeerIdentity>,
     seen_ids: HashSet<String>,
     next_generation: u64,
 }
 
 impl SessionState {
-    pub fn new() -> Self {
-        Self::default()
+    /// New per-connection state carrying the carrier-reported identity.
+    pub fn new(identity: Option<dsh_local_transport::PeerIdentity>) -> Self {
+        Self {
+            identity,
+            ..Self::default()
+        }
     }
 }
 
@@ -173,6 +226,11 @@ pub struct DaemonServer {
     /// Daemon event router (M6-B1 TODO⑤, wired in M6-C1).
     events: Arc<EventRouter>,
     claim_port: u16,
+    /// Control-plane peer-identity policy (ADR-0022).
+    policy: PeerIdentityPolicy,
+    /// Named pipe endpoint of the attached peer-identity carrier (Windows),
+    /// published in the credential file so the Shell can prefer it.
+    pipe_name: Option<String>,
     started_at: SystemTime,
     /// Expiry of the token in the on-disk credential file (recorded on
     /// every issue/reissue; the freshness maintenance compares against
@@ -195,21 +253,55 @@ impl DaemonServer {
 
     /// Bind with an explicit environment-catalog path (M6-C2: tests
     /// isolate the catalog in a temp directory; the binary uses the
-    /// default data-directory catalog).
+    /// default data-directory catalog). Uses [`PeerIdentityPolicy::Off`]:
+    /// library/test posture; the production entry point calls
+    /// [`bind_with_policy`] with a strict policy.
     pub fn bind_with_catalog(
         limits: Limits,
         claim_port: u16,
         catalog_path: std::path::PathBuf,
     ) -> io::Result<Self> {
-        let transport = LocalServer::bind_on(
+        Self::bind_with_policy(limits, claim_port, catalog_path, PeerIdentityPolicy::Off)
+    }
+
+    /// Bind with an explicit control-plane peer-identity policy (ADR-0022).
+    /// The peer-identity carrier (Windows named pipe) is attached next to
+    /// the TCP endpoint; its name travels in the credential file.
+    pub fn bind_with_policy(
+        limits: Limits,
+        claim_port: u16,
+        catalog_path: std::path::PathBuf,
+        policy: PeerIdentityPolicy,
+    ) -> io::Result<Self> {
+        let mut transport = LocalServer::bind_on(
             SocketAddr::new(std::net::Ipv4Addr::LOCALHOST.into(), claim_port),
             limits,
         )?;
+        // ADR-0022: attach the peer-identity carrier. The pipe name carries
+        // a per-process nonce so it neither collides across sessions nor is
+        // trivially guessable; the Shell learns it from the credential file
+        // (the token + the kernel identity remain the actual gate).
+        #[cfg(windows)]
+        let pipe_name: Option<String> = {
+            let nonce = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_nanos())
+                .unwrap_or(0);
+            let name = format!("dsh-desktop-daemon-{}-{nonce:x}", std::process::id());
+            let listener =
+                dsh_local_transport::named_pipe::NamedPipeListener::bind(&name, &limits)?;
+            transport.attach_carrier(listener);
+            Some(name)
+        };
+        #[cfg(not(windows))]
+        let pipe_name: Option<String> = None;
         // Port 0 = OS-assigned: record the actual port so the credential
         // file and diagnostics carry the real endpoint (tests pass 0).
         let actual_port = transport.addr().port();
         let server = Self {
             transport,
+            policy,
+            pipe_name,
             broker: Arc::new(Mutex::new(Broker::<SystemClock>::new())),
             scheduler: Arc::new(Scheduler::new()),
             terminal: Arc::new(TerminalHost::new()),
@@ -232,6 +324,17 @@ impl DaemonServer {
     /// The bound loopback address external tools connect to.
     pub fn addr(&self) -> SocketAddr {
         self.transport.addr()
+    }
+
+    /// Named pipe endpoint of the attached peer-identity carrier (Windows;
+    /// ADR-0022), when one exists.
+    pub fn pipe_name(&self) -> Option<&str> {
+        self.pipe_name.as_deref()
+    }
+
+    /// The control-plane peer-identity policy in force (ADR-0022).
+    pub fn peer_identity_policy(&self) -> &PeerIdentityPolicy {
+        &self.policy
     }
 
     /// Issue a one-time ephemeral credential (local-transport auth).
@@ -288,7 +391,26 @@ impl DaemonServer {
             })
         };
 
-        let mut state = SessionState::new();
+        // Control-plane audit (ADR-0021 decision 4 / ADR-0022): every
+        // accepted connection records its carrier peer and, when the
+        // carrier provides one, the kernel identity of the connecting
+        // process. No token, URL or user data is logged.
+        eprintln!(
+            "dsh-daemon: connection {} accepted peer={} identity={}",
+            connection_key,
+            conn.peer(),
+            match conn.identity() {
+                Some(identity) => format!(
+                    "pid={} image={}",
+                    identity.pid,
+                    identity.image_path.as_deref().unwrap_or("<unresolved>")
+                ),
+                None => "none (identity-less carrier)".to_string(),
+            }
+        );
+        // Kernel-provided identity of this connection (ADR-0022): present
+        // on the named-pipe carrier, None on identity-less TCP.
+        let mut state = SessionState::new(conn.identity().cloned());
         while let Some(bytes) = conn.recv() {
             let envelope = match serde_json::from_slice::<Envelope>(&bytes) {
                 Ok(envelope) => envelope,
@@ -370,7 +492,7 @@ impl DaemonServer {
             return Ok(None);
         };
         let credential = self.transport.issue_credential(ttl);
-        let file = CredentialFile::new(
+        let mut file = CredentialFile::new(
             crate::DAEMON_VERSION,
             std::process::id(),
             self.claim_port,
@@ -379,6 +501,12 @@ impl DaemonServer {
             credential.expires_at(),
             SystemTime::now(),
         );
+        // ADR-0022: publish the peer-identity carrier endpoint so the Shell
+        // can prefer the named pipe (kernel identity -> control-plane
+        // authority under strict policy).
+        if let Some(pipe_name) = &self.pipe_name {
+            file = file.with_pipe_name(pipe_name);
+        }
         file.write_to(&dir)?;
         *self
             .file_credential_expiry
@@ -511,19 +639,31 @@ impl DaemonServer {
             envelope.participant.component, envelope.participant.facet
         );
 
-        // Authority class (ADR-0021 decision 1/2/3): computed once, here,
-        // from the connection's authenticated handshake plus the claim.
-        // The envelope layer only ever reaches `handle_hello` for a
-        // connection that already presented a valid credential (see
-        // `serve_connection`), so a claim cannot be honoured on an
-        // unauthenticated channel.
+        // Authority class (ADR-0021 decision 1/2/3 + ADR-0022): computed
+        // once, here, from the connection's authenticated handshake, the
+        // participant claim, and - under a strict policy - the
+        // kernel-provided peer identity. The envelope layer only ever
+        // reaches `handle_hello` for a connection that already presented a
+        // valid credential (see `serve_connection`), so a claim cannot be
+        // honoured on an unauthenticated channel; strict mode additionally
+        // requires that the *process* on the other end resolves to the
+        // expected Shell image.
         let authority = if envelope.participant.component == SHELL_COMPONENT
             && envelope.participant.facet == SHELL_FACET
+            && self.policy.allows(state.identity.as_ref())
         {
             ActivationAuthority::ShellControl
         } else {
             ActivationAuthority::Participant
         };
+        // Control-plane audit (ADR-0021 decision 4): the authority verdict
+        // is recorded once per activation with the claimed participant - a
+        // Shell claim that failed the identity gate shows up here as
+        // Participant (the observable signal that the gate fired).
+        eprintln!(
+            "dsh-daemon: activation {} participant={}|{} authority={:?}",
+            activation_id, envelope.participant.component, envelope.participant.facet, authority
+        );
         // Fail closed on mixed identities: one connection establishes one
         // class. Re-negotiating the same class is fine (generation bump),
         // switching is not.

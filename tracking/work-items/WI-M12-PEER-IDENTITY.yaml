@@ -1,0 +1,42 @@
+schema_version: 1
+id: WI-M12-PEER-IDENTITY
+title: "local-transport peer identity: carrier split + Named Pipe/UDS with kernel-provided peer identity"
+status: in_progress
+milestone: M12
+module: MOD-LOCAL-TRANSPORT
+owner_role: runtime-and-security-owner
+claimed_by: "agent session 20260912"
+session: null
+branch_or_worktree: feat/m12-peer-identity
+claim_expires_at: "2026-09-13T12:00:00Z"
+dependencies:
+  - "ADR-0022 accepted 2026-09-12"
+  - "Spike (Windows half) 2026-09-12: docs/research/SPIKE-PEER-IDENTITY-20260912.md"
+acceptance_criteria:
+  - "Carrier split in dsh-local-transport: the framing/handshake/credential logic is shared across carriers; loopback TCP remains available as an explicit, reported degradation."
+  - "Windows Named Pipe carrier: server accept loop + client connect + kernel-provided peer identity (GetNamedPipeClientProcessId + image path), with unit tests on this machine."
+  - "Unix carrier (UDS + SO_PEERCRED / getpeereid) implemented and verified on the CI matrix before any carrier switch lands."
+  - "Daemon: expected-Shell-path policy (override -> derived from layout -> fail closed) drives whether shell_control authority is granted; a same-user impostor process is rejected or downgraded, with an auditable record."
+  - "Negative test: a same-user process holding a valid credential but a different image path cannot obtain shell_control (broker-relaxed path) after the carrier switch."
+  - "H-2 status flips to closed only when the negative test exists on the shipped default carrier; until then it stays partially mitigated."
+security_impact: "This is the fix for audit H-2 (self-reported Shell identity): the daemon stops trusting the credential alone for control-plane authority and adds a kernel-provided peer identity check. Must be fail-closed on missing/unresolvable identity."
+compatibility_impact: "Carrier and daemon-discovery semantics change (pipe/socket name in the credential file; the TCP port becomes presence/fallback only). Envelope and capability wire semantics unchanged."
+scope:
+  - crates/local-transport/ (carrier split, named_pipe, peer identity)
+  - crates/daemon/ (carrier selection, expected-path policy, authority wiring)
+  - apps/desktop/src-tauri/src/daemon_client.rs (client carrier)
+  - tests + live QA scripts + tracking/
+evidence:
+  - "Slice 5 (a029305): LocalClient generic over CarrierStream + connect_stream; ClientStream (Tcp|NamedPipe); daemon_client connect_carrier prefers the published pipe and falls back to identity-less TCP; connect_carrier_prefers_the_named_pipe_and_reports_identity green (desktop 173)."
+  - "Slice 7 core (5a18161): peer_identity_pipe.rs - positive leg (matching image over the pipe keeps ShellControl and dispatch succeeds) and the H-2 impostor leg (same-user process, valid credential, Shell claim, different image -> no grant, Unauthorized). TestClient is generic over the carrier."
+  - "Platform default (15e3e29): strict on Windows (pipe present); Off with a notice on Unix until the UDS carrier (slice 6)."
+  - "Control-plane audit logs (2cc9990): accepted connections log peer + kernel identity; each Hello logs the authority verdict."
+  - "Real-session smoke (2026-09-12 21:28-21:30, this machine): debug Shell + daemon built, isolated data dir. Daemon banner: peer pipe dsh-desktop-daemon-39084-18d495e0a80d7710 + identity strict (expected shell derived to target/debug/dsh-desktop-shell.exe). Shell connected over the pipe with kernel identity pid=25476 image=<that same exe>; daemon logged authority=ShellControl; GUI rendered normally (nav + runtime panels; the only errors were the expected empty-catalog runtime.status domain errors). Credential file on disk is v2 with pipeName."
+  - "Slice 1 (7047fd6): carrier traits + PeerIdentity (Windows FFI / Linux SO_PEERCRED via nix / typed Unsupported elsewhere); unsafe baseline forbid->deny with one documented exemption."
+  - "Slice 2 (0833542): accept loop + worker chain generic over carrier traits; TCP behavior unchanged (suite green); ServerConn carries PeerDesc + identity."
+  - "Slice 3 (b2549e0): Windows named pipe carrier - round trip with a real client, kernel PID assertion (pid == this process, image path resolved), read deadline expires as WouldBlock, stop() wakes a blocked acceptor. Transport suite 17 lib + integrations green."
+  - "Slice 4 (66155f4 + fda3ae1): attached carrier shares the supervision state (carrier_attach.rs); daemon attaches the pipe carrier, credential file v2 carries pipeName, --peer-identity-policy strict|off with expected-Shell-path derivation; peer_identity_policy.rs proves strict denies an identity-less TCP Shell claim while Off keeps the relaxed path."
+blocked_by: []
+next_action: "Windows closure is complete (implementation + negative tests + real-session smoke). Remaining: slice 6 Unix UDS carrier on the CI matrix, a live-QA leg over the pipe, then flip H-2 in the audit report and squash-merge this branch to main."
+handoff: null
+updated_at: "2026-09-12T11:35:00Z"

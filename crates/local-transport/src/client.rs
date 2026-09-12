@@ -1,9 +1,14 @@
-//! Authenticated loopback client.
+//! Authenticated carrier client (ADR-0007 / ADR-0022).
+//!
+//! Generic over the carrier stream: the default (TcpStream) keeps the
+//! historical API, while peer-identity carriers (Windows named pipe,
+//! Unix domain socket) connect through [LocalClient::connect_stream] once
+//! the endpoint is established by the caller.
 
-use std::io::Write;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
+use crate::carrier::{CarrierStream, PeerDesc};
 use crate::credential::Credential;
 use crate::error::{TransportError, is_timeout_kind};
 use crate::framing::{FrameReadError, encode_frame, encode_frame_checked, read_frame};
@@ -12,23 +17,49 @@ use crate::limits::Limits;
 
 /// A client that authenticated with the server via a one-time credential.
 #[derive(Debug)]
-pub struct LocalClient {
-    stream: TcpStream,
+pub struct LocalClient<S = TcpStream> {
+    stream: S,
     limits: Limits,
-    peer: SocketAddr,
+    peer: PeerDesc,
 }
 
-impl LocalClient {
-    /// Connect to a [`LocalServer`](crate::LocalServer) and complete the
-    /// credential handshake. Fails with [`AuthError`](crate::AuthError) for
-    /// invalid/replay/stale credentials and with [`TransportError::Busy`]
-    /// when the server concurrency limit is reached.
+impl LocalClient<TcpStream> {
+    /// Connect to a [LocalServer](crate::LocalServer) over loopback TCP and
+    /// complete the credential handshake. Fails with
+    /// [AuthError](crate::AuthError) for invalid/replay/stale credentials and
+    /// with [TransportError::Busy] when the server concurrency limit is
+    /// reached.
     pub fn connect(
         addr: SocketAddr,
         credential: &Credential,
         limits: &Limits,
     ) -> Result<Self, TransportError> {
-        let mut stream = TcpStream::connect(addr)?;
+        let stream = TcpStream::connect(addr)?;
+        Self::connect_stream(stream, PeerDesc::Tcp(addr), credential, limits)
+    }
+
+    /// Server address this client connected to.
+    pub fn peer_addr(&self) -> SocketAddr {
+        self.peer
+            .tcp_addr()
+            .expect("a TCP client always carries a TCP peer descriptor")
+    }
+
+    /// Local address of the client socket.
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.stream.local_addr()
+    }
+}
+
+impl<S: CarrierStream> LocalClient<S> {
+    /// Complete the credential handshake over an already-connected carrier
+    /// stream (named pipe, UDS, or a pre-connected TCP socket).
+    pub fn connect_stream(
+        mut stream: S,
+        peer: PeerDesc,
+        credential: &Credential,
+        limits: &Limits,
+    ) -> Result<Self, TransportError> {
         stream.set_read_timeout(Some(limits.handshake_deadline))?;
         stream.set_write_timeout(Some(limits.handshake_deadline))?;
 
@@ -52,22 +83,17 @@ impl LocalClient {
         Ok(Self {
             stream,
             limits: *limits,
-            peer: addr,
+            peer,
         })
     }
 
-    /// Server address this client connected to.
-    pub fn peer_addr(&self) -> SocketAddr {
-        self.peer
-    }
-
-    /// Local address of the client socket.
-    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        self.stream.local_addr()
+    /// Where this client connected (wire-independent description).
+    pub fn peer(&self) -> &PeerDesc {
+        &self.peer
     }
 
     /// Send one frame. Payloads above the frame limit are rejected locally
-    /// with [`TransportError::Oversized`] (AC-IPC-002).
+    /// with [TransportError::Oversized] (AC-IPC-002).
     pub fn send(&mut self, payload: &[u8]) -> Result<(), TransportError> {
         if payload.len() > self.limits.max_frame_bytes {
             return Err(TransportError::Oversized {
@@ -85,7 +111,7 @@ impl LocalClient {
         self.send(&serde_json::to_vec(value)?)
     }
 
-    /// Block until one frame arrives; `Ok(None)` when the server closed.
+    /// Block until one frame arrives; Ok(None) when the server closed.
     pub fn recv(&mut self) -> Result<Option<Vec<u8>>, TransportError> {
         match read_frame(&mut self.stream, self.limits.max_frame_bytes)? {
             Some(bytes) => Ok(Some(bytes)),
@@ -93,7 +119,7 @@ impl LocalClient {
         }
     }
 
-    /// Like [`recv`](Self::recv), but `Ok(None)` after `timeout` elapses.
+    /// Like [recv](Self::recv), but Ok(None) after timeout elapses.
     pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Option<Vec<u8>>, TransportError> {
         self.stream.set_read_timeout(Some(timeout))?;
         let result = read_frame(&mut self.stream, self.limits.max_frame_bytes);

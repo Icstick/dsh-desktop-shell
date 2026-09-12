@@ -25,7 +25,13 @@ fn handshake_and_bidirectional_roundtrip() {
     assert_eq!(server.stats().credentials_consumed, 1);
 
     let conn = single_conn(&server);
-    assert_eq!(conn.peer(), client.local_addr().expect("client local addr"));
+    assert_eq!(
+        conn.peer().tcp_addr(),
+        Some(client.local_addr().expect("client local addr"))
+    );
+    // Loopback TCP is identity-less by design (ADR-0022): no kernel peer
+    // identity, so control-plane authority must never come from it alone.
+    assert!(conn.identity().is_none());
 
     // client -> server (binary)
     let payload = b"hello from client".to_vec();

@@ -50,7 +50,9 @@ use dsh_daemon::envelope::{
     AgreementPayload, Envelope, EnvelopeKind, ErrorCode, HelloPayload, PROTOCOL, Participant,
     ProtocolCoordinate, new_message_id, now_timestamp, validate_envelope,
 };
-use dsh_local_transport::{Credential, Limits, LocalClient, TransportError};
+use dsh_local_transport::{
+    ClientStream, Credential, Limits, LocalClient, PeerDesc, TransportError,
+};
 use tauri::{AppHandle, Emitter};
 
 /// Capabilities the Shell negotiates (ADR-0019 decision 5; the daemon
@@ -256,9 +258,18 @@ impl DaemonClientState {
 /// One queued client command for the worker thread.
 enum ClientCommand {
     Invoke {
-        envelope: Envelope,
+        // Boxed so the command enum stays small beside the id-only `Abandon`: an
+        // `Envelope` is orders of magnitude larger than a `String`, and this
+        // channel is a queue of these.
+        envelope: Box<Envelope>,
         reply: mpsc::SyncSender<ClientReply>,
     },
+    /// Drop the pending entry of an invocation whose caller has given up.
+    ///
+    /// The caller times out on its own channel, so only the worker can release
+    /// the entry it recorded; a daemon that never answers would otherwise grow
+    /// the worker's table for the life of the process.
+    Abandon { id: String },
 }
 
 /// The worker's answer for one queued invocation: a daemon Result
@@ -276,6 +287,9 @@ enum ClientReply {
 #[derive(Debug)]
 pub struct DaemonClient {
     commands: mpsc::Sender<ClientCommand>,
+    /// Per-invocation reply deadline. A field rather than the bare constant so
+    /// the timeout path (abandon and reap) is testable without waiting a minute.
+    invoke_timeout: Duration,
     activation_id: String,
     participant: Participant,
     generation: AtomicU64,
@@ -327,12 +341,16 @@ impl DaemonClient {
     /// Connect to the envelope server, negotiate (Hello -> Agreement) and
     /// spawn the worker thread. Returns the client and the event channel
     /// the caller bridges to the frontend.
+    /// TCP-only entry (tests/diagnostics): the Shell startup path goes
+    /// through [connect_shell] -> [connect_carrier] so it can prefer the
+    /// peer-identity carrier (ADR-0022).
+    #[allow(dead_code)]
     pub fn connect(
         addr: SocketAddr,
         credential: &Credential,
         limits: &Limits,
     ) -> Result<(Self, mpsc::Receiver<Envelope>), DaemonStartupError> {
-        let transport = LocalClient::connect(addr, credential, limits)?;
+        let transport = tcp_transport(addr, credential, limits)?;
         Self::connect_transport(transport)
     }
 
@@ -340,7 +358,7 @@ impl DaemonClient {
     /// transport (the daemon serve loop must be running before the Hello
     /// is answered; tests use this seam).
     pub fn connect_transport(
-        mut transport: LocalClient,
+        mut transport: LocalClient<ClientStream>,
     ) -> Result<(Self, mpsc::Receiver<Envelope>), DaemonStartupError> {
         let instance_id = format!(
             "shell-{:016x}",
@@ -437,6 +455,7 @@ impl DaemonClient {
         Ok((
             Self {
                 commands: command_tx,
+                invoke_timeout: INVOKE_TIMEOUT,
                 activation_id: payload.activation_id,
                 participant,
                 generation: AtomicU64::new(1),
@@ -480,13 +499,14 @@ impl DaemonConnector for DaemonClient {
             error: None,
         };
         let (reply_tx, reply_rx) = mpsc::sync_channel::<ClientReply>(1);
+        let invocation_id = invocation.id.clone();
         self.commands
             .send(ClientCommand::Invoke {
-                envelope: invocation,
+                envelope: Box::new(invocation),
                 reply: reply_tx,
             })
             .map_err(|_| DaemonCommandError::Transport("client worker is gone".into()))?;
-        match reply_rx.recv_timeout(INVOKE_TIMEOUT) {
+        match reply_rx.recv_timeout(self.invoke_timeout) {
             Ok(ClientReply::Result(reply)) => match reply.error {
                 Some(error) => Err(DaemonCommandError::Remote {
                     code: error.code,
@@ -501,10 +521,18 @@ impl DaemonConnector for DaemonClient {
             Ok(ClientReply::TransportClosed) => Err(DaemonCommandError::Transport(
                 "client transport closed before the invocation was sent".into(),
             )),
-            // A timed-out invocation leaves its pending entry in the worker
-            // until the (late) reply arrives - bounded, only on daemon
-            // misbehavior.
-            Err(mpsc::RecvTimeoutError::Timeout) => Err(DaemonCommandError::Timeout),
+            // Hand the entry back before returning: the caller is gone, so a
+            // daemon that never answers must not grow the worker's table. The
+            // abandon is best-effort - a worker that already exited has nothing
+            // left to reap, and a reply that still arrives for this id finds no
+            // entry and is dropped (ids come from `unique_token`, so it cannot be
+            // mistaken for a later invocation).
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                let _ = self
+                    .commands
+                    .send(ClientCommand::Abandon { id: invocation_id });
+                Err(DaemonCommandError::Timeout)
+            }
             Err(mpsc::RecvTimeoutError::Disconnected) => Err(DaemonCommandError::Transport(
                 "client worker is gone".into(),
             )),
@@ -703,7 +731,7 @@ impl DaemonConnector for AutoReconnectConnector {
 /// bridge channel. A dead connection makes the next send/recv fail and
 /// the worker exits.
 fn worker_loop(
-    mut transport: LocalClient,
+    mut transport: LocalClient<ClientStream>,
     commands: mpsc::Receiver<ClientCommand>,
     events: mpsc::SyncSender<Envelope>,
     stop: Arc<AtomicBool>,
@@ -721,6 +749,11 @@ fn worker_loop(
                         break 'outer;
                     }
                     pending.insert(id, reply);
+                }
+                Ok(ClientCommand::Abandon { id }) => {
+                    // Dropping the sender is the whole reap: the caller's receiver
+                    // is already gone, and a late reply for this id finds nothing.
+                    pending.remove(&id);
                 }
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => break 'outer,
@@ -930,6 +963,56 @@ fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     era * 146_097 + doe - 719_468
 }
 
+/// Loopback TCP carrier as a client stream (identity-less by design:
+/// ADR-0022 keeps TCP as the explicit, reported degradation).
+fn tcp_transport(
+    addr: SocketAddr,
+    credential: &Credential,
+    limits: &Limits,
+) -> Result<LocalClient<ClientStream>, TransportError> {
+    let inner = std::net::TcpStream::connect(addr)?;
+    LocalClient::connect_stream(
+        ClientStream::Tcp(inner),
+        PeerDesc::Tcp(addr),
+        credential,
+        limits,
+    )
+}
+
+/// Connect over the preferred carrier (ADR-0022): the named pipe published
+/// in the credential file when present, otherwise the TCP endpoint. Only a
+/// pipe connection carries a kernel-provided peer identity, so under the
+/// daemon strict policy the TCP fallback yields an identity-less
+/// connection that can never hold control-plane authority.
+fn connect_carrier(
+    file: &CredentialFile,
+    credential: &Credential,
+    limits: &Limits,
+) -> Result<LocalClient<ClientStream>, DaemonStartupError> {
+    #[cfg(windows)]
+    if let Some(pipe_name) = file.pipe_name.as_deref() {
+        match dsh_local_transport::named_pipe::connect(pipe_name) {
+            Ok(stream) => {
+                let peer = PeerDesc::NamedPipe(pipe_name.to_string());
+                return LocalClient::connect_stream(
+                    ClientStream::NamedPipe(stream),
+                    peer,
+                    credential,
+                    limits,
+                )
+                .map_err(DaemonStartupError::Transport);
+            }
+            Err(error) => {
+                eprintln!(
+                    "[daemon-client] named pipe connect failed ({error}); falling back to TCP (identity-less: shell_control requires the pipe under the strict policy)"
+                );
+            }
+        }
+    }
+    let addr = SocketAddr::from(([127, 0, 0, 1], file.port));
+    tcp_transport(addr, credential, limits).map_err(DaemonStartupError::Transport)
+}
+
 /// Full startup connect: probe the claim port (spawn the daemon when it is
 /// not running), wait for the credential file, connect + negotiate, and
 /// return the client with its event channel.
@@ -949,8 +1032,8 @@ pub fn connect_shell(
     let expires_at = parse_rfc3339_utc(&credential_file.credential.expires_at)
         .map_err(DaemonStartupError::InvalidCredential)?;
     let credential = Credential::new(credential_file.credential.token.clone(), expires_at);
-    let addr = SocketAddr::from(([127, 0, 0, 1], credential_file.port));
-    DaemonClient::connect(addr, &credential, &Limits::default())
+    let transport = connect_carrier(&credential_file, &credential, &Limits::default())?;
+    DaemonClient::connect_transport(transport)
 }
 
 /// Background startup task (lib.rs setup): retry until the first
@@ -1149,6 +1232,56 @@ pub(crate) mod tests {
             method: Some(method.into()),
             payload: Some(payload),
             error: None,
+        }
+    }
+
+    #[test]
+    fn a_timed_out_invocation_is_abandoned_to_the_worker() {
+        // The worker is the only owner of the pending table, so a caller that
+        // gives up must hand the entry back. Without the abandon, a daemon that
+        // never answers grows that table for the life of the process.
+        let (commands_tx, commands_rx) = mpsc::channel::<ClientCommand>();
+        let client = DaemonClient {
+            commands: commands_tx,
+            invoke_timeout: Duration::from_millis(20),
+            activation_id: "act-abandon".into(),
+            participant: Participant {
+                component: "dsh-desktop-shell".into(),
+                facet: "shell".into(),
+                activation_id: Some("act-abandon".into()),
+            },
+            generation: AtomicU64::new(1),
+            stop: Arc::new(AtomicBool::new(false)),
+        };
+
+        // Blocking on purpose: the invocation is queued synchronously, and the
+        // reply sender stays queued (never received) so the caller times out
+        // rather than seeing a disconnected channel.
+        let outcome = client.invoke(
+            ProtocolCoordinate {
+                api_version: "terminal.dsh-desktop.local/v1alpha1".into(),
+                kind: "Terminal".into(),
+            },
+            "terminal.status",
+            serde_json::json!({}),
+        );
+        assert!(matches!(outcome, Err(DaemonCommandError::Timeout)));
+
+        let queued = commands_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("invocation queued");
+        let id = match &queued {
+            ClientCommand::Invoke { envelope, .. } => envelope.id.clone(),
+            _ => panic!("the first queued command is the invocation"),
+        };
+        let abandoned = commands_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("abandon queued");
+        match abandoned {
+            ClientCommand::Abandon { id: reaped } => {
+                assert_eq!(reaped, id, "the abandon names the timed-out invocation")
+            }
+            _ => panic!("the timeout must abandon the invocation it queued"),
         }
     }
 
@@ -1504,6 +1637,70 @@ pub(crate) mod tests {
         std::thread::spawn(move || server.serve_connection(conn));
     }
 
+    /// ADR-0022 slice 5: the Shell prefers the peer-identity carrier. A
+    /// credential file carrying pipeName routes connect_carrier over the
+    /// named pipe, and the daemon-side connection exposes a kernel identity
+    /// - the prerequisite for shell_control under the strict policy.
+    #[cfg(windows)]
+    #[test]
+    fn connect_carrier_prefers_the_named_pipe_and_reports_identity() {
+        let daemon = spawn_in_process_daemon(TEST_CLAIM_PORT + 6);
+        let pipe_name = daemon
+            .server
+            .pipe_name()
+            .expect("a Windows daemon attaches a pipe carrier")
+            .to_string();
+
+        let dir = std::env::temp_dir().join(format!("dsh-client-pipe-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let startup = daemon.server.issue_credential(Duration::from_secs(3600));
+        let file = CredentialFile::new(
+            "0.1.0-test",
+            std::process::id(),
+            TEST_CLAIM_PORT + 6,
+            daemon.server.addr().port(),
+            startup.token(),
+            startup.expires_at(),
+            SystemTime::now(),
+        )
+        .with_pipe_name(&pipe_name);
+        file.write_to(&dir).expect("writes credential file");
+
+        let read = CredentialFile::read_from(&dir).expect("read credential file");
+        let expires_at = parse_rfc3339_utc(&read.credential.expires_at).expect("expiry");
+        let credential = Credential::new(read.credential.token.clone(), expires_at);
+        let transport = connect_carrier(&read, &credential, &Limits::default())
+            .expect("pipe carrier connect + handshake");
+        assert!(
+            matches!(transport.peer(), PeerDesc::NamedPipe(name) if name == &pipe_name),
+            "connect_carrier must prefer the published pipe: {:?}",
+            transport.peer()
+        );
+
+        // The daemon side observes the kernel identity on that connection
+        // before serving it (identity is what strict policy reads).
+        let identity_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server = Arc::clone(&daemon.server);
+        let flag = Arc::clone(&identity_seen);
+        std::thread::spawn(move || {
+            let conn = server.take_connection().expect("pipe connection appears");
+            if conn.identity().is_some() {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+            server.serve_connection(conn);
+        });
+
+        let (client, _events) =
+            DaemonClient::connect_transport(transport).expect("negotiate over the pipe");
+        assert!(client.activation_id().starts_with("act-"));
+        assert!(
+            identity_seen.load(std::sync::atomic::Ordering::SeqCst),
+            "the daemon must observe a kernel peer identity on the pipe connection"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Serve every connection as it appears, deduped by connection id
     /// (mirrors the daemon main.rs serve loop; needed by the connect_shell
     /// path where the handshake and the negotiation happen inside one
@@ -1528,12 +1725,8 @@ pub(crate) mod tests {
     fn client_negotiates_invokes_and_receives_events() {
         let daemon = spawn_in_process_daemon(TEST_CLAIM_PORT);
         let credential = daemon.server.issue_credential(Duration::from_secs(3600));
-        let transport = dsh_local_transport::LocalClient::connect(
-            daemon.server.addr(),
-            &credential,
-            &Limits::default(),
-        )
-        .expect("handshake");
+        let transport = tcp_transport(daemon.server.addr(), &credential, &Limits::default())
+            .expect("handshake");
         serve_one(&daemon);
         let (client, events) =
             DaemonClient::connect_transport(transport).expect("connect + negotiate");

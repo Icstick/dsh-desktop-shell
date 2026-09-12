@@ -1,6 +1,33 @@
 # Current Project State
 
 
+## 2026-09-12 21:30 · 真实会话冒烟通过（Windows 闭环）
+
+- debug Shell + daemon 构建（target/debug 同目录）→ 隔离数据目录启动。daemon banner：管道名 +
+  identity strict（expected shell 自动推导到 target/debug/dsh-desktop-shell.exe）。
+- daemon 日志：connection accepted peer=pipe:... identity=pid=25476 image=<Shell exe>；
+  activation ... authority=ShellControl —— Shell 真实进程走管道并拿到控制面权限。
+- GUI 正常渲染（导航/运行时面板），仅有空 catalog 的预期领域错误；磁盘凭据为 v2（含 pipeName）。
+- 剩余：slice 6（Unix UDS + CI）、live QA 管道腿、H-2 状态翻转、合并 main。
+## 2026-09-12 深夜 · ADR-0022 全部 Windows 切片落地（feat/m12-peer-identity）
+
+- slice 4：附加载体共享监督状态 + daemon 挂载管道 + credential v2(pipeName) + --peer-identity-policy
+  （Windows 默认 strict / Unix 默认 Off 直到 UDS 载体）+ 策略负向测试（TCP 无身份拒绝 / Off 放行）。
+- slice 5：Shell 客户端载体泛型化（LocalClient<S> / ClientStream / connect_stream），daemon_client
+  优先管道、TCP 降级并记日志；端到端测试证明管道连接在 daemon 侧携带内核身份。
+- slice 7 核心：peer_identity_pipe.rs 两条腿——镜像匹配的 Shell 走管道保留 shell_control（dispatch 成功）；
+  同用户伪装进程（有效凭据 + 自称 Shell + 不同镜像）拿不到任何 grant、dispatch Unauthorized。
+- H-2 技术判据已满足（AD(4) 的负向测试 + 默认路径）；完整关闭前还差：真实会话冒烟（GUI 走管道）、
+  slice 6（Unix UDS + CI 矩阵）、live QA 的管道腿。
+## 2026-09-12 晚 · ADR-0022 实现开工（WI-M12-PEER-IDENTITY @ feat/m12-peer-identity，已 push）
+
+- ADR-0022 转 accepted；WI-M12 认领。slice 1（7047fd6）carrier 抽象 + peer identity
+  （Windows FFI / Linux nix SO_PEERCRED / 其他 Unix 明示 Unsupported；unsafe 基线 forbid→deny 单点豁免）；
+  slice 2（0833542）server core 泛型化（TCP 行为不变）；slice 3（b2549e0）Windows 命名管道载体
+  （帧往返 + 内核 PID 断言 + 读超时语义 + 毒丸式可中断 accept；transport 全绿）。
+- NEXT slice 4/5（必须同批）：daemon 接受命名管道连接（credential 文件加 pipe 名）+ Shell 客户端优先管道、
+  TCP 降级；expected-Shell-path 策略（override → 布局推导 → fail closed）决定 shell_control；
+  TCP 无身份 → 不得 shell_control（ADR-0022 决策 3）。之后 slice 6 Unix UDS（CI 矩阵）、slice 7 伪装进程负向测试 + live QA。
 ## 2026-09-12 · P0/P1 执行（审计后收口 + 排期 + 设计）
 
 - P0：CI 回绿确认（09-11 三次 main run success；09-08 的 clippy 红已随审计修复消除）。

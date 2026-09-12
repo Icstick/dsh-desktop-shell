@@ -52,16 +52,28 @@
 //! - `limits`: frame/deadline/concurrency limits.
 //! - `server`: listener, accept loop, supervision and stats.
 
-#![forbid(unsafe_code)]
+// Unsafe code stays EXCLUDED as a default and is allowed only where the
+// platform demands raw FFI and no safe wrapper exists: today that is exactly
+// the Windows side of the peer-identity carrier - the Win32 probes in
+// `peer` (GetNamedPipeClientProcessId + QueryFullProcessImageNameW) and the
+// named-pipe endpoint in `named_pipe`. ADR-0022 (accepted) authorizes this
+// module-contract widening; every other module stays unsafe-free, and each
+// exemption is documented at the call site.
+#![deny(unsafe_code)]
 
+pub mod carrier;
 pub mod client;
 pub mod credential;
 pub mod error;
 pub mod framing;
 pub mod handshake;
 pub mod limits;
+#[cfg(windows)]
+pub mod named_pipe;
+pub mod peer;
 pub mod server;
 
+pub use carrier::{CarrierListener, CarrierStream, ClientStream, PeerDesc};
 pub use client::LocalClient;
 pub use credential::{AuthError, Credential, CredentialIssuer};
 pub use error::TransportError;
@@ -70,4 +82,5 @@ pub use framing::{
 };
 pub use handshake::{ClientHello, ServerHello};
 pub use limits::Limits;
+pub use peer::PeerIdentity;
 pub use server::{LocalServer, ServerConn, ServerStats};

@@ -23,5 +23,5 @@ ADR 是 ownership、public contract、状态机、transport、trust boundary、�
 - [ADR-0013](ADR-0013-supervisor-restart-recovery.md)
 - [ADR-0014](ADR-0014-capability-broker-grant-lease.md)
 - [ADR-0021](ADR-0021-shell-daemon-identity-binding.md) — accepted（Shell–Daemon 身份绑定 option C；H-2 未关闭，见 ADR-0022 预留；本索引 0015-0020 未登记，属既有漂移）
-- [ADR-0022](ADR-0022-peer-identity.md) — proposed（local-transport peer identity；spike 先行，落地后 H-2 才可标「已关闭」）
+- [ADR-0022](ADR-0022-peer-identity.md) — accepted（local-transport peer identity；B2 方向，spike 已完成，实现分片推进中；落地后 H-2 才可标「已关闭」）
 - [ADR-0023](ADR-0023-user-gesture-gate.md) — accepted（lease `approval_required` 接成用户手势闸门；v0.1.0 之后实施）

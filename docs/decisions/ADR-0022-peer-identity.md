@@ -1,9 +1,14 @@
 ---
 id: ADR-0022
-status: proposed
+status: accepted
 date: 2026-09-12
 owner_role: runtime-and-security-owner
 ---
+
+> **接受记录**：2026-09-12 由项目所有者接受。决策 1/2/3/4 生效；spike（Windows 半）已完成并支持 B2
+> 方向（`docs/research/SPIKE-PEER-IDENTITY-20260912.md`）。实现按决策 3 的约束分片推进
+> （carrier 拆分 → Windows Named Pipe → daemon 接线 → Unix 分支 + CI 验证）；落地并有负向测试后
+> H-2 才可标「已关闭」。已接受 ADR 不原地改写结论。
 
 # ADR-0022: Shell–Daemon peer identity（local-transport 对端进程绑定）
 
