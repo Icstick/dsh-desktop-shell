@@ -1,0 +1,33 @@
+schema_version: 1
+id: WI-M11-USER-GESTURE-GATE
+title: "Wire leaseConstraints.approval_required into a real USER_GESTURE_REQUIRED dispatch gate"
+status: proposed
+milestone: M11
+module: MOD-DAEMON
+owner_role: runtime-and-security-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - "ADR-0023 accepted 2026-09-11"
+  - "Scheduling: implement after the v0.1.0 release gate (M8-E), per owner decision 2026-09-11"
+acceptance_criteria:
+  - "An activation whose Agreement carries leaseConstraints.approval_required=true cannot dispatch any granted capability until a one-shot, time-bounded user gesture is recorded for (activation_id, capability); without it dispatch returns USER_GESTURE_REQUIRED with retryable=true and leaves an auditable record."
+  - "A consumed or expired gesture no longer authorizes anything; a second invocation requires a fresh gesture (no replay, no implicit renewal)."
+  - "A user refusal is reported as USER_DENIED (retryable=false) and is distinguishable from an absent gesture."
+  - "Arming is driven by local user policy only: a counterparty declaring capabilities in Hello can never make itself exempt from the gate, verified by a test that a hostile Hello claiming full support still hits the gate."
+  - "With no policy arming the gate, every existing flow behaves exactly as before (default remains approval_required=None at crates/daemon/src/server.rs:570), verified by the existing daemon/supervisor suites staying green."
+  - "Every issuance, consumption, refusal and blocked dispatch emits a structured record carrying a correlation id and no credentials/URLs/user data."
+security_impact: "Adds a precondition to the daemon dispatch gate, i.e. a trust-boundary change: the daemon stops trusting 'the Agreement said it was fine' and starts requiring a gesture. Must remain fail-closed on empty/expired/unknown gesture state. Gesture issuer identity is bounded by connection-level credential auth until ADR-0021's peer identity (ADR-0022) lands - this WI must not claim unforgeable user intent."
+compatibility_impact: "No new envelope method and no capability version change in the first cut (the gesture submission path is a local, controlled surface). USER_GESTURE_REQUIRED already exists in specs/protocol/envelope.schema.json and packages/capability-contracts, so no protocol schema change is required for enforcement itself."
+scope:
+  - crates/daemon/ (dispatch gate + gesture record store + audit records)
+  - crates/daemon/ (Agreement arming from local policy; keeps broker DSH-neutral per ADR-0014)
+  - apps/desktop/ (the user gesture submission surface, whatever form the implementation review settles on)
+  - specs/ + docs/protocol/ERROR_MODEL.md cross-check (no schema change expected)
+evidence: []
+blocked_by: []
+next_action: "Not startable yet by scheduling decision (owner: after v0.1.0). When the window opens: settle the gesture submission path in implementation review, claim this WI on an independent branch, then implement the dispatch gate against the six acceptance criteria."
+handoff: null
+updated_at: "2026-09-11T20:30:00.000Z"
