@@ -38,6 +38,19 @@
 
 完成声明必须链接可复查证据：测试输出、Schema 校验、文档链接、review 记录或发布 artifact。未验证时使用 `review`，不得使用 `verified` 或 `done`。
 
+**平台矩阵的本地验证（2026-09-13 教训）**：在 Windows-only 开发机上改动 `cfg(unix)` 分支后，
+`cargo clippy` 只看 host——cfg(unix) 里的 dead_code / unused import / unused_mut 会让 CI 的
+ubuntu/macos 矩阵红而本地全绿。提交前做交叉检查：
+
+```
+rustup target add x86_64-unknown-linux-gnu aarch64-apple-darwin
+cargo clippy -p <crate> --target x86_64-unknown-linux-gnu --all-targets -- -D warnings
+cargo clippy -p <crate> --target aarch64-apple-darwin --all-targets -- -D warnings
+```
+
+Windows-only 的测试文件加文件级 `#![cfg(windows)]`。依赖系统库的 crate（tauri/webkit2gtk）
+无法交叉编译，其 Unix 分支只能靠 CI 验证，改动时要额外小心。
+
 ## Handoff
 
 Session 结束前：
