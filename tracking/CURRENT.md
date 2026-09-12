@@ -1,6 +1,14 @@
 # Current Project State
 
 
+## 2026-09-12 22:00 · ADR-0022 Windows 全量合并 main
+
+- feat/m12-peer-identity（17 commits，含并行会话的 pending-reap 修复）squash 合并 main @ dca033b，
+  已 push；分支本地与远程均已删除。
+- 合并前门禁：fmt/clippy 干净、workspace 全量测试无失败、specs 63 schemas + 133 fixtures 全过。
+- WI-M12-PEER-IDENTITY → done（Windows 闭环：实现 + 负向测试 + 真实会话冒烟）。
+- 后续：WI-M13-UNIX-UDS-CARRIER（ready）承接 Unix UDS 载体、live QA 管道腿与 H-2 状态翻转。
+- CI：main push 已触发，稍后可查（gh run list）。
 ## 2026-09-12 21:30 · 真实会话冒烟通过（Windows 闭环）
 
 - debug Shell + daemon 构建（target/debug 同目录）→ 隔离数据目录启动。daemon banner：管道名 +

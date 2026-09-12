@@ -1,0 +1,33 @@
+schema_version: 1
+id: WI-M13-UNIX-UDS-CARRIER
+title: "Unix UDS peer-identity carrier + live-QA pipe leg (ADR-0022 slice 6)"
+status: ready
+milestone: M13
+module: MOD-LOCAL-TRANSPORT
+owner_role: runtime-and-security-owner
+claimed_by: null
+session: null
+branch_or_worktree: null
+claim_expires_at: null
+dependencies:
+  - "ADR-0022 accepted; Windows carrier merged to main (dca033b)"
+acceptance_criteria:
+  - "UdsListener/UdsStream carrier in dsh-local-transport (Unix), with peer identity via SO_PEERCRED (Linux) and LOCAL_PEERPID or getpeereid (macOS); the non-Linux path currently returns a typed Unsupported error and must become a real implementation or an explicit documented degradation."
+  - "Daemon attaches the UDS carrier on Unix; the credential file publishes the socket path; the Shell prefers it over TCP."
+  - "Unix default policy returns to strict once the carrier lands (remove the platform gate in main.rs)."
+  - "CI matrix (ubuntu + macos) green including the carrier tests; the same-user impostor negative test runs on Unix."
+  - "scripts/qa/live-daemon-qa.mjs gains a peer-identity-carrier leg (connect over the pipe/UDS, assert control-plane authority)."
+  - "H-2 flips to closed in docs/audits/audit-summary-2026-09-10.md; ADR-0022 decision 4 conditions recorded as satisfied."
+security_impact: "Extends the H-2 fix to Unix platforms with the same fail-closed semantics; no new trust boundary beyond the carrier."
+compatibility_impact: "New carrier; credential file gains a Unix socket path field; TCP remains the documented degradation."
+scope:
+  - crates/local-transport/ (uds carrier)
+  - crates/daemon/ (carrier attach + platform policy gate removal)
+  - apps/desktop/src-tauri/src/daemon_client.rs (carrier preference)
+  - scripts/qa/ + CI matrix
+  - tracking/ + docs/audits
+evidence: []
+blocked_by: []
+next_action: "Implement the UDS carrier mirroring named_pipe.rs (listener acceptor thread + stream with read deadlines), wire daemon/Shell, verify on the CI matrix, then the live-QA leg and the H-2 status flip."
+handoff: null
+updated_at: "2026-09-12T14:05:00.000Z"

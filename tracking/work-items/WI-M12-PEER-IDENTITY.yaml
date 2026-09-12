@@ -1,7 +1,7 @@
 schema_version: 1
 id: WI-M12-PEER-IDENTITY
 title: "local-transport peer identity: carrier split + Named Pipe/UDS with kernel-provided peer identity"
-status: in_progress
+status: done
 milestone: M12
 module: MOD-LOCAL-TRANSPORT
 owner_role: runtime-and-security-owner
@@ -37,6 +37,6 @@ evidence:
   - "Slice 3 (b2549e0): Windows named pipe carrier - round trip with a real client, kernel PID assertion (pid == this process, image path resolved), read deadline expires as WouldBlock, stop() wakes a blocked acceptor. Transport suite 17 lib + integrations green."
   - "Slice 4 (66155f4 + fda3ae1): attached carrier shares the supervision state (carrier_attach.rs); daemon attaches the pipe carrier, credential file v2 carries pipeName, --peer-identity-policy strict|off with expected-Shell-path derivation; peer_identity_policy.rs proves strict denies an identity-less TCP Shell claim while Off keeps the relaxed path."
 blocked_by: []
-next_action: "Windows closure is complete (implementation + negative tests + real-session smoke). Remaining: slice 6 Unix UDS carrier on the CI matrix, a live-QA leg over the pipe, then flip H-2 in the audit report and squash-merge this branch to main."
+next_action: "Closed 2026-09-12: Windows closure complete (implementation + negative tests + real-session smoke) and squash-merged to main (dca033b). Unix carrier + live-QA leg tracked as WI-M13-UNIX-UDS-CARRIER."
 handoff: null
 updated_at: "2026-09-12T11:35:00Z"
