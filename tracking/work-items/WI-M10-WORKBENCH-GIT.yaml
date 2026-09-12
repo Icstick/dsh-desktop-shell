@@ -24,6 +24,6 @@ scope:
   - tracking/
 evidence: []
 blocked_by: [WI-M10-WORKBENCH-FS]
-next_action: "Design doc: git backend choice (gitoxide vs CLI), diff rendering, confirmation UX for mutations."
+next_action: "Design doc landed 2026-09-12 (docs/roadmap/DESIGN-WORKBENCH-PHASE1.md): backend = git CLI, diff in a read-only editor pane, typed confirmations for destructive verbs. Start after FS (dependency)."
 handoff: null
 updated_at: "2026-09-08T00:00:00.000Z"

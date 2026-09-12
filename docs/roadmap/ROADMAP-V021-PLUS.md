@@ -39,6 +39,31 @@ profile/plugin snapshot strategy, budget, UX surfacing.
 - SSH connection manager (reuses the terminal surface for remote PTYs),
   remote file browsing via sftp later.
 
+## Priority queue (decided 2026-09-12, after the 0.2.1 merge)
+
+Ordered by user-visible pain vs dependency depth; the workbench track
+(0.3.0 -> 0.5.0) stays the main line, everything below slots between or
+parallel to it.
+
+1. **ADR-0022 peer-identity spike** (proposed; Windows Named Pipe + Unix
+   UDS feasibility, expected-Shell-path rule) - small, unblocks the only
+   path that can actually close H-2; schedule before or alongside 0.3.0.
+2. **WI-M9-SAFE-MODE-RECOVERY** (proposed) - isolated recovery profile
+   that never mutates the normal one; low-cost precursor to the 0.4.0
+   startup rollback theme (ADR there can build on it).
+3. **WI-M9-PLUGIN-FAULT-ATTRIBUTION** (proposed) - evidence chain from
+   symptom to responsible plugin; pairs with the existing diagnostics
+   surface, no new trust boundary.
+4. **WI-M11-USER-GESTURE-GATE** (proposed; ADR-0023 accepted) - wire the
+   dormant approval_required into a real USER_GESTURE_REQUIRED dispatch
+   gate; security review required at implementation time.
+5. **WI-M10-MULTI-BACKEND-FLEET** (proposed) - mixed local/remote session
+   list and self-healing tunnels; depends on the SSH/tunnel groundwork of
+   the 0.5.0 workbench Phase 2, so it follows it.
+
+Backlog rule: proposed WIs are not startable until claimed with a branch
+and evidence plan; the ordering above is a queue, not a commitment.
+
 ## Deferred backlog
 
 - Browser C4 remainder: daemon-initiated navigate/snapshot envelope

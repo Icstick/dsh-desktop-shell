@@ -1,6 +1,21 @@
 # Current Project State
 
 
+## 2026-09-12 · P0/P1 执行（审计后收口 + 排期 + 设计）
+
+- P0：CI 回绿确认（09-11 三次 main run success；09-08 的 clippy 红已随审计修复消除）。
+  ADR-0021 转 **accepted**（option C 已合并 f813d7a；决策 5 的 H-2 部分收敛状态保留）。
+- 收编 09-11 WIP：ADR-0023（user gesture gate，accepted）+ WI-M11（proposed）已提交（182b897）。
+- ADR-0022（local-transport peer identity）起草为 **proposed**：方向取 B2（Named Pipe/UDS
+  内核级 peer identity），spike 先行；B1（TCP 表查 PID）仅作过渡。落地后 H-2 才可标「已关闭」。
+- WI-M10-BROWSER-FLAKE：ownership flake 根因 = 测试断言 pre-M6-C4 旧行为（断连释放所有权）
+  与异步 teardown 竞态；重写为双语义（活连接拒绝 + 无主会话可接管，轮询 5s 消除竞态），
+  修复后 20/20 绿（修前 10/20 失败）。WI-M10-IDENTITY-BINDING 关闭（done）。
+- 排期：ROADMAP 新增 Priority queue（ADR-0022 spike → SAFE-MODE-RECOVERY →
+  PLUGIN-FAULT-ATTRIBUTION → WI-M11 GESTURE-GATE → MULTI-BACKEND-FLEET）。
+- 0.3.0 设计：docs/roadmap/DESIGN-WORKBENCH-PHASE1.md（containment 安全核心、树/编辑/保存、
+  git CLI 后端、命令面与分期 FS-M1/M2 + GIT-M1/M2、非目标）。
+- NEXT：claim FS-M1 实现（roots + tree + 只读视图）；或先做 ADR-0022 spike。
 ## 审计修复已合并 main（2026-09-10 晚）
 
 - 分支 fix/audit-20260910-security-hardening（含 docs/peer-survey-20260909 的调研文档）
