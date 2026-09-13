@@ -59,6 +59,23 @@ carries the fresh §GitStatusReport§ (the same shape §git_status§ returns).
 - Gates: fmt, clippy -D warnings, cargo test, pnpm check, pnpm test, validate-acl,
   validate-specs, CI on the branch.
 
+## As built (2026-09-13)
+
+- Whole-tree actions sit on the **改动 / Changes** header (stage all / unstage all), not
+  on each group header: the backend takes a path or everything, so a per-group button
+  would have promised a scope it cannot express.
+- **Discard** is available on staged and unstaged entries but never on an untracked one
+  (git has nothing to restore for those). The confirmation word is the localized
+  §git.discard.word§ (zh "放弃" / en "DISCARD").
+- The panel no longer advertises itself as read-only: the docbar chip is gone and the
+  toolbar hint says staging and committing happen here.
+- The commit box belongs to the index, not to the selected file, so it lives outside the
+  diff's selection branch and stays put while the diff scrolls.
+- Two things the first screenshot caught: a disabled action kept the weight of a live one
+  (no §:disabled§ rule existed for §.git-panel__action§), and two row actions left the path
+  column too narrow, so the column now runs 240-360 px and the row actions use a smaller
+  type size.
+
 ## Explicitly deferred
 
 Per-hunk staging, §--amend§, branch switching / checkout of a revision, stash, remote and

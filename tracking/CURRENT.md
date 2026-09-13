@@ -39,7 +39,12 @@
   `git_stage` / `git_unstage` / `git_commit` / `git_discard`；unstage 会按仓库有无 HEAD 选原语并在报告里写明；
   commit 的空消息/无暂存守卫在跑 git 前完成；discard 只做 `restore --worktree`（不碰索引与 HEAD）。
   ACL 53 commands、specs 89/185 ALL PASS、cargo 197 passed。UI 半片待做。
-- NEXT：GIT-M2 的界面（逐条/分组 stage·unstage、commit 框、discard 键入式确认 + vitest）→ 转正合并 PR #9。
+- **GIT-M2 界面完成（2026-09-13）**：行内「暂存 / 取消暂存 / 放弃改动」+ 改动层「全部暂存 / 全部取消暂存」、
+  常驻底部的提交框（已暂存 N 项 / Ctrl+Enter / 空消息与无暂存时禁用）、discard 的键入式确认弹层；
+  面板不再自称只读（去掉只读 chip、工具条提示改写）。vitest **134/134**（新增 7 条 M2 用例）；
+  视觉走查抓到并修掉两处：禁用按钮看不出禁用、行内动作把路径列挤没了（列宽 240–360 + 动作字号下调）。
+  证据 `gitm1-evidence/09-git-m2-controls-1920.png`。
+- NEXT：把 PR #9 转正 → CI 绿后合并 main → WI-M10-WORKBENCH-GIT 收口（0.3.0 的 workbench Phase 1 完结）。
 
 
 ## 2026-09-13 · WI-M10-WORKBENCH-FS 开工（FS-M1：roots + 树 + 只读视图）

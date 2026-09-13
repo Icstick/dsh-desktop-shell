@@ -384,6 +384,10 @@ function createApi(): DesktopApi {
     gitDiff: vi.fn(),
     gitLog: vi.fn(),
     gitBranches: vi.fn(),
+    gitStage: vi.fn(),
+    gitUnstage: vi.fn(),
+    gitCommit: vi.fn(),
+    gitDiscard: vi.fn(),
     validateEnvironment: vi.fn().mockResolvedValue({
       valid: true,
       issues: [],
