@@ -2,7 +2,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { FsDirReport, FsFileReport, FsRootsReport, FsStatReport } from "../../../src/contracts";
+import type {
+  FsDirReport,
+  FsFileReport,
+  FsReadFileRequest,
+  FsRootsReport,
+  FsStatReport,
+  FsStatRequest,
+} from "../../../src/contracts";
 import type { DesktopApi } from "../../../src/desktop-api";
 import { I18nProvider, persistLang } from "../../../src/i18n";
 import { FileManagerPanel } from "./FileManagerPanel";
@@ -91,6 +98,37 @@ async function openReadme(api: DesktopApi) {
 }
 
 describe("FileManagerPanel (FS-M2)", () => {
+  it("follows the click: another file swaps the document bar and the editor", async () => {
+    // Regression guard: the view must be driven by the read report for the file
+    // that was asked for, never by a cached or hardcoded one.
+    const api = fakeApi({
+      fsReadFile: vi.fn(async (request: FsReadFileRequest): Promise<FsFileReport> =>
+        fileReport({ path: request.relativePath, content: "content of " + request.relativePath }),
+      ),
+      fsStat: vi.fn(async (request: FsStatRequest): Promise<FsStatReport> =>
+        statReport({ path: request.relativePath }),
+      ),
+    });
+    renderPanel(api);
+    await userEvent.click(await screen.findByRole("button", { name: "Repository" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /README.md/ }));
+    await waitFor(() =>
+      expect((screen.getByTestId("fm-editor") as HTMLTextAreaElement).value).toBe(
+        "content of README.md",
+      ),
+    );
+    expect(screen.getByTestId("fm-status-path").textContent).toBe("README.md");
+
+    await userEvent.click(screen.getByRole("button", { name: /notes.md/ }));
+    await waitFor(() =>
+      expect((screen.getByTestId("fm-editor") as HTMLTextAreaElement).value).toBe(
+        "content of notes.md",
+      ),
+    );
+    expect(screen.getByTestId("fm-status-path").textContent).toBe("notes.md");
+  });
+
   it("keeps each root's entries inside that root", async () => {
     const api = fakeApi({
       fsListRoots: vi.fn(

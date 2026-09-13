@@ -32,8 +32,8 @@ const dirs: Record<string, Array<{ name: string; kind: string; size: number; hid
   "": [
     { name: "crates", kind: "dir", size: 0, hidden: false },
     { name: "apps", kind: "dir", size: 0, hidden: false },
-    { name: "AGENTS.md", kind: "file", size: 3388, hidden: false },
-    { name: "README.md", kind: "file", size: 1204, hidden: false },
+    { name: "AGENTS.md", kind: "file", size: 0, hidden: false },
+    { name: "README.md", kind: "file", size: 0, hidden: false },
   ],
   "crates": [
     { name: "dsh-daemon", kind: "dir", size: 0, hidden: false },
@@ -44,25 +44,93 @@ const dirs: Record<string, Array<{ name: string; kind: string; size: number; hid
     { name: "Cargo.toml", kind: "file", size: 612, hidden: false },
   ],
   "crates/local-transport/src": [
-    { name: "lib.rs", kind: "file", size: 2044, hidden: false },
-    { name: "peer.rs", kind: "file", size: 9123, hidden: false },
-    { name: "uds.rs", kind: "file", size: 14802, hidden: false },
+    { name: "lib.rs", kind: "file", size: 0, hidden: false },
+    { name: "peer.rs", kind: "file", size: 0, hidden: false },
+    { name: "uds.rs", kind: "file", size: 0, hidden: false },
   ],
 };
-const sampleSource = [
-  "//! Windows named-pipe peer identity (preview fixture).",
-  "",
-  "pub(crate) fn peer_process_id(handle: RawHandle) -> io::Result<u32> {",
-  "    let info = query_pipe_peer(handle)?;",
-  "    Ok(info.process_id)",
-  "}",
-  "",
-  "fn query_pipe_peer(handle: RawHandle) -> io::Result<PeerInfo> {",
-  "    // GetNamedPipeClientProcessId is the only reliable source here.",
-  "    unsafe { PEER.with(|cell| cell.get(handle)) }",
-  "}",
-  "",
-].join("\n");
+/**
+ * File contents keyed by repo-relative path. The read/stat mocks answer with the
+ * path that was actually requested - an earlier version returned one hardcoded
+ * file for every read, which made the preview look broken when it was only the
+ * fixture lying.
+ */
+const files: Record<string, string> = {
+  "README.md": [
+    "# DeepSeek Desktop Shell",
+    "",
+    "A desktop shell for the DeepSeek Harness: environments, terminal, browser,",
+    "notifications, usage and the dev workbench.",
+    "",
+    "## Workbench",
+    "",
+    "- Files: browse and edit the environment-linked roots.",
+    "- Git: read status and diffs, stage, commit, discard.",
+    "",
+  ].join("\n"),
+  "AGENTS.md": [
+    "# Agent Operating Contract",
+    "",
+    "Read START_HERE.md, tracking/project.yaml and tracking/CURRENT.md before you",
+    "claim anything. One work item per session, claimed with a branch and an",
+    "evidence plan; state lives in tracking/, interfaces in specs/, reasons in ADR.",
+    "",
+    "Applies to every agent, automation and human contributor in this repository.",
+    "",
+  ].join("\n"),
+  "crates/local-transport/Cargo.toml": [
+    "[package]",
+    'name = "dsh-local-transport"',
+    'version = "0.2.0"',
+    'edition = "2024"',
+    "",
+    "[dependencies]",
+    'serde = { version = "1", features = ["derive"] }',
+    "",
+  ].join("\n"),
+  "crates/local-transport/src/lib.rs": [
+    "//! Local transport carriers: TCP, Windows named pipes and Unix sockets.",
+    "",
+    "mod peer;",
+    "mod uds;",
+    "",
+    "pub use peer::PeerInfo;",
+    "pub use uds::UdsListener;",
+    "",
+  ].join("\n"),
+  "crates/local-transport/src/peer.rs": [
+    "//! Windows named-pipe peer identity (preview fixture).",
+    "",
+    "pub(crate) fn peer_process_id(handle: RawHandle) -> io::Result<u32> {",
+    "    let info = query_pipe_peer(handle)?;",
+    "    Ok(info.process_id)",
+    "}",
+    "",
+    "fn query_pipe_peer(handle: RawHandle) -> io::Result<PeerInfo> {",
+    "    // GetNamedPipeClientProcessId is the only reliable source here.",
+    "    unsafe { PEER.with(|cell| cell.get(handle)) }",
+    "}",
+    "",
+  ].join("\n"),
+  "crates/local-transport/src/uds.rs": [
+    "//! Unix domain socket carrier (preview fixture).",
+    "",
+    "pub struct UdsListener {",
+    "    listener: UnixListener,",
+    "    path: PathBuf,",
+    "}",
+    "",
+    "impl UdsListener {",
+    "    pub fn bind(path: &Path) -> io::Result<Self> {",
+    "        let listener = UnixListener::bind(path)?;",
+    "        Ok(Self { listener, path: path.to_path_buf() })",
+    "    }",
+    "}",
+    "",
+  ].join("\n"),
+};
+const sizeOf = (path: string) => files[path]?.length ?? 0;
+const fileAt = (path: string) => files[path] ?? "// (empty preview fixture)\n";
 const sampleDiff = [
   "diff --git a/crates/local-transport/src/peer.rs b/crates/local-transport/src/peer.rs",
   "index 3f9a1c2..8b41e77 100644",
@@ -156,14 +224,48 @@ mockIPC((command, payload) => {
   switch(command) {
     case "fs_list_roots": return workbenchRoots;
     case "fs_read_dir": {
-      const request = (payload as { request?: { relativePath?: string } } | undefined)?.request;
+      const request = (payload as { request?: { rootId?: string; relativePath?: string } } | undefined)?.request;
       const relative = request?.relativePath ?? "";
-      return { schemaVersion: 1, rootId: "repo", path: relative, truncated: false, entries: dirs[relative] ?? [] };
+      const entries = (dirs[relative] ?? []).map((entry) => {
+        if (entry.kind !== "file") return entry;
+        const path = relative === "" ? entry.name : relative + "/" + entry.name;
+        return { ...entry, size: sizeOf(path) };
+      });
+      return {
+        schemaVersion: 1,
+        rootId: request?.rootId ?? "repo",
+        path: relative,
+        truncated: false,
+        entries,
+      };
     }
-    case "fs_read_file":
-      return { schemaVersion: 1, rootId: "repo", path: "crates/local-transport/src/peer.rs", size: 9123, encoding: "utf-8", readOnly: false, reason: null, content: sampleSource };
-    case "fs_stat":
-      return { schemaVersion: 1, rootId: "repo", path: "crates/local-transport/src/peer.rs", size: 9123, modifiedUnixMs: 1789251600000, editable: true, reason: null };
+    case "fs_read_file": {
+      const request = (payload as { request?: { rootId?: string; relativePath?: string } } | undefined)?.request;
+      const relative = request?.relativePath ?? "";
+      return {
+        schemaVersion: 1,
+        rootId: request?.rootId ?? "repo",
+        path: relative,
+        size: sizeOf(relative),
+        encoding: "utf-8",
+        readOnly: false,
+        reason: null,
+        content: fileAt(relative),
+      };
+    }
+    case "fs_stat": {
+      const request = (payload as { request?: { rootId?: string; relativePath?: string } } | undefined)?.request;
+      const relative = request?.relativePath ?? "";
+      return {
+        schemaVersion: 1,
+        rootId: request?.rootId ?? "repo",
+        path: relative,
+        size: sizeOf(relative),
+        modifiedUnixMs: 1789251600000,
+        editable: true,
+        reason: null,
+      };
+    }
     case "git_status": return workbenchStatus();
     case "git_stage":
     case "git_unstage":
