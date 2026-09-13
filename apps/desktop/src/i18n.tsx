@@ -45,7 +45,6 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "rail.workbench": "工作台",
     "surface.workbench": "工作台",
     "art.description.workbench": "浏览并编辑环境关联的文件，只读查看仓库的 git 状态与差异。",
-    "fs.subtitle": "环境关联的文件",
     "fs.empty": "这个目录是空的。",
     "fs.emptyRoots": "还没有可浏览的根目录：请先激活一个环境。",
     "fs.showHidden": "显示隐藏项",
@@ -88,7 +87,6 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "workbench.tab.files": "文件",
     "workbench.tab.git": "Git",
     // Git panel
-    "git.subtitle": "环境关联的仓库（只读）",
     "git.toolbar.refresh": "刷新",
     "git.toolbar.hint": "只读 · 这里不会暂存或提交",
     "git.changes.title": "改动",
@@ -527,7 +525,6 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "rail.workbench": "Workbench",
     "surface.workbench": "Workbench",
     "art.description.workbench": "Browse and edit environment-linked files, and read the repository's git state.",
-    "fs.subtitle": "Environment-linked files",
     "fs.empty": "This directory is empty.",
     "fs.emptyRoots": "No browsable root yet: activate an environment first.",
     "fs.showHidden": "Show hidden",
@@ -570,7 +567,6 @@ export const translations: Record<Lang, Record<TranslationKey, string>> = {
     "workbench.tab.files": "Files",
     "workbench.tab.git": "Git",
     // Git panel
-    "git.subtitle": "Environment-linked repository (read-only)",
     "git.toolbar.refresh": "Refresh",
     "git.toolbar.hint": "Read-only: nothing is staged or committed from here",
     "git.changes.title": "Changes",

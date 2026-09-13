@@ -758,7 +758,9 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           "shell-workspace" +
           (activeSurface === "dsh" || activeSurface === "terminal"
             ? " shell-workspace--immersive"
-            : "")
+            : activeSurface === "workbench"
+              ? " shell-workspace--wide"
+              : "")
         }
       >
         <header

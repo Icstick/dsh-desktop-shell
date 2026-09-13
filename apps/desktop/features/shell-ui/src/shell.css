@@ -3438,14 +3438,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   opacity: 1;
 }
 
-.workbench__subtitle {
-  margin-left: auto;
-  font-size: 12px;
-  opacity: 0.65;
-}
-
 .workbench__panel {
   min-width: 0;
+}
+
+/* Workbench measure (owner feedback 2026-09-13 "左右的空间也用起来"): the 1200 px
+   shell measure reads well for the prose-shaped surfaces, but it left the
+   workbench as an island in the middle of a wide window. A tree + diff/editor
+   pair is a tool, so this surface takes the whole width; the header keeps the
+   same measure as the body so the two stay aligned. Workbench scope only. */
+.shell-workspace--wide > .shell-header,
+.shell-workspace--wide > .shell-content {
+  max-width: none;
 }
 
 /* --- Git panel (GIT-M1): read-only, so nothing here is a primary action. --- */
