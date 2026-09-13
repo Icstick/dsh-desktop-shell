@@ -31,7 +31,15 @@
   （放开 1200 px 量宽，页头与内容同宽）；切换条右端的副标题小字删除，`fs.subtitle`/`git.subtitle` 一并清掉。
   1920 / 2560 px 实渲染验证（预览窗口只有 1280，故用定尺寸 iframe 探针）。证据：
   `gitm1-evidence/05-workbench-wide-1920.png`、`06-git-wide-1920.png`。
-- NEXT：GIT-M2（stage / unstage / commit + 破坏性动词的键入式确认）。
+- **验收第三轮（2026-09-13）**：「界面没有上下顶满」+「（页头描述）字体小一点、排一行」。工作台面接满 flex 链
+  （内容区 → workbench → panel → body，解除两栏 `max-height: 62vh`），树/编辑器/diff 随窗口长高、状态条贴底；
+  页头描述 12.5 → 11.5 px 并取消 `max-width: 40ch`（正是它把一句话逼成两行）。证据
+  `gitm1-evidence/07-git-fill-one-line-1920.png`、`08-files-fill-1920.png`。
+- **GIT-M2 后端已落地**（分支 `feat/m10-workbench-git-m2`，草稿 PR #9，CI 34747422309 四 job 全绿）：
+  `git_stage` / `git_unstage` / `git_commit` / `git_discard`；unstage 会按仓库有无 HEAD 选原语并在报告里写明；
+  commit 的空消息/无暂存守卫在跑 git 前完成；discard 只做 `restore --worktree`（不碰索引与 HEAD）。
+  ACL 53 commands、specs 89/185 ALL PASS、cargo 197 passed。UI 半片待做。
+- NEXT：GIT-M2 的界面（逐条/分组 stage·unstage、commit 框、discard 键入式确认 + vitest）→ 转正合并 PR #9。
 
 
 ## 2026-09-13 · WI-M10-WORKBENCH-FS 开工（FS-M1：roots + 树 + 只读视图）
