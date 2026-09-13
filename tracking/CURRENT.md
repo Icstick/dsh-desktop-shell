@@ -1,6 +1,19 @@
 # Current Project State
 
 
+## 2026-09-13 早 · 合并后 CI 修复（三条，全部本地复现）
+
+- CI 首次结果：测试矩阵三平台（win/mac/ubuntu）**全绿**；live-qa-windows 失败。
+  修正记录：ADR-0022 合并后的 ubuntu/macos 曾因 cfg(unix) lint 红（dead_code/unused import/
+  unused_mut）——已在 6ee6a44 修复，并用**本地交叉 clippy**（rustup linux/macos target）验证；
+  方法已写入 AGENTS.md 证据要求节。
+- live QA 暴露真 bug（c2755ea）：PipeStream::read 把「对端已关闭」当成「暂无数据」→
+  serve_connection 永不结束 → 断连路径全部失效（凭证重签 / lease 撤销 / 所有权释放）。
+  修复：关闭的管道按 EOF（read==Ok(0)）返回，回归测试 peer_close_surfaces_as_eof。
+- 附带：live-daemon-qa B4/B5 竞态（读到已消费 token → replay）改为「读文件 + 连接」重试循环；
+  A3 断言升级为 credential schema v2 + pipe carrier。
+- 本地验证：live-daemon-qa **25/25 PASS**；transport/daemon/desktop 全绿；交叉 clippy 干净；fmt 干净。
+- 新 CI run 34727142785 监视中。
 ## 2026-09-12 22:00 · ADR-0022 Windows 全量合并 main
 
 - feat/m12-peer-identity（17 commits，含并行会话的 pending-reap 修复）squash 合并 main @ dca033b，
