@@ -249,6 +249,17 @@ impl CommandError {
         }
     }
 
+    /// Map a [crate::git_panel::GitError] onto the wire error shape.
+    fn from_git(error: crate::git_panel::GitError) -> Self {
+        Self {
+            code: error.code(),
+            message: truncate_error(&error.message(), 512),
+            retryable: false,
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
+    }
+
     /// Map a [file_manager::FsError] onto the wire error shape.
     fn from_fs(error: crate::file_manager::FsError) -> Self {
         Self {
@@ -1804,6 +1815,68 @@ pub fn fs_read_dir(
         request.show_hidden(),
     )
     .map_err(CommandError::from_fs)
+}
+
+/// GIT-M1: read-only repository status for the workbench git panel.
+#[tauri::command]
+pub fn git_status(
+    app: AppHandle,
+    request: crate::git_panel::GitStatusRequest,
+) -> Result<crate::git_panel::GitStatusReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::status(catalog.active_environment()).map_err(CommandError::from_git)
+}
+
+/// GIT-M1: unified diff of the worktree or the index.
+#[tauri::command]
+pub fn git_diff(
+    app: AppHandle,
+    request: crate::git_panel::GitDiffRequest,
+) -> Result<crate::git_panel::GitDiffReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::diff(
+        catalog.active_environment(),
+        request.path(),
+        request.staged(),
+    )
+    .map_err(CommandError::from_git)
+}
+
+/// GIT-M1: recent commits on the current branch.
+#[tauri::command]
+pub fn git_log(
+    app: AppHandle,
+    request: crate::git_panel::GitLogRequest,
+) -> Result<crate::git_panel::GitLogReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::log(catalog.active_environment(), request.limit())
+        .map_err(CommandError::from_git)
+}
+
+/// GIT-M1: local branches with the current one marked.
+#[tauri::command]
+pub fn git_branches(
+    app: AppHandle,
+    request: crate::git_panel::GitBranchesRequest,
+) -> Result<crate::git_panel::GitBranchesReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::branches(catalog.active_environment()).map_err(CommandError::from_git)
 }
 
 /// FS-M2: stat one file. The editor records this as its conflict baseline.

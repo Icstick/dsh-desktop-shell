@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/git/git-status-report.schema.json",
+  "title": "GitStatusReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "root",
+    "detached",
+    "clean",
+    "entries",
+    "truncated"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "root": {
+      "type": "string"
+    },
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "detached": {
+      "type": "boolean"
+    },
+    "clean": {
+      "type": "boolean"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "indexStatus",
+          "worktreeStatus",
+          "staged",
+          "unstaged",
+          "untracked"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "indexStatus": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1
+          },
+          "worktreeStatus": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1
+          },
+          "staged": {
+            "type": "boolean"
+          },
+          "unstaged": {
+            "type": "boolean"
+          },
+          "untracked": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

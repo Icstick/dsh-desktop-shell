@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "root": "D:\\\\repo",
+  "scope": "worktree",
+  "path": null,
+  "text": "--- a\\n+++ b\\n",
+  "additions": 0,
+  "deletions": 0,
+  "truncated": false
+}

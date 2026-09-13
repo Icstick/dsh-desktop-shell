@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "root": "D:\\\\repo",
+  "truncated": false,
+  "entries": [
+    {
+      "hash": "0123456789abcdef0123456789abcdef01234567",
+      "author": "DSH Test",
+      "authoredAtUnixMs": 1789250000000,
+      "subject": "first commit"
+    }
+  ]
+}

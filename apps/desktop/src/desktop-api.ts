@@ -45,6 +45,14 @@ import type {
   FsStatReport,
   FsStatRequest,
   FsWriteFileRequest,
+  GitBranchesReport,
+  GitBranchesRequest,
+  GitDiffReport,
+  GitDiffRequest,
+  GitLogReport,
+  GitLogRequest,
+  GitStatusReport,
+  GitStatusRequest,
   HarnessDiscoveryReport,
   HarnessDiscoveryRequest,
   ProbePortReport,
@@ -106,6 +114,10 @@ export interface DesktopApi {
   fsReadFile(request: FsReadFileRequest): Promise<FsFileReport>;
   fsStat(request: FsStatRequest): Promise<FsStatReport>;
   fsWriteFile(request: FsWriteFileRequest): Promise<FsStatReport>;
+  gitStatus(request: GitStatusRequest): Promise<GitStatusReport>;
+  gitDiff(request: GitDiffRequest): Promise<GitDiffReport>;
+  gitLog(request: GitLogRequest): Promise<GitLogReport>;
+  gitBranches(request: GitBranchesRequest): Promise<GitBranchesReport>;
 }
 
 export const desktopApi: DesktopApi = {
@@ -156,6 +168,10 @@ export const desktopApi: DesktopApi = {
   fsReadFile: (request) => invoke<FsFileReport>("fs_read_file", { request }),
   fsStat: (request) => invoke<FsStatReport>("fs_stat", { request }),
   fsWriteFile: (request) => invoke<FsStatReport>("fs_write_file", { request }),
+  gitStatus: (request) => invoke<GitStatusReport>("git_status", { request }),
+  gitDiff: (request) => invoke<GitDiffReport>("git_diff", { request }),
+  gitLog: (request) => invoke<GitLogReport>("git_log", { request }),
+  gitBranches: (request) => invoke<GitBranchesReport>("git_branches", { request }),
   mountDshSurface: (request) =>
     invoke<DshSurfaceStatus>("mount_dsh_surface", { request }),
   probeAttachedEnvironment: (request) =>

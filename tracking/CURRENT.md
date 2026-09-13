@@ -1,5 +1,29 @@
 # Current Project State
 
+## 2026-09-13 下午 · WI-M10-WORKBENCH-GIT / GIT-M1（feat/m10-workbench-git-m1）
+
+- 后端（先行落地）：`git_panel.rs` 四个只读命令（status / diff / log / branches），全部经单一 `run_git`
+  （不用 shell、`GIT_OPTIONAL_LOCKS=0`、stdout 上限 512 KiB + truncated），仓库根只来自激活环境；
+  仓内路径按文件管理器规则校验，另加 **前导 `-` 一律拒绝**（路径不许变成选项）；5/5 测试
+  （含「无提交的仓库」分支头 `## No commits yet on <branch>`，是被测试抓出来的真缺口）。
+  ACL **49 commands**、specs **81 schemas / 169 fixtures ALL PASS**。
+- 前端本片完成：新增 `features/workbench-ui`（Files | Git 宿主：roving-focus tablist，只挂载当前页）
+  与 `features/git-panel-ui`（Staged / Unstaged / Untracked 分组带计数，部分暂存的 `MM` 文件同时出现在两个分面；
+  文档条给根 + 分支/游离 HEAD + 只读 chip；客户端过滤 N/M；只读 diff 面板用 `--wb-diff-*` 着色
+  （底色由 `color-mix` 从同一 token 派生，不引入第二个硬编码颜色），512 KiB 的 diff 仍可能上万行 →
+  渲染上限 4000 行并明确告知；最近提交与分支两条只读列表放在展开区；clean / 空 / 无 diff / 降级 / 失败五类状态显式呈现）。
+- 顺手修掉两处重复（视觉走查发现）：git 工具条重复了面板副标题；页面头与面板体内各有一行「工作台」。
+  改法：副标题移到切换条右端，两个面板的面板标题一并删除（FS 面板同改，两个 tab 才一致）。
+- 门禁：`pnpm check` 干净；vitest **127/127**（原 118，新增 GitPanel 7 + WorkbenchPanel 2）；
+  validate-acl 49 commands；validate-specs 81/169 ALL PASS。前端提交未改 Rust——后端半片的证据是
+  CI run **34742913424**（ubuntu + macos + windows + live-qa-windows 全绿）。
+- 视觉证据：视觉预览（`features/shell-ui/preview`）补了工作台 fixture 后用浏览器实跑，截图在
+  `D:/DSH_workspace/.wsl-rust/gitm1-evidence/`（01 文件页 / 02 git 页着色 diff / 03 历史与分支展开）。
+- 记录：视觉规范三个开放项按「照默认」拍板并落地（`SPEC-WORKBENCH-VISUAL.md` §9）；
+  `PLAN-GIT-M1.md` 补「As built」节（含与计划的差异及理由）。
+- NEXT：PR #6 转正 → CI 绿 → squash 合并 main + 删分支 → 用户做 git 页视觉验收 →
+  GIT-M2（stage / unstage / commit + 破坏性动词的键入式确认）。
+
 
 ## 2026-09-13 · WI-M10-WORKBENCH-FS 开工（FS-M1：roots + 树 + 只读视图）
 
