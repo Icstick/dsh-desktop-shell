@@ -341,6 +341,16 @@ mod tests {
     /// peer must surface as EOF, never as "no data yet". The disconnect
     /// paths (credential re-issue, lease revocation, ownership release) all
     /// hang off the worker loop observing EOF.
+    ///
+    /// The deadline is armed while the peer is still connected - the order
+    /// the supervision loop uses (arm at accept, then read). That ordering is
+    /// not cosmetic: on Darwin a whole-second deadline installed on a UDS
+    /// whose peer had ALREADY closed came back EINVAL, while a sub-second one
+    /// on a live peer was accepted (2026-09-13 CI). Keeping production's
+    /// order therefore still pins both halves of the contract - a whole
+    /// second deadline is installable, and a subsequent close surfaces as
+    /// EOF - and separates "this platform refuses the option" from "the
+    /// option is refused once the peer is gone".
     #[test]
     fn peer_close_surfaces_as_eof() {
         let path = socket_path("eof");
@@ -348,11 +358,11 @@ mod tests {
         let listener = UdsListener::bind(&path, &Limits::default()).expect("bind uds listener");
         let client = connect_with_retry(&path);
         let mut server_stream = accept_with_retry(&listener);
-        drop(client);
-
         server_stream
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .expect("set timeout");
+            .expect("install a whole-second deadline on a live peer");
+        drop(client);
+
         let mut buf = [0u8; 8];
         let read = server_stream.read(&mut buf).expect("read must not error");
         assert_eq!(read, 0, "a closed peer must surface as EOF, not a stall");
