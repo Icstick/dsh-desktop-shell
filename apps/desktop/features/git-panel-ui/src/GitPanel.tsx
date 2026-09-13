@@ -5,6 +5,7 @@ import type {
   GitBranchesReport,
   GitDiffReport,
   GitLogReport,
+  GitMutationReport,
   GitStatusEntry,
   GitStatusReport,
 } from "../../../src/contracts";
@@ -100,10 +101,14 @@ const GROUPS: Array<{ group: Group; labelKey: string }> = [
 ];
 
 /**
- * GIT-M1: the read-only repository view, per docs/roadmap/PLAN-GIT-M1.md and
- * the workbench visual spec. The repository is always the environment-linked
- * root - this surface never names one - so every call here is root-scoped and
- * carries only a repo-relative path. Nothing in this panel writes.
+ * GIT-M1 read + GIT-M2 write, per docs/roadmap/PLAN-GIT-M1.md and
+ * PLAN-GIT-M2.md and the workbench visual spec. The repository is always the
+ * environment-linked root - this surface never names one - so every call is
+ * root-scoped and carries only a repo-relative path.
+ *
+ * The mutating verbs follow one rule: nothing that can lose work happens on a
+ * single click. Staging and committing are ordinary buttons; discarding an
+ * edit is the one that asks the user to type a word first.
  */
 export function GitPanel({ api }: GitPanelProps) {
   const { t } = useI18n();
@@ -119,6 +124,11 @@ export function GitPanel({ api }: GitPanelProps) {
   const [indexScope, setIndexScope] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showBranches, setShowBranches] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [discardTarget, setDiscardTarget] = useState<string | null>(null);
+  const [discardWord, setDiscardWord] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -161,7 +171,67 @@ export function GitPanel({ api }: GitPanelProps) {
     [api],
   );
 
+  /**
+   * Run one mutation and fold its answer back in. Every mutation reports the
+   * status it produced, so the list updates from the response instead of a
+   * second round trip; only a commit has to re-read the history.
+   */
+  const applyMutation = useCallback(
+    async (run: () => Promise<GitMutationReport>): Promise<boolean> => {
+      setPending(true);
+      try {
+        const report = await run();
+        setStatus(report.status);
+        setMutationError(null);
+        if (report.operation === "commit") {
+          const [nextLog, nextBranches] = await Promise.all([
+            api.gitLog({ schemaVersion: 1, limit: LOG_LIMIT }),
+            api.gitBranches({ schemaVersion: 1 }),
+          ]);
+          setLog(nextLog);
+          setBranches(nextBranches);
+        }
+        return true;
+      } catch (cause) {
+        setMutationError(errorText(cause));
+        return false;
+      } finally {
+        setPending(false);
+      }
+    },
+    [api],
+  );
+
+  const stage = (path: string) => void applyMutation(() => api.gitStage({ schemaVersion: 1, path }));
+  const stageAll = () => void applyMutation(() => api.gitStage({ schemaVersion: 1, all: true }));
+  const unstage = (path: string) =>
+    void applyMutation(() => api.gitUnstage({ schemaVersion: 1, path }));
+  const unstageAll = () =>
+    void applyMutation(() => api.gitUnstage({ schemaVersion: 1, all: true }));
+
+  const commit = () => {
+    const message = commitMessage.trim();
+    if (message === "" || stagedCount === 0) return;
+    void applyMutation(async () => {
+      const report = await api.gitCommit({ schemaVersion: 1, message });
+      setCommitMessage("");
+      return report;
+    });
+  };
+
+  const discard = async () => {
+    const path = discardTarget;
+    if (path === null) return;
+    const ok = await applyMutation(() => api.gitDiscard({ schemaVersion: 1, path }));
+    if (ok) {
+      setDiscardTarget(null);
+      setDiscardWord("");
+    }
+  };
+
   const rows = useMemo(() => changeRows(status?.entries ?? []), [status]);
+  const stagedCount = rows.filter((row) => row.group === "staged").length;
+  const canCommit = stagedCount > 0 && commitMessage.trim() !== "";
 
   const selectedKey = selected ? selected.group + ":" + selected.path : null;
   const selectedRow = rows.find((row) => row.key === selectedKey) ?? null;
@@ -205,9 +275,58 @@ export function GitPanel({ api }: GitPanelProps) {
           <span className="file-manager__chip" data-testid="git-branch" data-state={status?.detached ? "warn" : "normal"}>
             {branchLabel}
           </span>
-          <span className="file-manager__chip">{t("fs.chip.readonly")}</span>
         </span>
       </div>
+
+      {mutationError !== null && (
+        <p className="git-panel__error" data-testid="git-mutation-error" role="alert">
+          {mutationError}
+        </p>
+      )}
+
+      {discardTarget !== null && (
+        <div
+          aria-label={t("git.discard.title")}
+          className="git-panel__dialog"
+          data-testid="git-discard-dialog"
+          role="alertdialog"
+        >
+          <strong>{t("git.discard.title")}</strong>
+          <p>
+            <code>{discardTarget}</code>
+          </p>
+          <p>{t("git.discard.body")}</p>
+          <label className="git-panel__confirm">
+            {t("git.discard.typeHint").replace("{word}", t("git.discard.word"))}
+            <input
+              data-testid="git-discard-word"
+              onChange={(event) => setDiscardWord(event.target.value)}
+              value={discardWord}
+            />
+          </label>
+          <div className="git-panel__dialog-actions">
+            <button
+              className="git-panel__action git-panel__action--danger"
+              data-testid="git-discard-confirm"
+              disabled={pending || discardWord.trim() !== t("git.discard.word")}
+              onClick={() => void discard()}
+              type="button"
+            >
+              {t("git.discard.confirm")}
+            </button>
+            <button
+              className="git-panel__action"
+              onClick={() => {
+                setDiscardTarget(null);
+                setDiscardWord("");
+              }}
+              type="button"
+            >
+              {t("git.discard.cancel")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {failure && (
         <div className="git-panel__error" data-testid="git-error" role="alert">
@@ -230,13 +349,33 @@ export function GitPanel({ api }: GitPanelProps) {
           />
           <div className="git-panel__section-header">
             <span>{t("git.changes.title")}</span>
-            {needle !== "" && (
-              <span className="file-manager__meta" data-testid="git-filter-count">
-                {t("git.filter.count")
-                  .replace("{shown}", String(visible.length))
-                  .replace("{total}", String(rows.length))}
-              </span>
-            )}
+            <span className="git-panel__section-actions">
+              {needle !== "" && (
+                <span className="file-manager__meta" data-testid="git-filter-count">
+                  {t("git.filter.count")
+                    .replace("{shown}", String(visible.length))
+                    .replace("{total}", String(rows.length))}
+                </span>
+              )}
+              <button
+                className="git-panel__action"
+                data-testid="git-stage-all"
+                disabled={pending || rows.length === 0}
+                onClick={stageAll}
+                type="button"
+              >
+                {t("git.action.stageAll")}
+              </button>
+              <button
+                className="git-panel__action"
+                data-testid="git-unstage-all"
+                disabled={pending || stagedCount === 0}
+                onClick={unstageAll}
+                type="button"
+              >
+                {t("git.action.unstageAll")}
+              </button>
+            </span>
           </div>
 
           {!loaded && !failure && <p className="panel__note">{t("git.loading")}</p>}
@@ -259,7 +398,7 @@ export function GitPanel({ api }: GitPanelProps) {
                   </div>
                   <ul className="git-panel__rows">
                     {groupRows.map((row) => (
-                      <li key={row.key}>
+                      <li className="git-panel__row-item" key={row.key}>
                         <button
                           aria-current={row.key === selectedKey}
                           className="git-panel__row"
@@ -271,6 +410,43 @@ export function GitPanel({ api }: GitPanelProps) {
                           </span>
                           <span className="git-panel__path">{row.path}</span>
                         </button>
+                        <span className="git-panel__row-actions">
+                          {row.group === "staged" ? (
+                            <button
+                              aria-label={t("git.action.unstage") + " " + row.path}
+                              className="git-panel__action"
+                              disabled={pending}
+                              onClick={() => unstage(row.path)}
+                              type="button"
+                            >
+                              {t("git.action.unstage")}
+                            </button>
+                          ) : (
+                            <button
+                              aria-label={t("git.action.stage") + " " + row.path}
+                              className="git-panel__action"
+                              disabled={pending}
+                              onClick={() => stage(row.path)}
+                              type="button"
+                            >
+                              {t("git.action.stage")}
+                            </button>
+                          )}
+                          {row.group !== "untracked" && (
+                            <button
+                              aria-label={t("git.action.discard") + " " + row.path}
+                              className="git-panel__action git-panel__action--danger"
+                              disabled={pending}
+                              onClick={() => {
+                                setDiscardTarget(row.path);
+                                setDiscardWord("");
+                              }}
+                              type="button"
+                            >
+                              {t("git.action.discard")}
+                            </button>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -355,6 +531,7 @@ export function GitPanel({ api }: GitPanelProps) {
         </div>
 
         <div className="git-panel__view">
+          <div className="git-panel__diff-body">
           {selectedRow === null ? (
             <p className="panel__note git-panel__empty" data-testid="git-diff-select">
               {t("git.diff.select")}
@@ -422,6 +599,48 @@ export function GitPanel({ api }: GitPanelProps) {
               )}
             </>
           )}
+          </div>
+
+          {/* The commit box belongs to the index, not to the selected file, so it
+              stays put while the diff above scrolls. */}
+          <div className="git-panel__commit" data-testid="git-commit-box">
+            <textarea
+              aria-label={t("git.commit.placeholder")}
+              className="git-panel__commit-message"
+              data-testid="git-commit-message"
+              onChange={(event) => setCommitMessage(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  commit();
+                }
+              }}
+              placeholder={t("git.commit.placeholder")}
+              spellCheck={false}
+              value={commitMessage}
+            />
+            <div className="git-panel__commit-row">
+              <span className="file-manager__meta" data-testid="git-commit-staged">
+                {t("git.commit.staged").replace("{count}", String(stagedCount))}
+              </span>
+              <span className="file-manager__meta">
+                {stagedCount === 0
+                  ? t("git.commit.nothingStaged")
+                  : commitMessage.trim() === ""
+                    ? t("git.commit.emptyMessage")
+                    : t("git.commit.hint")}
+              </span>
+              <button
+                className="git-panel__action git-panel__action--primary"
+                data-testid="git-commit"
+                disabled={pending || !canCommit}
+                onClick={commit}
+                type="button"
+              >
+                {pending ? t("git.action.working") : t("git.commit.action")}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

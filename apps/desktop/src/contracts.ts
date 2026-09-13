@@ -805,3 +805,40 @@ export interface GitBranchesReport {
   branches: string[];
   current?: string | null;
 }
+
+/* GIT-M2: the mutating half. Every mutation answers with the status it produced. */
+
+export interface GitStageRequest {
+  schemaVersion: 1;
+  path?: string;
+  all?: boolean;
+}
+
+export interface GitUnstageRequest {
+  schemaVersion: 1;
+  path?: string;
+  all?: boolean;
+}
+
+export interface GitCommitRequest {
+  schemaVersion: 1;
+  message: string;
+}
+
+export interface GitDiscardRequest {
+  schemaVersion: 1;
+  path: string;
+}
+
+export type GitOperation = "stage" | "unstage" | "commit" | "discard";
+
+export interface GitMutationReport {
+  schemaVersion: 1;
+  root: string;
+  operation: GitOperation;
+  path?: string | null;
+  /** Set only when the backend had to take a non-obvious primitive. */
+  detail?: string | null;
+  status: GitStatusReport;
+}
+

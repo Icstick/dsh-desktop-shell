@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "root": "D:\\repo",
+  "operation": "stage",
+  "path": null,
+  "detail": null,
+  "status": {
+    "schemaVersion": 1,
+    "root": "D:\\repo",
+    "branch": "main",
+    "detached": false,
+    "clean": false,
+    "truncated": false,
+    "entries": [
+      {
+        "path": "src/main.rs",
+        "indexStatus": "M",
+        "worktreeStatus": " ",
+        "staged": true,
+        "unstaged": false,
+        "untracked": false
+      }
+    ]
+  }
+}

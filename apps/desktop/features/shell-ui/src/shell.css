@@ -3527,6 +3527,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: var(--wb-surface-raised);
 }
 
+.git-panel__action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .git-panel__docbar {
   display: flex;
   align-items: center;
@@ -3553,7 +3558,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .git-panel__body {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) 1fr;
+  grid-template-columns: minmax(240px, 360px) 1fr;
   gap: 12px;
   margin-top: 10px;
 }
@@ -3603,11 +3608,48 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   padding: 0;
 }
 
+.git-panel__row-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* The row's own actions stay in the DOM (and in the tab order) at all times -
+   dimmed until the row is hovered or focused, never removed. */
+.git-panel__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  opacity: 0.5;
+  transition: opacity 120ms ease;
+}
+
+/* Two actions per row have to leave the path most of the column. */
+.git-panel__row-actions .git-panel__action {
+  padding: 2px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.git-panel__row-item:hover .git-panel__row-actions,
+.git-panel__row-item:focus-within .git-panel__row-actions,
+.git-panel__row[aria-current="true"] + .git-panel__row-actions {
+  opacity: 1;
+}
+
+.git-panel__section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .git-panel__row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: 0;
   background: none;
   color: inherit;
@@ -3738,5 +3780,100 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .file-manager__chip[data-state="ok"] {
   color: var(--wb-ok);
   border-color: currentColor;
+}
+
+/* --- GIT-M2: the mutating controls --- */
+
+.git-panel__action--primary {
+  border-color: var(--wb-accent);
+  color: var(--wb-accent);
+  font-weight: 600;
+}
+
+.git-panel__action--danger:hover:not(:disabled) {
+  border-color: var(--wb-error);
+  color: var(--wb-error);
+  background: color-mix(in srgb, var(--wb-error) 10%, transparent);
+}
+
+/* The view is a column so the diff scrolls and the commit box stays put. */
+.git-panel__view {
+  display: flex;
+  flex-direction: column;
+}
+
+.git-panel__diff-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.git-panel__commit {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--wb-border);
+}
+
+.git-panel__commit-message {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 54px;
+  padding: 6px 8px;
+  border: 1px solid var(--wb-border);
+  border-radius: 6px;
+  background: var(--wb-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  resize: vertical;
+}
+
+.git-panel__commit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.git-panel__commit-row > button {
+  margin-left: auto;
+}
+
+.git-panel__dialog {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--wb-border);
+  border-radius: 10px;
+  background: var(--wb-surface-raised);
+}
+
+.git-panel__dialog p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.git-panel__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+.git-panel__confirm input {
+  width: 12ch;
+  padding: 3px 6px;
+  border: 1px solid var(--wb-border);
+  border-radius: 6px;
+  background: var(--wb-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.git-panel__dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }
 

@@ -124,6 +124,10 @@ function makeApi(overrides: Partial<DesktopApi> = {}): DesktopApi {
     gitDiff: vi.fn(),
     gitLog: vi.fn(),
     gitBranches: vi.fn(),
+    gitStage: vi.fn(),
+    gitUnstage: vi.fn(),
+    gitCommit: vi.fn(),
+    gitDiscard: vi.fn(),
     ...overrides,
   };
 }

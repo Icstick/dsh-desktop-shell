@@ -86,20 +86,54 @@ const sampleDiff = [
   "+// end of file",
   "",
 ].join("\n");
-const workbenchStatus = {
-  schemaVersion: 1,
-  root: repoRoot,
-  branch: "feat/m10-workbench-git-m1",
-  detached: false,
-  clean: false,
-  truncated: false,
-  entries: [
+let workbenchEntries = [
     { path: "crates/local-transport/src/peer.rs", indexStatus: "M", worktreeStatus: " ", staged: true, unstaged: false, untracked: false },
     { path: "apps/desktop/features/git-panel-ui/src/GitPanel.tsx", indexStatus: "A", worktreeStatus: "M", staged: true, unstaged: true, untracked: false },
     { path: "apps/desktop/features/shell-ui/src/shell.css", indexStatus: " ", worktreeStatus: "M", staged: false, unstaged: true, untracked: false },
     { path: "apps/desktop/features/workbench-ui/src/WorkbenchPanel.tsx", indexStatus: "A", worktreeStatus: " ", staged: true, unstaged: false, untracked: false },
     { path: "docs/roadmap/PLAN-GIT-M1.md", indexStatus: "?", worktreeStatus: "?", staged: false, unstaged: false, untracked: true },
-  ],
+];
+const workbenchStatus = () => ({
+  schemaVersion: 1,
+  root: repoRoot,
+  branch: "feat/m10-workbench-git-m2",
+  detached: false,
+  clean: workbenchEntries.length === 0,
+  truncated: false,
+  entries: workbenchEntries,
+});
+/** GIT-M2: the preview mutations really move the fixture, so the screen answers. */
+const workbenchMutation = (
+  operation: string,
+  request: { path?: string; all?: boolean },
+) => {
+  if (operation === "stage" || operation === "unstage") {
+    const staging = operation === "stage";
+    workbenchEntries = workbenchEntries.map((entry) =>
+      !request.all && entry.path !== request.path
+        ? entry
+        : {
+            ...entry,
+            staged: staging,
+            unstaged: !staging,
+            untracked: false,
+            indexStatus: staging ? (entry.indexStatus === "?" ? "A" : "M") : " ",
+            worktreeStatus: staging ? " " : "M",
+          },
+    );
+  } else if (operation === "commit") {
+    workbenchEntries = workbenchEntries.filter((entry) => !entry.staged);
+  } else if (operation === "discard") {
+    workbenchEntries = workbenchEntries.filter((entry) => entry.path !== request.path);
+  }
+  return {
+    schemaVersion: 1,
+    root: repoRoot,
+    operation,
+    path: request.path ?? null,
+    detail: null,
+    status: workbenchStatus(),
+  };
 };
 const workbenchLog = {
   schemaVersion: 1,
@@ -130,7 +164,14 @@ mockIPC((command, payload) => {
       return { schemaVersion: 1, rootId: "repo", path: "crates/local-transport/src/peer.rs", size: 9123, encoding: "utf-8", readOnly: false, reason: null, content: sampleSource };
     case "fs_stat":
       return { schemaVersion: 1, rootId: "repo", path: "crates/local-transport/src/peer.rs", size: 9123, modifiedUnixMs: 1789251600000, editable: true, reason: null };
-    case "git_status": return workbenchStatus;
+    case "git_status": return workbenchStatus();
+    case "git_stage":
+    case "git_unstage":
+    case "git_commit":
+    case "git_discard": {
+      const request = ((payload as { request?: Record<string, unknown> } | undefined)?.request ?? {});
+      return workbenchMutation(command.slice(4), request);
+    }
     case "git_diff": {
       const request = (payload as { request?: { path?: string; staged?: boolean } } | undefined)?.request;
       return { schemaVersion: 1, root: repoRoot, scope: request?.staged ? "staged" : "worktree", path: request?.path ?? null, text: sampleDiff, additions: 5, deletions: 2, truncated: false };

@@ -49,10 +49,15 @@ import type {
   GitBranchesRequest,
   GitDiffReport,
   GitDiffRequest,
+  GitCommitRequest,
+  GitDiscardRequest,
   GitLogReport,
   GitLogRequest,
+  GitMutationReport,
+  GitStageRequest,
   GitStatusReport,
   GitStatusRequest,
+  GitUnstageRequest,
   HarnessDiscoveryReport,
   HarnessDiscoveryRequest,
   ProbePortReport,
@@ -118,6 +123,10 @@ export interface DesktopApi {
   gitDiff(request: GitDiffRequest): Promise<GitDiffReport>;
   gitLog(request: GitLogRequest): Promise<GitLogReport>;
   gitBranches(request: GitBranchesRequest): Promise<GitBranchesReport>;
+  gitStage(request: GitStageRequest): Promise<GitMutationReport>;
+  gitUnstage(request: GitUnstageRequest): Promise<GitMutationReport>;
+  gitCommit(request: GitCommitRequest): Promise<GitMutationReport>;
+  gitDiscard(request: GitDiscardRequest): Promise<GitMutationReport>;
 }
 
 export const desktopApi: DesktopApi = {
@@ -172,6 +181,10 @@ export const desktopApi: DesktopApi = {
   gitDiff: (request) => invoke<GitDiffReport>("git_diff", { request }),
   gitLog: (request) => invoke<GitLogReport>("git_log", { request }),
   gitBranches: (request) => invoke<GitBranchesReport>("git_branches", { request }),
+  gitStage: (request) => invoke<GitMutationReport>("git_stage", { request }),
+  gitUnstage: (request) => invoke<GitMutationReport>("git_unstage", { request }),
+  gitCommit: (request) => invoke<GitMutationReport>("git_commit", { request }),
+  gitDiscard: (request) => invoke<GitMutationReport>("git_discard", { request }),
   mountDshSurface: (request) =>
     invoke<DshSurfaceStatus>("mount_dsh_surface", { request }),
   probeAttachedEnvironment: (request) =>
