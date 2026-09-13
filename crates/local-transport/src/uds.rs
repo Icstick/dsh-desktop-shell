@@ -10,6 +10,11 @@
 //! - No acceptor thread: unlike the Windows named pipe, `UnixListener`
 //!   honours non-blocking accept, so the generic polling accept loop drives
 //!   it directly and the accepted `UnixStream` is the carrier stream.
+//! - Callers that drive [UdsListener::accept] themselves must restore
+//!   blocking I/O with [CarrierStream::prepare_accepted] before any read:
+//!   BSD/macOS `accept()` inherits the listener's `O_NONBLOCK`, so a stream
+//!   used as-is answers reads with `EWOULDBLOCK` instead of blocking for
+//!   data (the supervision loop does this for every carrier).
 //! - The socket file is created `0600`: only the owning user can connect,
 //!   so "same user" is the widest set of processes that can even reach the
 //!   endpoint. The kernel identity is what narrows that down to the expected
@@ -192,14 +197,25 @@ fn ensure_path_fits(path: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::carrier::CarrierStream;
     use std::io::{Read, Write};
     use std::thread;
     use std::time::{Duration, Instant};
 
     /// Unique socket path per test (temp dir + pid + tag), mirroring the
     /// named-pipe tests' naming.
+    ///
+    /// Names stay short on purpose: on macOS the temp directory alone can eat
+    /// most of the `sun_path` budget, and the assertion turns an over-long
+    /// path into a clear test failure instead of a puzzling bind error.
     fn socket_path(tag: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("dsh-lt-uds-{}-{tag}.sock", std::process::id()))
+        let path = std::env::temp_dir().join(format!("lt-{}-{tag}.sock", std::process::id()));
+        assert!(
+            path.as_os_str().as_bytes().len() <= MAX_SOCKET_PATH_BYTES,
+            "test socket path is over the {MAX_SOCKET_PATH_BYTES}-byte platform limit: {}",
+            path.display()
+        );
+        path
     }
 
     fn connect_with_retry(path: &Path) -> UnixStream {
@@ -213,12 +229,23 @@ mod tests {
         }
     }
 
+    /// Accept one connection and restore blocking I/O, exactly as the
+    /// supervision loop does through [CarrierStream::prepare_accepted].
+    ///
+    /// This is not optional on BSD/macOS: accept() there inherits the
+    /// listener's O_NONBLOCK, so a stream taken straight from
+    /// [UdsListener::accept] answers reads with EWOULDBLOCK instead of
+    /// blocking for data. The first CI macOS run (2026-09-13) failed exactly
+    /// this way - the deadline test returned instantly and the EOF test saw
+    /// an error instead of EOF - while the daemon-level carrier tests passed,
+    /// because the real accept loop does call prepare_accepted.
     fn accept_with_retry(listener: &UdsListener) -> UnixStream {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
             match listener.accept() {
-                Ok((stream, desc)) => {
+                Ok((mut stream, desc)) => {
                     assert!(matches!(desc, PeerDesc::UnixSocket(_)));
+                    stream.prepare_accepted().expect("restore blocking I/O");
                     return stream;
                 }
                 Err(_) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
@@ -355,9 +382,9 @@ mod tests {
 
     #[test]
     fn socket_is_owner_only_and_created_dirs_are_private() {
-        let dir = std::env::temp_dir().join(format!("dsh-lt-uds-dir-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("lt-dir-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
-        let path = dir.join("nested").join("daemon.sock");
+        let path = dir.join("n").join("d.sock");
         let listener = UdsListener::bind(&path, &Limits::default()).expect("bind uds listener");
         let mode = |p: &Path| fs::metadata(p).expect("metadata").permissions().mode() & 0o777;
         assert_eq!(mode(&path), 0o600, "the socket must be owner-only");
@@ -377,7 +404,7 @@ mod tests {
     /// and as root it would quietly wreck a shared directory.
     #[test]
     fn an_existing_parent_directory_is_left_alone() {
-        let parent = std::env::temp_dir().join(format!("dsh-lt-uds-shared-{}", std::process::id()));
+        let parent = std::env::temp_dir().join(format!("lt-shared-{}", std::process::id()));
         fs::create_dir_all(&parent).expect("create shared parent");
         restrict(&parent, 0o755).expect("relax the parent on purpose");
         let before = fs::metadata(&parent)
@@ -386,7 +413,7 @@ mod tests {
             .mode()
             & 0o777;
 
-        let path = parent.join("daemon.sock");
+        let path = parent.join("d.sock");
         let listener = UdsListener::bind(&path, &Limits::default()).expect("bind in a shared dir");
         let after = fs::metadata(&parent)
             .expect("metadata")

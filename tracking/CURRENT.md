@@ -26,6 +26,9 @@
   （macOS `sun_path` 本就是 104 含 NUL，且 runner 临时目录很深）。修：护栏改为平台真实容量 − NUL（macOS 103 / 其他 107），
   端点名改短（`d-<pid>-<12hex>.sock`；Windows 管道用同一 pid+时钟 tag），并把 UDS 读超时断言放宽为 WouldBlock|TimedOut
   （BSD 上超时的 errno 可能是 ETIMEDOUT，服务端两者都按到期处理）。修复后本地全绿（desktop 173、live QA 28/28）。
+- CI 第 2 轮（run 34728479814，e7e2491）：windows/ubuntu 绿、macOS 只剩两个 UDS 单元测试红——**BSD 的 `accept()` 会继承监听的 O_NONBLOCK**，
+  直接拿 `UdsListener::accept()` 的流去读会立刻 EWOULDBLOCK（超时测试瞬间返回、EOF 测试读到错误）；生产路径不受影响
+  （监督循环会经 `CarrierStream::prepare_accepted` 恢复阻塞），测试现在照做，并把该契约写进模块文档；测试 socket 路径同时改短并加长度断言。
 - 待办：push 修复 → CI 三平台 + live-qa-windows → H-2 翻 closed（带 run id）→ 合并 main。
 
 ## 2026-09-13 早 · 合并后 CI 修复（三条，全部本地复现）
