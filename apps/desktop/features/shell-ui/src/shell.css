@@ -2933,7 +2933,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .shell-header--slim .eyebrow { margin-bottom: 8px; }
 .shell-header--slim h1 { font-size: 24px; letter-spacing: -.4px; }
-.shell-header--slim .shell-header__description { font-size: 12.5px; line-height: 1.65; max-width: 40ch; margin-top: 8px; }
+.shell-header--slim .shell-header__description { font-size: 11.5px; line-height: 1.6; max-width: none; margin-top: 7px; }
 .shell-header--slim > div:first-child { padding-bottom: 14px; }
 .shell-header--slim > .runtime-badge { left: 30px; bottom: 14px; }
 .shell-content:not(.shell-content--surface) { flex: none; padding-bottom: 25px; }
@@ -3450,6 +3450,54 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .shell-workspace--wide > .shell-header,
 .shell-workspace--wide > .shell-content {
   max-width: none;
+}
+
+/* ...and fill the window top to bottom (owner feedback 2026-09-13 "界面没有上下顶满").
+   .shell-content:not(.shell-content--surface) pins flex: none, which is right for the
+   short prose-shaped panels - they should not stretch - but it left the workbench
+   floating in the top third of a tall window. Give this surface the whole column and
+   let the panel's own body take the slack, so the tree and the diff grow with the
+   window instead of stopping at a fixed height. */
+.shell-workspace--wide > .shell-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.shell-workspace--wide .workbench,
+.shell-workspace--wide .workbench__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.shell-workspace--wide .workbench__panel > .file-manager,
+.shell-workspace--wide .workbench__panel > .git-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.shell-workspace--wide .file-manager__body,
+.shell-workspace--wide .git-panel__body {
+  flex: 1;
+  min-height: 0;
+}
+.shell-workspace--wide .file-manager__tree,
+.shell-workspace--wide .file-manager__view,
+.shell-workspace--wide .git-panel__changes,
+.shell-workspace--wide .git-panel__view {
+  min-height: 0;
+  max-height: none;
+}
+/* The editor is the one thing in the view pane that should take the slack. */
+.shell-workspace--wide .file-manager__view {
+  display: flex;
+  flex-direction: column;
+}
+.shell-workspace--wide .file-manager__editor {
+  flex: 1;
+  min-height: 200px;
 }
 
 /* --- Git panel (GIT-M1): read-only, so nothing here is a primary action. --- */
