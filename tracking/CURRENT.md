@@ -29,7 +29,12 @@
 - CI 第 2 轮（run 34728479814，e7e2491）：windows/ubuntu 绿、macOS 只剩两个 UDS 单元测试红——**BSD 的 `accept()` 会继承监听的 O_NONBLOCK**，
   直接拿 `UdsListener::accept()` 的流去读会立刻 EWOULDBLOCK（超时测试瞬间返回、EOF 测试读到错误）；生产路径不受影响
   （监督循环会经 `CarrierStream::prepare_accepted` 恢复阻塞），测试现在照做，并把该契约写进模块文档；测试 socket 路径同时改短并加长度断言。
-- 待办：push 修复 → CI 三平台 + live-qa-windows → H-2 翻 closed（带 run id）→ 合并 main。
+- CI 第 3/4 轮：第 3 轮只剩一个 UDS 用例（Darwin 在**对端已关闭**时才装 SO_RCVTIMEO 会 EINVAL，而活对端上的整秒截止时间可用；
+  生产顺序是先装截止时间再读，因此测试改为沿用生产顺序），第 4 轮 **34729017674 全绿**：ubuntu + macos + windows 测试矩阵 +
+  live-qa-windows（28/28）。macOS 真机首次证明 `LOCAL_PEERPID` + `proc_pidpath`、Shell 的 Unix 载体路径与 desktop 173 全绿。
+- **H-2 状态：已关闭**（ADR-0022 决策 4 条件满足，记录含 run id；关闭记录落在 ADR-0022 与 `docs/security/IPC_SECURITY.md`，
+  因为被引用的 `docs/audits/audit-summary-2026-09-10.md` 不在本仓库）。
+- 待办：squash 合并 main + 删分支 → 开 WI-M10-WORKBENCH-FS（0.3.0 FS-M1）。
 
 ## 2026-09-13 早 · 合并后 CI 修复（三条，全部本地复现）
 
