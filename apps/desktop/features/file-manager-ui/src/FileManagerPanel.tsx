@@ -11,6 +11,15 @@ interface FileManagerPanelProps {
 /** Lazy listing per "rootId:path" (the Rust side owns containment). */
 type Listings = Record<string, { entries: FsEntry[]; truncated: boolean }>;
 
+/** One visible tree row, always owned by the root it was walked from. */
+interface Row {
+  key: string;
+  rootId: string;
+  path: string;
+  entry: FsEntry;
+  depth: number;
+}
+
 /** The conflict baseline: what the file looked like when we opened it. */
 type Baseline = { size: number; modifiedUnixMs: number };
 
@@ -152,24 +161,38 @@ export function FileManagerPanel({ api }: FileManagerPanelProps) {
     }
   };
 
-  // Rebuild the visible rows from the loaded listings, then apply the filter.
-  const { rows, shown, total } = useMemo(() => {
-    const collected: Array<{ key: string; rootId: string; path: string; entry: FsEntry; depth: number }> = [];
-    const walk = (rootId: string, path: string, depth: number) => {
+  // Rebuild each root's visible subtree from the loaded listings, then apply the
+  // filter. Grouping per root is the point: a single flat list put the children
+  // of every open root at the bottom of the column, so two open roots produced
+  // two indistinguishable piles of rows.
+  const { byRoot, shown, total } = useMemo(() => {
+    const grouped = new Map<string, Row[]>();
+    const needle = filter.trim().toLowerCase();
+    let shownCount = 0;
+    let totalCount = 0;
+    const walk = (rootId: string, path: string, depth: number, into: Row[]) => {
       const listing = listings[rootId + ":" + path];
       if (!listing) return;
       for (const entry of listing.entries) {
         const childPath = path ? path + "/" + entry.name : entry.name;
-        collected.push({ key: rootId + ":" + childPath, rootId, path: childPath, entry, depth });
-        if (entry.kind === "dir" && open[rootId + ":" + childPath]) walk(rootId, childPath, depth + 1);
+        into.push({ key: rootId + ":" + childPath, rootId, path: childPath, entry, depth });
+        if (entry.kind === "dir" && open[rootId + ":" + childPath]) {
+          walk(rootId, childPath, depth + 1, into);
+        }
       }
     };
     for (const root of roots?.roots ?? []) {
-      if (root.available && open[root.id + ":"]) walk(root.id, "", 0);
+      if (!root.available || !open[root.id + ":"]) continue;
+      const collected: Row[] = [];
+      walk(root.id, "", 0, collected);
+      totalCount += collected.length;
+      const visible = needle
+        ? collected.filter((row) => row.entry.name.toLowerCase().includes(needle))
+        : collected;
+      shownCount += visible.length;
+      grouped.set(root.id, visible);
     }
-    const needle = filter.trim().toLowerCase();
-    const visible = needle ? collected.filter((row) => row.entry.name.toLowerCase().includes(needle)) : collected;
-    return { rows: visible, shown: visible.length, total: collected.length };
+    return { byRoot: grouped, shown: shownCount, total: totalCount };
   }, [filter, listings, open, roots]);
 
   const kindLabel = (kind: FsEntryKind) => t("fs.kind." + kind);
@@ -225,57 +248,63 @@ export function FileManagerPanel({ api }: FileManagerPanelProps) {
           </div>
           {roots === null && !error && <p className="panel__note">{t("fs.loading")}</p>}
           {roots !== null && roots.roots.length === 0 && <p className="panel__note">{t("fs.emptyRoots")}</p>}
-          {(roots?.roots ?? []).map((root) =>
-            root.available ? (
-              <div className="file-manager__root" key={root.id}>
-                <button
-                  aria-expanded={open[root.id + ":"] === true}
-                  className="file-manager__root-label"
-                  onClick={() => void toggle(root.id, "")}
-                  type="button"
-                >
-                  {root.label}
-                </button>
-              </div>
-            ) : (
-              <div className="file-manager__root" data-available="false" key={root.id}>
-                <span className="file-manager__root-label">{root.label}</span>
-                <span className="file-manager__root-reason">
-                  {t("fs.unavailable")}: {root.reason ?? ""}
-                </span>
-              </div>
-            ),
-          )}
-          {rows.length === 0 && filter.trim() !== "" && <p className="panel__note">{t("fs.empty")}</p>}
-          <ul className="file-manager__rows">
-            {rows.map((row) => (
-              <li key={row.key} style={{ paddingLeft: 6 + row.depth * 12 }}>
-                {row.entry.kind === "dir" ? (
-                  <button
-                    aria-expanded={open[row.key] === true}
-                    className="file-manager__row"
-                    onClick={() => void toggle(row.rootId, row.path)}
-                    type="button"
-                  >
-                    <span aria-hidden="true">{open[row.key] ? "▾" : "▸"}</span> {row.entry.name}/
-                  </button>
-                ) : row.entry.kind === "file" ? (
-                  <button
-                    className="file-manager__row"
-                    onClick={() => requestOpen(row.rootId, row.path)}
-                    type="button"
-                  >
-                    {row.entry.name}
-                    <span className="file-manager__meta">{row.entry.size} B</span>
-                  </button>
-                ) : (
-                  <span className="file-manager__row" data-kind="link" title={t("fs.kind.link")}>
-                    {row.entry.name} → {kindLabel("link")}
+          {(roots?.roots ?? []).map((root) => {
+            if (!root.available) {
+              return (
+                <div className="file-manager__root" data-available="false" key={root.id}>
+                  <span className="file-manager__root-label">{root.label}</span>
+                  <span className="file-manager__root-reason">
+                    {t("fs.unavailable")}: {root.reason ?? ""}
                   </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                </div>
+              );
+            }
+            const rows = byRoot.get(root.id) ?? [];
+            return (
+              <div className="file-manager__root" key={root.id}>
+                  <button
+                    aria-expanded={open[root.id + ":"] === true}
+                    className="file-manager__root-label"
+                    onClick={() => void toggle(root.id, "")}
+                    type="button"
+                  >
+                    <span aria-hidden="true">{open[root.id + ":"] ? "▾" : "▸"}</span> {root.label}
+                  </button>
+                  <ul className="file-manager__rows">
+                    {rows.map((row) => (
+                      <li key={row.key} style={{ paddingLeft: 6 + row.depth * 12 }}>
+                        {row.entry.kind === "dir" ? (
+                          <button
+                            aria-expanded={open[row.key] === true}
+                            className="file-manager__row"
+                            onClick={() => void toggle(row.rootId, row.path)}
+                            type="button"
+                          >
+                            <span aria-hidden="true">{open[row.key] ? "▾" : "▸"}</span> {row.entry.name}/
+                          </button>
+                        ) : row.entry.kind === "file" ? (
+                          <button
+                            className="file-manager__row"
+                            onClick={() => requestOpen(row.rootId, row.path)}
+                            type="button"
+                          >
+                            {row.entry.name}
+                            <span className="file-manager__meta">{row.entry.size} B</span>
+                          </button>
+                        ) : (
+                          <span className="file-manager__row" data-kind="link" title={t("fs.kind.link")}>
+                            {row.entry.name} → {kindLabel("link")}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+              </div>
+            );
+          })}
+          {total > 0 && shown === 0 && filter.trim() !== "" && (
+            <p className="panel__note">{t("fs.empty")}</p>
+          )}
           {truncated && <p className="panel__note">{t("fs.truncated")}</p>}
         </div>
 
