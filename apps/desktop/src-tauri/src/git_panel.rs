@@ -199,7 +199,7 @@ pub(crate) fn status(environment: Option<&DshEnvironment>) -> Result<GitStatusRe
 /// [status] against an explicit repository (the testable core).
 pub(crate) fn status_in(root: &Path) -> Result<GitStatusReport, GitError> {
     let raw = run_git(
-        &root,
+        root,
         &[
             "status",
             "--porcelain=v1",
@@ -295,7 +295,7 @@ pub(crate) fn diff_in(
         None => None,
     };
     let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
-    let raw = run_git(&root, &borrowed)?;
+    let raw = run_git(root, &borrowed)?;
 
     let truncated = raw.len() > MAX_TEXT_BYTES;
     let text = if truncated {
@@ -339,7 +339,7 @@ pub(crate) fn log(
 pub(crate) fn log_in(root: &Path, limit: usize) -> Result<GitLogReport, GitError> {
     let capped = limit.clamp(1, MAX_LOG_ENTRIES);
     let count = format!("--max-count={capped}");
-    let raw = run_git(&root, &["log", &count, "--format=%H%x1f%an%x1f%at%x1f%s"])?;
+    let raw = run_git(root, &["log", &count, "--format=%H%x1f%an%x1f%at%x1f%s"])?;
 
     let mut entries = Vec::new();
     let mut truncated = false;
@@ -382,7 +382,7 @@ pub(crate) fn branches(
 /// [branches] against an explicit repository (the testable core).
 pub(crate) fn branches_in(root: &Path) -> Result<GitBranchesReport, GitError> {
     let raw = run_git(
-        &root,
+        root,
         &[
             "for-each-ref",
             "--format=%(refname:short)%1f%(HEAD)",

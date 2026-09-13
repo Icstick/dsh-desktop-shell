@@ -51,6 +51,16 @@ cargo clippy -p <crate> --target aarch64-apple-darwin --all-targets -- -D warnin
 Windows-only 的测试文件加文件级 `#![cfg(windows)]`。依赖系统库的 crate（tauri/webkit2gtk）
 无法交叉编译，其 Unix 分支只能靠 CI 验证，改动时要额外小心。
 
+**新增/改动 Rust 文件后必须过 clippy，不能只跑 build + test**（2026-09-13 教训）：`cargo build` 与
+`cargo test` 都能过而 `clippy --all-targets -- -D warnings` 报错（本次是 4 处 `clippy::needless_borrow`），
+CI 的 clippy 步骤会直接红。提交前固定跑一遍：
+
+```
+cargo fmt --all --check
+cargo clippy -p <crate> --all-targets -- -D warnings
+cargo test -p <crate> -- --test-threads=1
+```
+
 **WSL 上的真实 Linux 运行（2026-09-13）**：交叉 clippy 只能证明 Unix 分支可编译，证明不了行为。
 WSL（Ubuntu）里装一份 rustc 后可直接跑纯 Rust crate 的测试——这是本机唯一能真跑 Unix 行为
 （UDS、SO_PEERCRED、/proc）的通道；依赖 tauri/webkit2gtk 的 crate 仍然只能靠 CI。
