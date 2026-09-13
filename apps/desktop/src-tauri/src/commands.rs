@@ -1879,6 +1879,68 @@ pub fn git_branches(
     crate::git_panel::branches(catalog.active_environment()).map_err(CommandError::from_git)
 }
 
+/// GIT-M2: stage one path, or every change.
+#[tauri::command]
+pub fn git_stage(
+    app: AppHandle,
+    request: crate::git_panel::GitStageRequest,
+) -> Result<crate::git_panel::GitMutationReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::stage(catalog.active_environment(), request.path(), request.all())
+        .map_err(CommandError::from_git)
+}
+
+/// GIT-M2: unstage one path, or the whole index.
+#[tauri::command]
+pub fn git_unstage(
+    app: AppHandle,
+    request: crate::git_panel::GitUnstageRequest,
+) -> Result<crate::git_panel::GitMutationReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::unstage(catalog.active_environment(), request.path(), request.all())
+        .map_err(CommandError::from_git)
+}
+
+/// GIT-M2: commit what is staged. The empty-message and nothing-staged guards
+/// run in the panel before git is invoked.
+#[tauri::command]
+pub fn git_commit(
+    app: AppHandle,
+    request: crate::git_panel::GitCommitRequest,
+) -> Result<crate::git_panel::GitMutationReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::commit(catalog.active_environment(), request.message())
+        .map_err(CommandError::from_git)
+}
+
+/// GIT-M2: throw away one path's unstaged edits. The UI only calls this after
+/// the typed confirmation; the panel itself never touches the index or HEAD.
+#[tauri::command]
+pub fn git_discard(
+    app: AppHandle,
+    request: crate::git_panel::GitDiscardRequest,
+) -> Result<crate::git_panel::GitMutationReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::git_panel::discard(catalog.active_environment(), request.path())
+        .map_err(CommandError::from_git)
+}
+
 /// FS-M2: stat one file. The editor records this as its conflict baseline.
 #[tauri::command]
 pub fn fs_stat(

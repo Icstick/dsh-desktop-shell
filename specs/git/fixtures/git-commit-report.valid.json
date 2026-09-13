@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "root": "D:\\repo",
+  "operation": "commit",
+  "path": null,
+  "detail": null,
+  "status": {
+    "schemaVersion": 1,
+    "root": "D:\\repo",
+    "branch": "main",
+    "detached": false,
+    "clean": true,
+    "truncated": false,
+    "entries": []
+  }
+}

@@ -164,21 +164,37 @@ pub(crate) fn validate_relative(relative: &str) -> Result<String, GitError> {
     Ok(normalized)
 }
 
-/// Run one git command inside the repository and return its stdout.
-fn run_git(root: &Path, args: &[&str]) -> Result<String, GitError> {
-    let output = Command::new("git")
+/// The one place a git process is built.
+///
+/// `optional_locks` pins `GIT_OPTIONAL_LOCKS=0` for reads so they never refresh
+/// or lock the index. A mutation deliberately leaves the locks alone - it needs
+/// them - and pins `GIT_EDITOR` so nothing can ever block on an editor.
+fn run_git_raw(
+    root: &Path,
+    args: &[&str],
+    optional_locks: bool,
+) -> Result<std::process::Output, GitError> {
+    let mut command = Command::new("git");
+    command
         .arg("-C")
         .arg(root)
         .args(args)
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .output()
-        .map_err(|error| match error.kind() {
-            std::io::ErrorKind::NotFound => {
-                GitError::unavailable("git is not installed or not on PATH")
-            }
-            _ => GitError::unavailable(format!("cannot run git: {error}")),
-        })?;
+        .env("GIT_TERMINAL_PROMPT", "0");
+    if optional_locks {
+        command.env("GIT_OPTIONAL_LOCKS", "0");
+    } else {
+        command.env("GIT_EDITOR", "true");
+    }
+    command.output().map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => {
+            GitError::unavailable("git is not installed or not on PATH")
+        }
+        _ => GitError::unavailable(format!("cannot run git: {error}")),
+    })
+}
+
+/// Turn a finished invocation into stdout, or into the reason it failed.
+fn output_or_reason(output: std::process::Output) -> Result<String, GitError> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let first = stderr.lines().next().unwrap_or("").trim();
@@ -189,6 +205,16 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String, GitError> {
         }));
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Run one git command inside the repository and return its stdout.
+fn run_git(root: &Path, args: &[&str]) -> Result<String, GitError> {
+    output_or_reason(run_git_raw(root, args, true)?)
+}
+
+/// Run one git command that is allowed to write (GIT-M2).
+fn run_git_write(root: &Path, args: &[&str]) -> Result<String, GitError> {
+    output_or_reason(run_git_raw(root, args, false)?)
 }
 
 /// Read-only status: branch (or detached) plus every changed path.
@@ -479,6 +505,253 @@ impl GitLogRequest {
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* GIT-M2: the mutating half (stage / unstage / commit / discard)       */
+/* ------------------------------------------------------------------ */
+
+/// Upper bound of a commit message. Git has no useful limit of its own; this
+/// one keeps a pasted file out of the index.
+pub(crate) const MAX_COMMIT_MESSAGE_BYTES: usize = 8_000;
+
+/// Result of a mutation: what was asked for, plus the status it produced, so
+/// the UI never has to re-ask or guess.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GitMutationReport {
+    schema_version: u8,
+    root: String,
+    operation: &'static str,
+    path: Option<String>,
+    /// Set only when the operation had to take a different primitive than the
+    /// obvious one.
+    detail: Option<String>,
+    status: GitStatusReport,
+}
+
+/// True when the repository has a commit to restore from.
+fn has_head(root: &Path) -> Result<bool, GitError> {
+    let output = run_git_raw(root, &["rev-parse", "--verify", "--quiet", "HEAD"], true)?;
+    Ok(output.status.success())
+}
+
+/// Build the report every mutation ends with: the fresh status, taken after the
+/// operation so it describes the state the user now has.
+fn mutation_report(
+    root: &Path,
+    operation: &'static str,
+    path: Option<&str>,
+    detail: Option<String>,
+) -> Result<GitMutationReport, GitError> {
+    Ok(GitMutationReport {
+        schema_version: GIT_SCHEMA_VERSION,
+        root: root.to_string_lossy().into_owned(),
+        operation,
+        path: path.map(str::to_string),
+        detail,
+        status: status_in(root)?,
+    })
+}
+
+/// Stage one path, or every change.
+pub(crate) fn stage(
+    environment: Option<&DshEnvironment>,
+    path: Option<&str>,
+    all: bool,
+) -> Result<GitMutationReport, GitError> {
+    stage_in(&repo_root(environment)?, path, all)
+}
+
+/// [stage] against an explicit repository (the testable core).
+pub(crate) fn stage_in(
+    root: &Path,
+    path: Option<&str>,
+    all: bool,
+) -> Result<GitMutationReport, GitError> {
+    let target = match (path, all) {
+        (Some(_), true) => return Err(GitError::Malformed("stage takes a path or all, not both")),
+        (None, false) => return Err(GitError::Malformed("stage needs a path or all")),
+        (Some(path), false) => validate_relative(path)?,
+        (None, true) => ".".to_string(),
+    };
+    // -A so a deletion stages as a deletion; -- so the path can never be read as
+    // an option (validate_relative already refuses a leading dash).
+    run_git_write(root, &["add", "-A", "--", &target])?;
+    mutation_report(root, "stage", path, None)
+}
+
+/// Unstage one path, or the whole index.
+pub(crate) fn unstage(
+    environment: Option<&DshEnvironment>,
+    path: Option<&str>,
+    all: bool,
+) -> Result<GitMutationReport, GitError> {
+    unstage_in(&repo_root(environment)?, path, all)
+}
+
+/// [unstage] against an explicit repository (the testable core).
+pub(crate) fn unstage_in(
+    root: &Path,
+    path: Option<&str>,
+    all: bool,
+) -> Result<GitMutationReport, GitError> {
+    let target = match (path, all) {
+        (Some(_), true) => {
+            return Err(GitError::Malformed("unstage takes a path or all, not both"));
+        }
+        (None, false) => return Err(GitError::Malformed("unstage needs a path or all")),
+        (Some(path), false) => validate_relative(path)?,
+        (None, true) => ".".to_string(),
+    };
+    // `git restore --staged` restores the index from HEAD, so a repository with
+    // no commits yet has nothing to restore from and the index is reset with
+    // `rm --cached` instead. `--cached` never touches the worktree, so neither
+    // primitive can lose anything on disk; the report says which one ran.
+    let head = has_head(root)?;
+    let args: Vec<&str> = if head {
+        vec!["restore", "--staged", "--", &target]
+    } else {
+        vec!["rm", "--cached", "-r", "-f", "--", &target]
+    };
+    run_git_write(root, &args)?;
+    let detail = (!head).then(|| {
+        "the repository has no commits yet, so the index was reset with git rm --cached".to_string()
+    });
+    mutation_report(root, "unstage", path, detail)
+}
+
+/// Commit what is staged.
+pub(crate) fn commit(
+    environment: Option<&DshEnvironment>,
+    message: &str,
+) -> Result<GitMutationReport, GitError> {
+    commit_in(&repo_root(environment)?, message)
+}
+
+/// [commit] against an explicit repository (the testable core).
+pub(crate) fn commit_in(root: &Path, message: &str) -> Result<GitMutationReport, GitError> {
+    let message = message.trim();
+    if message.is_empty() {
+        return Err(GitError::Malformed("a commit needs a message"));
+    }
+    if message.len() > MAX_COMMIT_MESSAGE_BYTES {
+        return Err(GitError::Malformed(
+            "the commit message is longer than 8000 bytes",
+        ));
+    }
+    // Both guards run before git does: an empty commit would otherwise come
+    // back as a generic git failure and the surface would have to guess what
+    // actually happened.
+    if !status_in(root)?.entries.iter().any(|entry| entry.staged) {
+        return Err(GitError::unavailable("there is nothing staged to commit"));
+    }
+    run_git_write(root, &["commit", "-m", message])?;
+    mutation_report(root, "commit", None, None)
+}
+
+/// Throw away one path's unstaged edits.
+pub(crate) fn discard(
+    environment: Option<&DshEnvironment>,
+    path: &str,
+) -> Result<GitMutationReport, GitError> {
+    discard_in(&repo_root(environment)?, path)
+}
+
+/// [discard] against an explicit repository (the testable core).
+pub(crate) fn discard_in(root: &Path, path: &str) -> Result<GitMutationReport, GitError> {
+    let target = validate_relative(path)?;
+    // `--worktree` only: never `--staged`, never a revision, never `--hard`.
+    // The worst case is one file's unstaged edits, which is exactly what the
+    // confirmation dialog promises. (git 2.23 or newer.)
+    run_git_write(root, &["restore", "--worktree", "--", &target])?;
+    mutation_report(root, "discard", Some(&target), None)
+}
+
+/// Request: stage one path, or everything.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct GitStageRequest {
+    schema_version: u8,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    all: bool,
+}
+
+impl GitStageRequest {
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == GIT_SCHEMA_VERSION
+    }
+
+    pub(crate) fn path(&self) -> Option<&str> {
+        self.path.as_deref()
+    }
+
+    pub(crate) fn all(&self) -> bool {
+        self.all
+    }
+}
+
+/// Request: unstage one path, or the whole index.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct GitUnstageRequest {
+    schema_version: u8,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    all: bool,
+}
+
+impl GitUnstageRequest {
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == GIT_SCHEMA_VERSION
+    }
+
+    pub(crate) fn path(&self) -> Option<&str> {
+        self.path.as_deref()
+    }
+
+    pub(crate) fn all(&self) -> bool {
+        self.all
+    }
+}
+
+/// Request: commit what is staged.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct GitCommitRequest {
+    schema_version: u8,
+    message: String,
+}
+
+impl GitCommitRequest {
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == GIT_SCHEMA_VERSION
+    }
+
+    pub(crate) fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+/// Request: throw away one path's unstaged edits.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct GitDiscardRequest {
+    schema_version: u8,
+    path: String,
+}
+
+impl GitDiscardRequest {
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == GIT_SCHEMA_VERSION
+    }
+
+    pub(crate) fn path(&self) -> &str {
+        &self.path
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -521,6 +794,11 @@ mod tests {
         fn write(&self, name: &str, content: &str) {
             fs::write(self.0.join(name), content).expect("write file");
         }
+    }
+
+    /// The status entry for one path.
+    fn entry_of<'a>(entries: &'a [GitEntry], path: &str) -> Option<&'a GitEntry> {
+        entries.iter().find(|entry| entry.path == path)
     }
 
     impl Drop for TempRepo {
@@ -665,5 +943,198 @@ mod tests {
         let error = status_in(&dir).expect_err("a plain directory is not a repository");
         assert!(matches!(error, GitError::Unavailable(_)), "got {error:?}");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stage_then_unstage_round_trips_a_path() {
+        let repo = TempRepo::new("stage");
+        repo.write("a.txt", "one");
+
+        let staged = stage_in(repo.path(), Some("a.txt"), false).expect("stage");
+        assert_eq!(staged.operation, "stage");
+        assert_eq!(staged.path.as_deref(), Some("a.txt"));
+        assert!(staged.detail.is_none());
+        let entry = entry_of(&staged.status.entries, "a.txt").expect("a.txt is in the report");
+        assert!(entry.staged && !entry.unstaged && !entry.untracked);
+
+        let unstaged = unstage_in(repo.path(), Some("a.txt"), false).expect("unstage");
+        assert_eq!(unstaged.operation, "unstage");
+        let entry = entry_of(&unstaged.status.entries, "a.txt").expect("a.txt is still reported");
+        assert!(
+            !entry.staged && entry.untracked,
+            "it went back to untracked"
+        );
+        assert!(
+            repo.path().join("a.txt").exists(),
+            "unstaging never touches the worktree"
+        );
+    }
+
+    #[test]
+    fn stage_all_and_unstage_all_cover_every_change() {
+        let repo = TempRepo::new("stage-all");
+        repo.write("a.txt", "one");
+        repo.write("b.txt", "two");
+
+        let staged = stage_in(repo.path(), None, true).expect("stage all");
+        assert_eq!(staged.path, None);
+        assert_eq!(staged.status.entries.len(), 2);
+        assert!(staged.status.entries.iter().all(|entry| entry.staged));
+
+        let cleared = unstage_in(repo.path(), None, true).expect("unstage all");
+        assert!(cleared.status.entries.iter().all(|entry| entry.untracked));
+    }
+
+    #[test]
+    fn unstage_works_before_the_first_commit() {
+        // A repository with no commits has no HEAD to restore from: the index
+        // reset has to go through rm --cached, and the report says so.
+        let repo = TempRepo::new("unborn");
+        repo.write("a.txt", "one");
+        stage_in(repo.path(), Some("a.txt"), false).expect("stage");
+
+        let cleared =
+            unstage_in(repo.path(), Some("a.txt"), false).expect("unstage on an unborn head");
+        assert!(
+            cleared
+                .detail
+                .as_deref()
+                .unwrap_or("")
+                .contains("no commits yet"),
+            "the report names the primitive: {:?}",
+            cleared.detail
+        );
+        let entry = entry_of(&cleared.status.entries, "a.txt").expect("a.txt");
+        assert!(entry.untracked && !entry.staged);
+        assert!(repo.path().join("a.txt").exists());
+    }
+
+    #[test]
+    fn commit_records_what_was_staged() {
+        let repo = TempRepo::new("commit");
+        repo.write("a.txt", "one");
+        stage_in(repo.path(), Some("a.txt"), false).expect("stage");
+
+        let committed = commit_in(repo.path(), "  first commit  ").expect("commit");
+        assert_eq!(committed.operation, "commit");
+        assert!(committed.status.clean, "the tree is clean after committing");
+
+        let history = log_in(repo.path(), 10).expect("log");
+        assert_eq!(history.entries.len(), 1);
+        assert_eq!(history.entries[0].subject, "first commit");
+    }
+
+    #[test]
+    fn commit_guards_run_before_git_does() {
+        let repo = TempRepo::new("commit-guards");
+        repo.write("a.txt", "one");
+
+        // Nothing staged.
+        let nothing = commit_in(repo.path(), "nope").expect_err("nothing staged");
+        assert!(
+            matches!(nothing, GitError::Unavailable(_)),
+            "got {nothing:?}"
+        );
+        assert!(nothing.message().contains("nothing staged"));
+
+        // Empty and whitespace-only messages.
+        for message in ["", "   ", "\n\t"] {
+            assert!(matches!(
+                commit_in(repo.path(), message),
+                Err(GitError::Malformed(_))
+            ));
+        }
+
+        // Over-long message.
+        let long = "x".repeat(MAX_COMMIT_MESSAGE_BYTES + 1);
+        assert!(matches!(
+            commit_in(repo.path(), &long),
+            Err(GitError::Malformed(_))
+        ));
+
+        // None of that created a commit.
+        assert!(
+            log_in(repo.path(), 10)
+                .map(|report| report.entries.is_empty())
+                .unwrap_or(true)
+        );
+    }
+
+    #[test]
+    fn discard_restores_the_worktree_and_nothing_else() {
+        let repo = TempRepo::new("discard");
+        repo.write("a.txt", "one");
+        stage_in(repo.path(), Some("a.txt"), false).expect("stage");
+        commit_in(repo.path(), "base").expect("commit");
+
+        // Untracked work on two files: one staged change and one worktree change.
+        repo.write("a.txt", "two");
+        stage_in(repo.path(), Some("a.txt"), false).expect("stage the edit");
+        repo.write("a.txt", "three");
+        repo.write("b.txt", "keep me");
+
+        let discarded = discard_in(repo.path(), "a.txt").expect("discard");
+        assert_eq!(discarded.operation, "discard");
+        assert_eq!(
+            fs::read_to_string(repo.path().join("a.txt")).expect("read a.txt"),
+            "two",
+            "discard restores the worktree from the index, not from HEAD"
+        );
+        let entry = entry_of(&discarded.status.entries, "a.txt").expect("a.txt");
+        assert!(entry.staged && !entry.unstaged, "the index is untouched");
+        assert!(
+            !entry.untracked,
+            "and the file is still tracked and staged as modified"
+        );
+        assert_eq!(
+            fs::read_to_string(repo.path().join("b.txt")).expect("read b.txt"),
+            "keep me",
+            "another path is never in the blast radius"
+        );
+    }
+
+    #[test]
+    fn mutations_refuse_paths_and_shapes_they_do_not_offer() {
+        let repo = TempRepo::new("mutations-negative");
+        repo.write("a.txt", "one");
+
+        for path in ["../escape", "/abs", "C:/x", "--upload-pack=evil", ""] {
+            assert!(
+                matches!(
+                    stage_in(repo.path(), Some(path), false),
+                    Err(GitError::Malformed(_))
+                ),
+                "stage accepted {path:?}"
+            );
+            assert!(
+                matches!(
+                    unstage_in(repo.path(), Some(path), false),
+                    Err(GitError::Malformed(_))
+                ),
+                "unstage accepted {path:?}"
+            );
+            assert!(
+                matches!(discard_in(repo.path(), path), Err(GitError::Malformed(_))),
+                "discard accepted {path:?}"
+            );
+        }
+
+        // A path and "all" at once, and neither of them.
+        assert!(matches!(
+            stage_in(repo.path(), Some("a.txt"), true),
+            Err(GitError::Malformed(_))
+        ));
+        assert!(matches!(
+            stage_in(repo.path(), None, false),
+            Err(GitError::Malformed(_))
+        ));
+        assert!(matches!(
+            unstage_in(repo.path(), Some("a.txt"), true),
+            Err(GitError::Malformed(_))
+        ));
+        assert!(matches!(
+            unstage_in(repo.path(), None, false),
+            Err(GitError::Malformed(_))
+        ));
     }
 }
