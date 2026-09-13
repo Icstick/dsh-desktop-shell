@@ -68,6 +68,8 @@ pub fn run() {
             commands::fs_list_roots,
             commands::fs_read_dir,
             commands::fs_read_file,
+            commands::fs_stat,
+            commands::fs_write_file,
             commands::mount_dsh_surface,
             commands::pick_directory,
             commands::probe_attached_environment,

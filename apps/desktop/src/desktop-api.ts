@@ -42,6 +42,9 @@ import type {
   FsReadFileRequest,
   FsRootsReport,
   FsRootsRequest,
+  FsStatReport,
+  FsStatRequest,
+  FsWriteFileRequest,
   HarnessDiscoveryReport,
   HarnessDiscoveryRequest,
   ProbePortReport,
@@ -101,6 +104,8 @@ export interface DesktopApi {
   fsListRoots(request: FsRootsRequest): Promise<FsRootsReport>;
   fsReadDir(request: FsReadDirRequest): Promise<FsDirReport>;
   fsReadFile(request: FsReadFileRequest): Promise<FsFileReport>;
+  fsStat(request: FsStatRequest): Promise<FsStatReport>;
+  fsWriteFile(request: FsWriteFileRequest): Promise<FsStatReport>;
 }
 
 export const desktopApi: DesktopApi = {
@@ -149,6 +154,8 @@ export const desktopApi: DesktopApi = {
   fsListRoots: (request) => invoke<FsRootsReport>("fs_list_roots", { request }),
   fsReadDir: (request) => invoke<FsDirReport>("fs_read_dir", { request }),
   fsReadFile: (request) => invoke<FsFileReport>("fs_read_file", { request }),
+  fsStat: (request) => invoke<FsStatReport>("fs_stat", { request }),
+  fsWriteFile: (request) => invoke<FsStatReport>("fs_write_file", { request }),
   mountDshSurface: (request) =>
     invoke<DshSurfaceStatus>("mount_dsh_surface", { request }),
   probeAttachedEnvironment: (request) =>

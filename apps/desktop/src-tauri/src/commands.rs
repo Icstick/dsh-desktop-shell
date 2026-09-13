@@ -1806,6 +1806,49 @@ pub fn fs_read_dir(
     .map_err(CommandError::from_fs)
 }
 
+/// FS-M2: stat one file. The editor records this as its conflict baseline.
+#[tauri::command]
+pub fn fs_stat(
+    app: AppHandle,
+    request: crate::file_manager::FsStatRequest,
+) -> Result<crate::file_manager::FsStatReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::file_manager::stat(
+        catalog.active_environment(),
+        request.root_id(),
+        request.relative_path(),
+    )
+    .map_err(CommandError::from_fs)
+}
+
+/// FS-M2: write one file atomically. A stale baseline comes back as CONFLICT
+/// unless the request forces the write, which only happens after the user
+/// answered the overwrite prompt.
+#[tauri::command]
+pub fn fs_write_file(
+    app: AppHandle,
+    request: crate::file_manager::FsWriteFileRequest,
+) -> Result<crate::file_manager::FsStatReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::file_manager::write_file(
+        catalog.active_environment(),
+        request.root_id(),
+        request.relative_path(),
+        request.content(),
+        request.baseline(),
+        request.force(),
+    )
+    .map_err(CommandError::from_fs)
+}
+
 /// FS-M1: read one text file inside a root for the view pane (read-only;
 /// FS-M2 adds the write path).
 #[tauri::command]

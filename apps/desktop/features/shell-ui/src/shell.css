@@ -3193,3 +3193,182 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-size: 13px;
 }
 
+/* Workbench tokens + FS-M2 chrome (docs/roadmap/SPEC-WORKBENCH-VISUAL.md).
+   Components below never name a raw colour; the accent is reserved for the
+   active element, and the diff tokens are pre-registered for GIT-M1. */
+.file-manager {
+  --wb-surface: rgba(128, 148, 180, 0.06);
+  --wb-surface-raised: rgba(128, 148, 180, 0.13);
+  --wb-border: rgba(128, 148, 180, 0.28);
+  --wb-accent: #4a86e8;
+  --wb-ok: #4f9d69;
+  --wb-warn: #c9a227;
+  --wb-error: #c0605e;
+  --wb-diff-added: #2f6f4f;
+  --wb-diff-removed: #7a3a3a;
+}
+
+.file-manager__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  border-bottom: 1px solid var(--wb-border);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.file-manager__action {
+  border: 1px solid var(--wb-border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.file-manager__action:hover:not(:disabled) {
+  background: var(--wb-surface-raised);
+}
+
+.file-manager__action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.file-manager__hint {
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.file-manager__filter {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--wb-border);
+  background: var(--wb-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.file-manager__tree-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.file-manager__row[aria-current="true"] {
+  background: rgba(74, 134, 232, 0.22);
+}
+
+.file-manager__docbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--wb-border);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+
+.file-manager__chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.file-manager__chip {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--wb-border);
+  white-space: nowrap;
+}
+
+.file-manager__chip[data-state="warn"] {
+  color: var(--wb-warn);
+  border-color: currentColor;
+}
+
+.file-manager__chip[data-state="bad"] {
+  color: var(--wb-error);
+  border-color: currentColor;
+}
+
+.file-manager__editor {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 320px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--wb-border);
+  border-radius: 8px;
+  background: var(--wb-surface);
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.file-manager__statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--wb-border);
+}
+
+.file-manager__statusbar-actions {
+  margin-left: auto;
+}
+
+.file-manager__dialog {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--wb-border);
+  border-radius: 10px;
+  background: var(--wb-surface-raised);
+}
+
+.file-manager__dialog p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.file-manager__dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.file-manager__dialog-actions button {
+  border: 1px solid var(--wb-border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.file-manager__empty {
+  margin-top: 48px;
+  text-align: center;
+}
+
+

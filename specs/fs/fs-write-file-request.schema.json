@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/fs/fs-write-file-request.schema.json",
+  "title": "FsWriteFileRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rootId",
+    "relativePath",
+    "content"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "rootId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?:[^:\\\\]|\\\\.)*$"
+    },
+    "content": {
+      "type": "string",
+      "maxLength": 2097152
+    },
+    "expectedSize": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expectedModifiedUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "force": {
+      "type": "boolean"
+    }
+  }
+}

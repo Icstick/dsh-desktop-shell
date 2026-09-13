@@ -1,0 +1,25 @@
+schema_version: 1
+id: HANDOFF-20260913-M10-WORKBENCH-FS2
+work_item: WI-M10-WORKBENCH-FS
+from: "agent session 20260913"
+to: null
+status: open
+completed:
+  - "FS-M2 后端（apps/desktop/src-tauri/src/file_manager.rs）：`fs_stat` 给出冲突基线（size + mtime 毫秒 + editable/reason；用头部 8 KiB 探 UTF-8，尾部截断不算错）与 `fs_write_file` 原子写（同目录临时文件 + `sync_all` + rename，失败清理临时文件）；拒绝目标不存在/非普通文件/二进制或超 2 MiB/内容超 2 MiB；基线不匹配且未 force 时返回新错误码 `CONFLICT`。新增 `FsError::Conflict`。5 个新单测：基线、原子写往返 + 临时文件清理、陈旧基线冲突 + force 覆盖、拒绝矩阵、写路径 containment（符号链接逃逸 + `..`/绝对/盘符）。"
+  - "命令面：`fs_stat` / `fs_write_file` 四处同步（build.rs / capabilities/shell.json / lib.rs / validate-acl.mjs）→ validate-acl **45 commands**；`specs/fs` 增 4 schema + 8 fixture → validate-specs **73 schemas / 153 fixtures ALL PASS**。"
+  - "FS-M2 前端：按 `docs/roadmap/SPEC-WORKBENCH-VISUAL.md` 重排 FileManagerPanel —— 紧凑工具条（刷新/显示隐藏/全部折叠 + 内联保存快捷键提示）、树列顶部过滤框（教学式占位符 + `N / M 条`）、右栏文档条（路径 + dirty/编码/只读 chip）、textarea 编辑器（Ctrl/Cmd+S，只读不可写）、底部状态条（路径 · 编码 · 大小，保存键靠右）、冲突对话（覆盖 / 放弃我的修改 / 继续编辑）、切换文件时的未保存确认。新增工作台语义 token `--wb-*`（含 GIT-M1 预留的 diff 色）。"
+  - "测试：cargo file_manager 12/12（含 5 个 FS-M2 用例）；vitest FileManagerPanel 6/6（过滤与计数、dirty 与保存请求形状含基线、冲突对话 force=true、放弃走重读、只读禁写、未保存切换确认）；四个既有 DesktopApi 测试替身补齐 fsStat/fsWriteFile。"
+remaining:
+  - "CI（三平台 + live-qa-windows）验证本分支；随后 squash 合并 main。"
+  - "FS-M2 用户视觉验收（编辑器形态、冲突对话、状态条位置）。"
+  - "GIT-M1：status/diff/log 只读视图（复用本片表格形状与 `--wb-diff-*` token）。"
+verification:
+  - "cargo fmt --check 干净；cargo clippy -p dsh-desktop-shell --all-targets -D warnings 干净；cargo test -p dsh-desktop-shell 绿。"
+  - "pnpm check 干净；vitest 全量 + file-manager 6/6。"
+  - "validate-acl 45 commands；validate-specs 73/153 ALL PASS。"
+risks:
+  - "rename 只在同目录内原子（跨设备不成立）；本片不提供新建文件（那是 save-as），写入前目标必须存在。"
+  - "冲突检测用 size + mtime 毫秒，同一毫秒内的外部修改理论上漏检——真实编辑器同此取舍，后续可加内容哈希。"
+  - "工作台 token 仅作用于 `.file-manager` 作用域，shell 其余面仍是既有硬编码色；整体主题化是独立工作项。"
+next_action: "push feat/m10-workbench-fs2 并盯 CI；绿后合并 main，请用户做 FS-M2 视觉验收，然后开 GIT-M1。"
+created_at: "2026-09-13T02:20:00Z"

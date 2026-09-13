@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "rootId": "dsh-home",
+  "relativePath": "config.yaml",
+  "content": "theme: dark\n",
+  "expectedSize": 12,
+  "expectedModifiedUnixMs": 1789250000000,
+  "force": false
+}
