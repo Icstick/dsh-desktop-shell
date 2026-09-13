@@ -151,7 +151,14 @@ impl PipeStream {
         self.identity.clone()
     }
 
-    fn available_bytes(&self) -> io::Result<Dword> {
+    /// Bytes ready to read, or `None` once the peer has closed.
+    ///
+    /// The distinction matters: a closed pipe must surface as EOF
+    /// (Read::read == Ok(0)) so the supervision loop ends the connection -
+    /// treating it as "no data yet" keeps the worker alive forever, which
+    /// leaks the connection and suppresses the disconnect paths (credential
+    /// re-issue, lease revocation; found by live QA on 2026-09-13).
+    fn available_bytes(&self) -> io::Result<Option<Dword>> {
         let mut available: Dword = 0;
         let ok = unsafe {
             PeekNamedPipe(
@@ -169,12 +176,11 @@ impl PipeStream {
                 || code == ERROR_PIPE_NOT_CONNECTED
                 || code == ERROR_NO_DATA
             {
-                // The peer closed: surface EOF through the io::Read contract.
-                return Ok(0);
+                return Ok(None);
             }
             return Err(last_error());
         }
-        Ok(available)
+        Ok(Some(available))
     }
 }
 
@@ -195,7 +201,11 @@ impl Read for PipeStream {
         let timeout = *self.read_timeout.lock().unwrap();
         let started = Instant::now();
         loop {
-            let available = self.available_bytes()?;
+            let available = match self.available_bytes()? {
+                // Peer closed: EOF, exactly like a socket read of length 0.
+                None => return Ok(0),
+                Some(available) => available,
+            };
             if available == 0 {
                 if let Some(limit) = timeout
                     && started.elapsed() >= limit
@@ -562,6 +572,45 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
         assert!(started.elapsed() >= Duration::from_millis(100));
         drop(client);
+    }
+
+    /// Regression (2026-09-13 live QA): a closed peer must surface as EOF
+    /// (read == Ok(0)), not as "no data yet" - otherwise the supervision
+    /// loop never ends the connection and the daemon misses every
+    /// disconnect path (credential re-issue, lease revocation).
+    #[test]
+    fn peer_close_surfaces_as_eof() {
+        let name = format!("dsh-lt-test-{}-{}", std::process::id(), 4);
+        let limits = crate::limits::Limits::default();
+        let listener = NamedPipeListener::bind(&name, &limits).expect("bind pipe listener");
+        // Client first (the acceptor creates the instance asynchronously),
+        // then accept the connection, then close the client.
+        let client = {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                match connect(&name) {
+                    Ok(stream) => break stream,
+                    Err(_) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+                    Err(error) => panic!("client connect failed: {error}"),
+                }
+            }
+        };
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut server_stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(_) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+                Err(error) => panic!("accept failed: {error}"),
+            }
+        };
+        drop(client);
+
+        server_stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("set timeout");
+        let mut buf = [0u8; 8];
+        let read = server_stream.read(&mut buf).expect("read must not error");
+        assert_eq!(read, 0, "a closed peer must surface as EOF, not a stall");
     }
 
     #[test]

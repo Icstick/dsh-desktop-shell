@@ -176,7 +176,14 @@ async function phaseA() {
   }
   check('A2 credential file written', !!cred, cred ? 'pid=' + cred.pid + ' port=' + cred.port : '');
   if (!cred) throw new Error('no credential file');
-  check('A3 credential schema v1 + pid match', cred.schemaVersion === 1 && cred.pid === daemonPid, 'schema=' + cred.schemaVersion + ' pid=' + cred.pid + '/' + daemonPid);
+  // ADR-0022: the credential file is v2 (optional pipeName); a Windows
+  // daemon publishes the peer-identity carrier endpoint the Shell prefers.
+  const pipeOk = process.platform !== 'win32' || (typeof cred.pipeName === 'string' && cred.pipeName.length > 0);
+  check(
+    'A3 credential schema v2 + pid match + pipe carrier',
+    cred.schemaVersion === 2 && cred.pid === daemonPid && pipeOk,
+    'schema=' + cred.schemaVersion + ' pid=' + cred.pid + '/' + daemonPid + ' pipe=' + (cred.pipeName ?? '<none>')
+  );
 
   let client;
   try {
@@ -273,20 +280,32 @@ async function phaseB() {
   await sleep(1500);
   check('B3 daemon survives Shell close (M6 core semantics)', await alive(daemonPid));
 
-  // B4: 断开后 daemon 重签凭证文件（HIGH-1），新凭证可直连重入
+  // B4: 断开后 daemon 重签凭证文件（HIGH-1）。文件里的 token 只有在
+  // 「未被消费」时才可用：Shell 可能刚消费了上一个 token 而 daemon 尚未
+  // 重签，因此「token 变了」不足以判定新鲜（2026-09-13 CI 竞态：读到已消费
+  // 的 token → B5 replay）。读文件 + 建立连接作为一个重试循环——能通过
+  // 握手的那个才是新鲜 token（与真实 Shell 的「失败后重读」语义一致）。
   let fresh = null;
-  for (let i = 0; i < 100 && !fresh; i++) {
+  let bclient = null;
+  for (let i = 0; i < 100 && !bclient; i++) {
+    let candidate = null;
     try {
-      const f = JSON.parse(readFileSync(CRED_FILE, 'utf8'));
-      if (f.credential.token !== cred.credential.token) fresh = f;
+      candidate = JSON.parse(readFileSync(CRED_FILE, 'utf8'));
     } catch { /* partial write */ }
-    if (!fresh) await sleep(50);
+    if (candidate && candidate.credential.token !== cred.credential.token) {
+      try {
+        bclient = await EnvelopeClient.connect(candidate.port, candidate.credential.token);
+        fresh = candidate;
+      } catch (e) {
+        if (!/replay|invalid|stale/.test(String(e))) throw e;
+        // 已消费/过期的 token：daemon 还没重签，重新读文件再试。
+      }
+    }
+    if (!bclient) await sleep(50);
   }
   check('B4 daemon re-issues credential after disconnect', !!fresh, fresh ? 'new token: ' + fresh.credential.token.slice(0, 12) : '');
-  if (!fresh) failFast('B4 daemon re-issues credential after disconnect', new Error('no reissued credential'));
-  let bclient = null;
+  if (!fresh || !bclient) failFast('B4 daemon re-issues credential after disconnect', new Error('no usable reissued credential'));
   try {
-    bclient = await EnvelopeClient.connect(fresh.port, fresh.credential.token);
     const agreement = await bclient.negotiate(supports, 'qa-restart-0002');
     const tstat = await bclient.invoke(CAP.terminal, 'terminal.status');
     const ok = agreement.payload.granted.length >= 5 && tstat.payload && tstat.payload.count === 0;
