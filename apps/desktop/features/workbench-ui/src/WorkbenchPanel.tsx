@@ -38,7 +38,7 @@ export function WorkbenchPanel({ api }: WorkbenchPanelProps) {
       <div aria-label={t("workbench.tabs")} className="workbench__tabs" role="tablist">
         {TABS.map((entry, index) => (
           <button
-            aria-controls={"workbench-panel-" + entry.id}
+            aria-controls="workbench-panel"
             aria-selected={tab === entry.id}
             className="workbench__tab"
             data-testid={"wb-tab-" + entry.id}
@@ -77,7 +77,7 @@ export function WorkbenchPanel({ api }: WorkbenchPanelProps) {
       <div
         aria-labelledby={"workbench-tab-" + tab}
         className="workbench__panel"
-        id={"workbench-panel-" + tab}
+        id="workbench-panel"
         role="tabpanel"
       >
         {tab === "files" ? <FileManagerPanel api={api} /> : <GitPanel api={api} />}
