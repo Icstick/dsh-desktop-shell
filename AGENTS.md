@@ -51,6 +51,24 @@ cargo clippy -p <crate> --target aarch64-apple-darwin --all-targets -- -D warnin
 Windows-only 的测试文件加文件级 `#![cfg(windows)]`。依赖系统库的 crate（tauri/webkit2gtk）
 无法交叉编译，其 Unix 分支只能靠 CI 验证，改动时要额外小心。
 
+**WSL 上的真实 Linux 运行（2026-09-13）**：交叉 clippy 只能证明 Unix 分支可编译，证明不了行为。
+WSL（Ubuntu）里装一份 rustc 后可直接跑纯 Rust crate 的测试——这是本机唯一能真跑 Unix 行为
+（UDS、SO_PEERCRED、/proc）的通道；依赖 tauri/webkit2gtk 的 crate 仍然只能靠 CI。
+提交前至少跑一遍 `dsh-local-transport` 与 `dsh-daemon` 的 Linux 测试。
+
+**两个跨平台陷阱（2026-09-13 实测踩到）**：
+
+- `std::fs::canonicalize` 在 Windows 返回 `\\?\C:\...`（verbatim）形式，而内核 API
+  （`QueryFullProcessImageNameW`）从不这样报。跨进程路径比对（peer identity）**不要** canonicalize，
+  否则对真进程永远不匹配——而且「冒充者负向测试仍然通过」会掩盖它，只有正向腿会红。
+- 库函数不要对**已存在**的目录调用 `set_permissions`：在 `/tmp` 上直接 EPERM，以 root 跑会真的
+  改坏共享目录。只对自己创建的目录收紧权限。
+
+**WSL mirrored 网络会占住宿主端口（2026-09-13 实测）**：本机 `.wslconfig` 为 `networkingMode=mirrored`，
+WSL 运行时 Linux 临时端口段（32768–60999）在宿主侧被保留——Windows 进程绑定该区间的端口会直接
+WSAEADDRINUSE，而 `netstat` 看不到任何监听者（desktop 测试的固定端口 39101 正是这样挂掉的）。
+跑 Windows 门禁前先 `wsl --shutdown`；跑 WSL 的 Linux 测试时不要同时跑 Windows 测试套件。
+
 ## Handoff
 
 Session 结束前：

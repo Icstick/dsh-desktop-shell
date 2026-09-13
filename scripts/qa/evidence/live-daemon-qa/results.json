@@ -7,12 +7,12 @@
   {
     "name": "A2 credential file written",
     "ok": true,
-    "detail": "pid=34112 port=37771"
+    "detail": "pid=35556 port=37771"
   },
   {
-    "name": "A3 credential schema v2 + pid match + pipe carrier",
+    "name": "A3 credential schema v3 + pid match + carrier endpoint",
     "ok": true,
-    "detail": "schema=2 pid=34112/34112 pipe=dsh-desktop-daemon-34112-18d4b8a47aa3702c"
+    "detail": "schema=3 pid=35556/35556 endpoint=dsh-desktop-daemon-35556-18d4b9c31e1b9c60"
   },
   {
     "name": "A4 envelope handshake (one-time credential)",
@@ -47,7 +47,7 @@
   {
     "name": "A10 terminal.create real PTY",
     "ok": true,
-    "detail": "session=pty-1789257968871-1"
+    "detail": "session=pty-1789259199980-1"
   },
   {
     "name": "A11 terminal.status contains session",
@@ -57,7 +57,7 @@
   {
     "name": "A12 terminal.output event bridge",
     "ok": true,
-    "detail": "{\"data\":\"echo LIVE_QA_OK\\r\\n\",\"schemaVersion\":1,\"seq\":3,\"sessionId\":\"pty-1789257968871-1\",\"timestamp"
+    "detail": "{\"data\":\"echo LIVE_QA_OK\\r\\n\",\"schemaVersion\":1,\"seq\":4,\"sessionId\":\"pty-1789259199980-1\",\"timestamp"
   },
   {
     "name": "A13 terminal.close",
@@ -67,12 +67,12 @@
   {
     "name": "A14 browser.create",
     "ok": true,
-    "detail": "session=brw-1789257969107-1"
+    "detail": "session=brw-1789259200214-1"
   },
   {
     "name": "A15 browser.list contains session",
     "ok": true,
-    "detail": "{\"browsers\":[{\"createdAtUnixMs\":1789257969107,\"currentUrl\":null,\"error\":null,\"lastActivityUnixMs\":null,\"mode\":\"human_sur"
+    "detail": "{\"browsers\":[{\"createdAtUnixMs\":1789259200214,\"currentUrl\":null,\"error\":null,\"lastActivityUnixMs\":null,\"mode\":\"human_sur"
   },
   {
     "name": "A16 browser.session-closed event",
@@ -87,7 +87,17 @@
   {
     "name": "A18 scheduler.wake",
     "ok": true,
-    "detail": "{\"pending\":1,\"repeat\":null,\"scheduledFor\":\"2026-09-13T00:06:09.848Z\",\"wakeId\":\"qa-wake-1\"}"
+    "detail": "{\"pending\":1,\"repeat\":null,\"scheduledFor\":\"2026-09-13T00:26:40.957Z\",\"wakeId\":\"qa-wake-1\"}"
+  },
+  {
+    "name": "A19 carrier connection carries the kernel peer identity",
+    "ok": true,
+    "detail": "carrier=dsh-desktop-daemon-35556-18d4b9c31e1b9c60 pid=13968"
+  },
+  {
+    "name": "A20 strict policy degrades a Shell claim from a non-Shell image",
+    "ok": true,
+    "detail": "authority-degraded=true granted=0"
   },
   {
     "name": "B1 daemon alive after Shell start",
@@ -107,12 +117,12 @@
   {
     "name": "B4 daemon re-issues credential after disconnect",
     "ok": true,
-    "detail": "new token: lt_a4c2f110b"
+    "detail": "new token: lt_48f5a52b8 (attempts=3)"
   },
   {
     "name": "B5 re-attach with reissued credential (handshake+invoke)",
     "ok": true,
-    "detail": "granted=6"
+    "detail": "granted=6 tstat={\"count\":0,\"sessions\":[]}"
   },
   {
     "name": "B6 Shell restart reconnects to surviving daemon",
@@ -123,5 +133,10 @@
     "name": "B7 Shell process alive after restart",
     "ok": true,
     "detail": ""
+  },
+  {
+    "name": "B8 real Shell over the carrier earns ShellControl",
+    "ok": true,
+    "detail": "identity=true carrier=true ShellControl=true"
   }
 ]

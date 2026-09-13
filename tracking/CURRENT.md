@@ -1,6 +1,29 @@
 # Current Project State
 
 
+## 2026-09-13 · WI-M13 Unix UDS 载体（feat/m13-unix-uds-carrier）
+
+- 载体：`crates/local-transport/src/uds.rs`（UdsListener/UdsStream；**无需 acceptor 线程**——UnixListener 支持非阻塞
+  accept；socket 0600、自建父目录才 0700、陈旧 socket 可替换但绝不删除非 socket 文件、sockaddr_un 长度护栏；6 个测试）。
+- macOS 对端身份：`getsockopt(LOCAL_PEERPID)` + `proc_pidpath`（本 crate 第二处、也是最后一处 unsafe 豁免；
+  Linux 仍走 nix SO_PEERCRED + /proc 保持 unsafe-free；其他 Unix 明示 Unsupported = fail-closed）。
+- daemon：`CarrierEndpoint(NamedPipe|UnixSocket)` 取代 pipe-only 字段；凭证 schema **v3**（pipeName | socketPath，
+  同一文件互斥）；Unix 载体落在数据目录（per-process nonce，与管道命名同法）；**Unix 的策略闸门已移除 → 三平台默认 strict**；
+  strict 而载体未挂载时显式告警。
+- Shell：`ClientStream::UnixSocket` + connect_carrier 在 Unix 优先 socket（Windows 优先管道），降级 TCP 有日志理由。
+- 测试：peer_identity_pipe.rs 泛化为 peer_identity_carrier.rs（正向=镜像匹配保留 ShellControl；负向=同用户冒充者
+  无 grant + dispatch Unauthorized），**三平台跑同一套断言**；tests/common 提供载体无关的连接 helper。
+- live QA：A3 升为 v3 + 载体端点；新增 A3b（载体连接携带内核身份——断言 daemon 审计日志里的 pid）与 A3c
+  （自称 Shell 的非 Shell 镜像被降级：authority=Participant / 无 grant / dispatch Unauthorized）= H-2 的实时负向证据；
+  A4/B4 复用「读文件 + 握手」重试 helper（载体腿会消费一次性 token）。
+- **本地 Linux 验证（WSL Ubuntu26 + rustc 1.98.0）**：6 个 UDS 测试全绿（SO_PEERCRED + /proc/<pid>/exe 真跑），
+  clippy -D warnings 干净；Windows 侧 clippy 干净、daemon/desktop 套件绿、载体两条腿 2/2。
+- **两个被测试抓出的真 bug**（详见 WI-M13 evidence）：
+  ① `UdsListener::bind` 对**已存在**的父目录也 chmod → /tmp 上直接 EPERM（以 root 跑会毁掉共享目录）→ 只对自己创建的目录 chmod + 回归测试；
+  ② 期望 Shell 路径做 `canonicalize` → Windows 返回 `\\?\` verbatim 形式（内核从不这样报）→ strict 会**拒绝真 Shell**
+  而冒充者腿依旧绿（正向腿红灯才暴露）。已改为不 canonicalize，两处都写明理由。
+- 待办：push → CI 三平台 + live-qa-windows → H-2 翻 closed（带 run id）→ 合并 main。
+
 ## 2026-09-13 早 · 合并后 CI 修复（三条，全部本地复现）
 
 - CI 首次结果：测试矩阵三平台（win/mac/ubuntu）**全绿**；live-qa-windows 失败。

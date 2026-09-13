@@ -1,5 +1,7 @@
 // M6 live QA: daemon 化端到端验证（零依赖 Node 24）
 // 阶段 A: daemon 直连（spawn dsh-desktop-daemon.exe → claim 端口 → 凭证文件 → envelope 握手/协商/调用/事件）
+//   A19/A20: ADR-0022 载体腿——同一用户的非 Shell 进程持有有效凭据、走内核身份载体、
+//   自称 Shell，严格策略下判定为 Participant（H-2 的实时证据）；B8 是对照腿：真 Shell 同载体拿到 ShellControl。
 // 阶段 B: Shell 端到端（启动 Shell → daemon 存活保持 → 关闭 Shell daemon 不退出 → 重启 Shell 重连）
 // 前置: 已构建 target/debug/dsh-desktop-daemon.exe 与 dsh-desktop-shell.exe
 import { spawn } from 'node:child_process';
@@ -30,6 +32,9 @@ let daemonProc = null;
 let daemonPid = null;
 let shellProc = null;
 let cred = null;
+// daemon stderr 累积：载体腿要断言「内核身份」与「activation 权威判定」两条审计线
+// （ADR-0021 决策 4 的可观测输出）。
+const daemonLog = [];
 
 async function waitPort(port, timeoutMs = 15000) {
   const deadline = Date.now() + timeoutMs;
@@ -47,17 +52,22 @@ async function waitPort(port, timeoutMs = 15000) {
 class EnvelopeClient {
   // 裸 socket 风格（debug-handshake2 验证可行）：每个连接一个专用解析循环，
   // 帧 = u32 LE 长度前缀 + JSON；Result 按 correlationId 关联，Event 入 events。
-  static async connect(port, token) {
-    const socket = net.connect({ host: '127.0.0.1', port });
+  // target: TCP 端口（number）或载体路径（named pipe / UDS 的 socket 路径）。
+  // participant: 覆盖自称身份（默认 qa-harness/live-qa；载体腿用 Shell 身份冒充）。
+  static async connect(target, token, participant) {
+    const socket = typeof target === 'number'
+      ? net.connect({ host: '127.0.0.1', port: target })
+      : net.connect({ path: target });
     await new Promise((res, rej) => { socket.once('connect', res); socket.once('error', rej); });
-    const client = new EnvelopeClient(socket);
+    const client = new EnvelopeClient(socket, participant);
     client.write({ token });
     const hello = await client.readFrame(5000);
     if (!hello.accepted) throw new Error('handshake rejected: ' + JSON.stringify(hello));
     return client;
   }
-  constructor(socket) {
+  constructor(socket, participant) {
     this.socket = socket;
+    this.participant = participant || { component: 'qa-harness', facet: 'live-qa' };
     this.buf = Buffer.alloc(0);
     this.pending = new Map();
     this.events = [];
@@ -115,7 +125,7 @@ class EnvelopeClient {
       protocol: 'interop.dsh-desktop.local/v1alpha1',
       id: 'qa-' + Math.random().toString(36).slice(2, 12),
       kind,
-      participant: { component: 'qa-harness', facet: 'live-qa' },
+      participant: { ...this.participant },
       timestamp: new Date().toISOString(),
       generation: 0,
       ...extra,
@@ -132,7 +142,7 @@ class EnvelopeClient {
       protocol: 'interop.dsh-desktop.local/v1alpha1',
       id: correlationId,
       kind: 'Invocation',
-      participant: { component: 'qa-harness', facet: 'live-qa', ...(this.activationId ? { activationId: this.activationId } : {}) },
+      participant: { ...this.participant, ...(this.activationId ? { activationId: this.activationId } : {}) },
       timestamp: new Date().toISOString(),
       generation: 0,
       capability,
@@ -157,13 +167,36 @@ const CAP = {
 };
 const supports = Object.values(CAP);
 
+// 读凭证文件 + 建立握手作为一个重试循环：文件里的 token 只有在「未被消费」时才
+// 可用，daemon 在连接断开后才重签。能通过握手的那个才是新鲜 token（与真实 Shell
+// 的「失败后重读」语义一致）。2026-09-13 CI：B4/B5 曾因读到已消费 token 而 replay。
+async function connectWithFreshCredential(previousToken, target, participant) {
+  for (let i = 0; i < 100; i++) {
+    let candidate = null;
+    try {
+      candidate = JSON.parse(readFileSync(CRED_FILE, 'utf8'));
+    } catch { /* partial write */ }
+    if (candidate && candidate.credential.token !== previousToken) {
+      try {
+        const client = await EnvelopeClient.connect(target !== undefined ? target : candidate.port, candidate.credential.token, participant);
+        return { client, file: candidate };
+      } catch (e) {
+        if (!/replay|invalid|stale/.test(String(e))) throw e;
+        // 已消费/过期的 token：daemon 还没重签，重新读文件再试。
+      }
+    }
+    await sleep(50);
+  }
+  throw new Error('no fresh credential within 5s');
+}
+
 async function phaseA() {
   console.log('\n===== Phase A: daemon direct =====');
   if (!existsSync(DAEMON_EXE)) throw new Error('daemon exe missing: ' + DAEMON_EXE);
   daemonProc = spawn(DAEMON_EXE, [], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   daemonPid = daemonProc.pid;
   daemonProc.stdout.on('data', () => {});
-  daemonProc.stderr.on('data', () => {});
+  daemonProc.stderr.on('data', (d) => { daemonLog.push(d.toString()); });
 
   const claimUp = await waitPort(CLAIM_PORT);
   check('A1 claim port 37771 reachable', claimUp);
@@ -176,13 +209,15 @@ async function phaseA() {
   }
   check('A2 credential file written', !!cred, cred ? 'pid=' + cred.pid + ' port=' + cred.port : '');
   if (!cred) throw new Error('no credential file');
-  // ADR-0022: the credential file is v2 (optional pipeName); a Windows
-  // daemon publishes the peer-identity carrier endpoint the Shell prefers.
-  const pipeOk = process.platform !== 'win32' || (typeof cred.pipeName === 'string' && cred.pipeName.length > 0);
+  // ADR-0022: the credential file is v3 - it publishes the peer-identity
+  // carrier endpoint the Shell prefers (pipeName on Windows, socketPath on
+  // Unix). The daemon must always attach one: without it every Shell claim
+  // would degrade to credential-only.
+  const endpoint = process.platform === 'win32' ? cred.pipeName : cred.socketPath;
   check(
-    'A3 credential schema v2 + pid match + pipe carrier',
-    cred.schemaVersion === 2 && cred.pid === daemonPid && pipeOk,
-    'schema=' + cred.schemaVersion + ' pid=' + cred.pid + '/' + daemonPid + ' pipe=' + (cred.pipeName ?? '<none>')
+    'A3 credential schema v3 + pid match + carrier endpoint',
+    cred.schemaVersion === 3 && cred.pid === daemonPid && typeof endpoint === 'string' && endpoint.length > 0,
+    'schema=' + cred.schemaVersion + ' pid=' + cred.pid + '/' + daemonPid + ' endpoint=' + (endpoint ?? '<none>')
   );
 
   let client;
@@ -257,6 +292,54 @@ async function phaseA() {
   check('A18 scheduler.wake', wake.kind === 'Result' && wake.error === undefined, JSON.stringify(wake.payload ?? wake.error ?? wake).slice(0, 400));
 
   client.close();
+
+  // ===== ADR-0022 carrier legs (A19/A20) =====
+  // Placed last on purpose: the impostor negotiates as an ordinary participant
+  // and therefore legitimately becomes the single grant owner - running it
+  // earlier would starve A5..A18 (that is the ownership rule, not the identity
+  // gate). The carrier legs need a fresh credential: closing the client above
+  // makes the daemon re-issue the file (one-time credentials).
+  const carrierTarget = process.platform === 'win32' ? '\\\\.\\pipe\\' + cred.pipeName : cred.socketPath;
+
+  // A19: the harness is exactly the H-2 threat model - a same-user process
+  // holding a valid one-time credential. Over the carrier the daemon learns
+  // the kernel identity of the connecting process; the identity gate is what
+  // decides the authority class from it.
+  const logMark = daemonLog.length;
+  let impostor = null;
+  try {
+    const fresh = await connectWithFreshCredential(cred.credential.token, carrierTarget, { component: 'dsh-desktop-shell', facet: 'shell' });
+    impostor = fresh.client;
+    cred = fresh.file;
+  } catch (e) { failFast('A19 carrier connection accepted with a Shell claim', e); }
+  const impostorAgreement = await impostor.negotiate(supports, 'qa-impostor-0001');
+  await sleep(300);
+  const carrierLog = daemonLog.slice(logMark).join('');
+  const kernelIdentitySeen = carrierLog.includes('identity=pid=' + process.pid);
+  check(
+    'A19 carrier connection carries the kernel peer identity',
+    kernelIdentitySeen && impostorAgreement.kind === 'Agreement',
+    'carrier=' + endpoint + ' pid=' + process.pid + (kernelIdentitySeen ? '' : ' | log: ' + carrierLog.slice(0, 200))
+  );
+
+  // A20: same claim, decided by kernel identity. The harness claims the Shell
+  // identity over the carrier, but the kernel says node.exe - so the daemon
+  // must classify the activation as Participant and say so in the audit log
+  // (ADR-0021 decision 4). Phase B asserts the contrast: the real Shell
+  // process gets ShellControl on the same daemon over the same carrier.
+  //
+  // The *consequence* of the degraded class (no broker-relaxed takeover, no
+  // grant on conflict, Unauthorized dispatch) is asserted by the
+  // platform-generic integration test crates/daemon/tests/peer_identity_carrier.rs:
+  // this harness can only ever hold one file credential at a time, so it
+  // cannot stand up the concurrent incumbent that the conflict path needs.
+  const degraded = /participant=dsh-desktop-shell\|shell authority=Participant/.test(carrierLog);
+  check(
+    'A20 strict policy degrades a Shell claim from a non-Shell image',
+    degraded,
+    'authority-degraded=' + degraded + ' granted=' + impostorAgreement.payload.granted.length + (degraded ? '' : ' | log: ' + carrierLog.slice(0, 240))
+  );
+  impostor.close();
 }
 
 async function phaseB() {
@@ -280,46 +363,84 @@ async function phaseB() {
   await sleep(1500);
   check('B3 daemon survives Shell close (M6 core semantics)', await alive(daemonPid));
 
+
   // B4: 断开后 daemon 重签凭证文件（HIGH-1）。文件里的 token 只有在
   // 「未被消费」时才可用：Shell 可能刚消费了上一个 token 而 daemon 尚未
   // 重签，因此「token 变了」不足以判定新鲜（2026-09-13 CI 竞态：读到已消费
   // 的 token → B5 replay）。读文件 + 建立连接作为一个重试循环——能通过
   // 握手的那个才是新鲜 token（与真实 Shell 的「失败后重读」语义一致）。
+  // 2026-09-13: 被杀 Shell 的 grant 释放不是瞬时的（实测：杀死后 1.5s 协商仍会撞上
+  // 单所有者冲突、返回 0 个 grant，数秒内自行恢复；连接拆除 + lease 撤销是异步的）。
+  // 因此「读文件 + 握手 + 协商到 grant」是一个有界重试循环——这也正是真实 Shell 的
+  // 重连语义（失败就重读文件再连一次），而不是对瞬时性的假设。
   let fresh = null;
   let bclient = null;
-  for (let i = 0; i < 100 && !bclient; i++) {
+  let agreement = null;
+  let attempts = 0;
+  for (let i = 0; i < 120 && !bclient; i++) {
     let candidate = null;
     try {
       candidate = JSON.parse(readFileSync(CRED_FILE, 'utf8'));
     } catch { /* partial write */ }
     if (candidate && candidate.credential.token !== cred.credential.token) {
+      attempts += 1;
+      let attempt = null;
       try {
-        bclient = await EnvelopeClient.connect(candidate.port, candidate.credential.token);
-        fresh = candidate;
+        attempt = await EnvelopeClient.connect(candidate.port, candidate.credential.token);
       } catch (e) {
         if (!/replay|invalid|stale/.test(String(e))) throw e;
-        // 已消费/过期的 token：daemon 还没重签，重新读文件再试。
+      }
+      if (attempt) {
+        try {
+          const ag = await attempt.negotiate(supports, 'qa-restart-0002');
+          if (ag.payload.granted.length >= 5) { bclient = attempt; fresh = candidate; agreement = ag; }
+          else attempt.close(); // 冲突：等所有者释放后重试
+        } catch { attempt.close(); }
       }
     }
     if (!bclient) await sleep(50);
   }
-  check('B4 daemon re-issues credential after disconnect', !!fresh, fresh ? 'new token: ' + fresh.credential.token.slice(0, 12) : '');
-  if (!fresh || !bclient) failFast('B4 daemon re-issues credential after disconnect', new Error('no usable reissued credential'));
+  check(
+    'B4 daemon re-issues credential after disconnect',
+    !!fresh,
+    fresh ? 'new token: ' + fresh.credential.token.slice(0, 12) + ' (attempts=' + attempts + ')' : 'attempts=' + attempts
+  );
+  if (!fresh || !bclient) {
+    failFast('B4 daemon re-issues credential after disconnect', new Error('no usable reissued credential after ' + attempts + ' attempts'));
+  }
   try {
-    const agreement = await bclient.negotiate(supports, 'qa-restart-0002');
     const tstat = await bclient.invoke(CAP.terminal, 'terminal.status');
-    const ok = agreement.payload.granted.length >= 5 && tstat.payload && tstat.payload.count === 0;
-    check('B5 re-attach with reissued credential (handshake+invoke)', !!ok, ok ? 'granted=' + agreement.payload.granted.length : JSON.stringify(tstat).slice(0, 100));
+    const grantedCount = agreement.payload.granted.length;
+    const ok = grantedCount >= 5 && tstat.payload && tstat.payload.count === 0;
+    check(
+      'B5 re-attach with reissued credential (handshake+invoke)',
+      !!ok,
+      'granted=' + grantedCount + ' tstat=' + JSON.stringify(tstat.payload ?? tstat.error ?? tstat).slice(0, 120)
+    );
     bclient.close();
   } catch (e) { failFast('B5 re-attach with reissued credential (handshake+invoke)', e); }
 
   // B6: Shell 重启（第二次）—— 真实重连到存活 daemon（stderr connected 证据）
   shellStderr.length = 0;
+  const shellLogMark = daemonLog.length;
   shellProc = spawnShell();
   await sleep(5000);
   const connectedLog = shellStderr.join('').includes('[daemon-client] connected');
   check('B6 Shell restart reconnects to surviving daemon', connectedLog, connectedLog ? '' : 'stderr: ' + shellStderr.join('').slice(0, 200));
   check('B7 Shell process alive after restart', await alive(shellProc.pid));
+
+  // B8: A20 的对照腿。同一个 daemon、同一个载体、同一条自称字符串，但这次连接的
+  // 进程正是期望的 Shell 镜像 → kernel identity 匹配 → ShellControl。同时断言它走的
+  // 是内核身份载体本身（peer=pipe:/uds:），而不是降级 TCP。
+  const shellLog = daemonLog.slice(shellLogMark).join('');
+  const shellIdentity = shellLog.includes('identity=pid=' + shellProc.pid);
+  const overCarrier = shellLog.includes('peer=' + (process.platform === 'win32' ? 'pipe:' : 'uds:'));
+  const shellControl = /participant=dsh-desktop-shell\|shell authority=ShellControl/.test(shellLog);
+  check(
+    'B8 real Shell over the carrier earns ShellControl',
+    shellIdentity && overCarrier && shellControl,
+    'identity=' + shellIdentity + ' carrier=' + overCarrier + ' ShellControl=' + shellControl + (shellIdentity ? '' : ' pid=' + shellProc.pid + ' | log: ' + shellLog.slice(0, 240))
+  );
   shellProc.kill();
 }
 

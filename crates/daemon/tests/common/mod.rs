@@ -418,51 +418,69 @@ pub struct RemoteError {
 /// environments from the default (real user) catalog path, which the
 /// runtime integration tests never touch — they use
 /// spawn_daemon_with_catalog.
-/// Connect over the Windows named pipe (ADR-0022): the peer-identity
-/// carrier. The participant claims whatever identity the caller passes -
-/// claiming the Shell identity over the pipe is exactly what the strict
-/// policy gates on the kernel-provided image path.
-#[cfg(windows)]
+/// Connect over the daemon's peer-identity carrier (ADR-0022): the named
+/// pipe on Windows, the domain socket on Unix. The participant claims
+/// whatever identity the caller passes - claiming the Shell identity over
+/// the carrier is exactly what the strict policy gates on the
+/// kernel-provided image path.
 #[allow(dead_code)]
-pub fn connect_pipe_as(
-    pipe_name: &str,
+pub fn connect_carrier_as(
+    endpoint: &dsh_daemon::server::CarrierEndpoint,
     credential: &Credential,
     component: &str,
     facet: &str,
 ) -> TestClient<dsh_local_transport::ClientStream> {
-    // The acceptor thread creates the first pipe instance asynchronously;
-    // retry briefly instead of racing it.
-    let stream = {
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        loop {
-            match dsh_local_transport::named_pipe::connect(pipe_name) {
-                Ok(stream) => break stream,
-                Err(_) if std::time::Instant::now() < deadline => {
-                    thread::sleep(Duration::from_millis(10))
-                }
-                Err(error) => panic!("pipe connect failed: {error}"),
+    use dsh_daemon::server::CarrierEndpoint;
+
+    // The endpoint may still be coming up (the Windows acceptor thread
+    // creates the first pipe instance asynchronously); retry briefly instead
+    // of racing it.
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let (stream, peer) = loop {
+        let attempt = match endpoint {
+            #[cfg(windows)]
+            CarrierEndpoint::NamedPipe(name) => {
+                dsh_local_transport::named_pipe::connect(name).map(|stream| {
+                    (
+                        dsh_local_transport::ClientStream::NamedPipe(stream),
+                        dsh_local_transport::PeerDesc::NamedPipe(name.clone()),
+                    )
+                })
             }
+            #[cfg(unix)]
+            CarrierEndpoint::UnixSocket(path) => {
+                dsh_local_transport::uds::connect(path).map(|stream| {
+                    (
+                        dsh_local_transport::ClientStream::UnixSocket(stream),
+                        dsh_local_transport::PeerDesc::UnixSocket(
+                            path.to_string_lossy().into_owned(),
+                        ),
+                    )
+                })
+            }
+            #[allow(unreachable_patterns)]
+            other => panic!("this platform has no client for {other:?}"),
+        };
+        match attempt {
+            Ok(pair) => break pair,
+            Err(_) if std::time::Instant::now() < deadline => {
+                thread::sleep(Duration::from_millis(10))
+            }
+            Err(error) => panic!("carrier connect failed: {error}"),
         }
     };
-    let peer = dsh_local_transport::PeerDesc::NamedPipe(pipe_name.to_string());
-    let transport = LocalClient::connect_stream(
-        dsh_local_transport::ClientStream::NamedPipe(stream),
-        peer,
-        credential,
-        &Limits::default(),
-    )
-    .expect("pipe handshake");
+    let transport = LocalClient::connect_stream(stream, peer, credential, &Limits::default())
+        .expect("carrier handshake");
     TestClient::from_transport(transport, component, facet)
 }
 
-/// Named-pipe Shell client (the shape the real Shell uses).
-#[cfg(windows)]
+/// Carrier client claiming the Shell identity (the shape the real Shell uses).
 #[allow(dead_code)]
-pub fn connect_pipe(
-    pipe_name: &str,
+pub fn connect_carrier(
+    endpoint: &dsh_daemon::server::CarrierEndpoint,
     credential: &Credential,
 ) -> TestClient<dsh_local_transport::ClientStream> {
-    connect_pipe_as(pipe_name, credential, "dsh-desktop-shell", "shell")
+    connect_carrier_as(endpoint, credential, "dsh-desktop-shell", "shell")
 }
 
 #[allow(dead_code)]

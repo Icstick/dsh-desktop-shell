@@ -39,7 +39,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -228,9 +228,10 @@ pub struct DaemonServer {
     claim_port: u16,
     /// Control-plane peer-identity policy (ADR-0022).
     policy: PeerIdentityPolicy,
-    /// Named pipe endpoint of the attached peer-identity carrier (Windows),
-    /// published in the credential file so the Shell can prefer it.
-    pipe_name: Option<String>,
+    /// Endpoint of the attached peer-identity carrier (ADR-0022), published
+    /// in the credential file so the Shell can prefer it over identity-less
+    /// TCP.
+    carrier: Option<CarrierEndpoint>,
     started_at: SystemTime,
     /// Expiry of the token in the on-disk credential file (recorded on
     /// every issue/reissue; the freshness maintenance compares against
@@ -238,34 +239,105 @@ pub struct DaemonServer {
     file_credential_expiry: Mutex<Option<SystemTime>>,
 }
 
+/// Endpoint of the attached peer-identity carrier (ADR-0022), as published
+/// in the credential file.
+///
+/// The Shell prefers this endpoint over TCP because only a connection over
+/// it carries a kernel-provided peer identity, and that identity is what the
+/// strict policy checks before granting control-plane authority. Exactly one
+/// variant exists per platform.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CarrierEndpoint {
+    /// Windows named pipe name (without the `\\.\pipe\\` prefix).
+    NamedPipe(String),
+    /// Unix domain socket path.
+    UnixSocket(PathBuf),
+}
+
+impl CarrierEndpoint {
+    /// Human-readable endpoint for banners and logs.
+    pub fn describe(&self) -> String {
+        match self {
+            Self::NamedPipe(name) => format!("pipe:{name}"),
+            Self::UnixSocket(path) => format!("uds:{}", path.display()),
+        }
+    }
+}
+
+/// Per-process nonce for carrier endpoint names: keeps two daemons of the
+/// same pid (tests) apart and keeps the endpoint from being guessable. Not a
+/// secret - the token plus the kernel identity remain the actual gate.
+fn carrier_nonce() -> u128 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos())
+        .unwrap_or(0)
+}
+
 /// Attach the peer-identity carrier next to the TCP endpoint (ADR-0022).
 ///
-/// Windows: a named pipe whose name carries a per-process nonce (no
-/// collisions across sessions, not trivially guessable; the Shell learns it
-/// from the credential file - the token plus the kernel identity remain the
-/// actual gate). Other platforms: no carrier yet (the UDS carrier is
-/// WI-M13-UNIX-UDS-CARRIER), so nothing is attached and no endpoint is
-/// published.
+/// Windows: a named pipe carrying a per-process nonce; the Shell learns the
+/// name from the credential file. The endpoint is a location hint, not a
+/// secret.
 #[cfg(windows)]
 fn attach_peer_identity_carrier(
     transport: &mut LocalServer,
     limits: Limits,
-) -> io::Result<Option<String>> {
-    let nonce = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_nanos())
-        .unwrap_or(0);
-    let name = format!("dsh-desktop-daemon-{}-{nonce:x}", std::process::id());
+    _dir: Option<&Path>,
+) -> io::Result<Option<CarrierEndpoint>> {
+    let name = format!(
+        "dsh-desktop-daemon-{}-{:x}",
+        std::process::id(),
+        carrier_nonce()
+    );
     let listener = dsh_local_transport::named_pipe::NamedPipeListener::bind(&name, &limits)?;
     transport.attach_carrier(listener);
-    Ok(Some(name))
+    Ok(Some(CarrierEndpoint::NamedPipe(name)))
 }
 
-#[cfg(not(windows))]
+/// Unix twin of the above: a domain socket inside the daemon data directory
+/// (already owner-only, `0700`), named with a per-process nonce so parallel
+/// daemons never collide.
+///
+/// A missing data directory, a path the kernel cannot represent in
+/// `sockaddr_un` or a bind failure leaves the daemon on identity-less TCP:
+/// the carrier fails soft, authority still fails closed (every Shell claim
+/// then degrades to Participant) and the reason is reported at startup.
+#[cfg(unix)]
+fn attach_peer_identity_carrier(
+    transport: &mut LocalServer,
+    limits: Limits,
+    dir: Option<&Path>,
+) -> io::Result<Option<CarrierEndpoint>> {
+    let Some(dir) = dir else {
+        return Ok(None);
+    };
+    let path = dir.join(format!(
+        "daemon-{}-{:x}.sock",
+        std::process::id(),
+        carrier_nonce()
+    ));
+    match dsh_local_transport::uds::UdsListener::bind(&path, &limits) {
+        Ok(listener) => {
+            transport.attach_carrier(listener);
+            Ok(Some(CarrierEndpoint::UnixSocket(path)))
+        }
+        Err(error) => {
+            eprintln!(
+                "dsh-daemon: warning: cannot attach the UDS peer-identity carrier at {}: {error}",
+                path.display()
+            );
+            Ok(None)
+        }
+    }
+}
+
+#[cfg(not(any(windows, unix)))]
 fn attach_peer_identity_carrier(
     _transport: &mut LocalServer,
     _limits: Limits,
-) -> io::Result<Option<String>> {
+    _dir: Option<&Path>,
+) -> io::Result<Option<CarrierEndpoint>> {
     Ok(None)
 }
 
@@ -296,8 +368,9 @@ impl DaemonServer {
     }
 
     /// Bind with an explicit control-plane peer-identity policy (ADR-0022).
-    /// The peer-identity carrier (Windows named pipe) is attached next to
-    /// the TCP endpoint; its name travels in the credential file.
+    /// The peer-identity carrier (Windows named pipe / Unix domain socket)
+    /// is attached next to the TCP endpoint; its endpoint travels in the
+    /// credential file.
     pub fn bind_with_policy(
         limits: Limits,
         claim_port: u16,
@@ -308,21 +381,26 @@ impl DaemonServer {
             SocketAddr::new(std::net::Ipv4Addr::LOCALHOST.into(), claim_port),
             limits,
         )?;
+        // The carrier endpoint lives next to the credential file (the same
+        // owner-only directory); resolved before the catalog path is moved
+        // into the runtime host below.
+        let credential_dir = catalog_path.parent().map(PathBuf::from);
         // ADR-0022: attach the peer-identity carrier when the platform
         // provides one (the helper keeps the platform split in a single
         // place, so the Unix build never sees an unused `mut`).
-        let pipe_name = attach_peer_identity_carrier(&mut transport, limits)?;
+        let carrier =
+            attach_peer_identity_carrier(&mut transport, limits, credential_dir.as_deref())?;
         // Port 0 = OS-assigned: record the actual port so the credential
         // file and diagnostics carry the real endpoint (tests pass 0).
         let actual_port = transport.addr().port();
         let server = Self {
             transport,
             policy,
-            pipe_name,
+            carrier,
             broker: Arc::new(Mutex::new(Broker::<SystemClock>::new())),
             scheduler: Arc::new(Scheduler::new()),
             terminal: Arc::new(TerminalHost::new()),
-            credential_dir: catalog_path.parent().map(PathBuf::from),
+            credential_dir,
             browser: Arc::new(BrowserHost::new()),
             runtime: Arc::new(ManagedRuntimeHost::new(catalog_path)),
             events: EventRouter::spawn(),
@@ -343,10 +421,10 @@ impl DaemonServer {
         self.transport.addr()
     }
 
-    /// Named pipe endpoint of the attached peer-identity carrier (Windows;
-    /// ADR-0022), when one exists.
-    pub fn pipe_name(&self) -> Option<&str> {
-        self.pipe_name.as_deref()
+    /// Endpoint of the attached peer-identity carrier (ADR-0022), when one
+    /// exists: a named pipe on Windows, a domain socket on Unix.
+    pub fn carrier_endpoint(&self) -> Option<&CarrierEndpoint> {
+        self.carrier.as_ref()
     }
 
     /// The control-plane peer-identity policy in force (ADR-0022).
@@ -519,10 +597,16 @@ impl DaemonServer {
             SystemTime::now(),
         );
         // ADR-0022: publish the peer-identity carrier endpoint so the Shell
-        // can prefer the named pipe (kernel identity -> control-plane
-        // authority under strict policy).
-        if let Some(pipe_name) = &self.pipe_name {
-            file = file.with_pipe_name(pipe_name);
+        // can prefer it (kernel identity -> control-plane authority under
+        // the strict policy). At most one variant is ever present.
+        match &self.carrier {
+            Some(CarrierEndpoint::NamedPipe(name)) => {
+                file = file.with_pipe_name(name);
+            }
+            Some(CarrierEndpoint::UnixSocket(path)) => {
+                file = file.with_socket_path(path.to_string_lossy().into_owned());
+            }
+            None => {}
         }
         file.write_to(&dir)?;
         *self

@@ -37,10 +37,19 @@ pub const LOCK_FILE_NAME: &str = "daemon.lock";
 pub const CLAIM_PORT: u16 = 37_771;
 
 /// Schema version of the credential file (bump on breaking shape change).
-/// v2 (ADR-0022): adds the optional `pipeName` field - the peer-identity
-/// carrier endpoint the Shell should prefer. Readers must accept v1 (no
-/// pipe name: TCP only) and v2.
-pub const CREDENTIAL_FILE_SCHEMA_VERSION: u32 = 2;
+///
+/// - v1: `port` + one-time token only (TCP carrier).
+/// - v2 (ADR-0022): adds the optional `pipeName` - the Windows
+///   peer-identity carrier endpoint the Shell should prefer.
+/// - v3 (ADR-0022 slice 6): adds the optional `socketPath` - the same
+///   endpoint for the Unix UDS carrier, so one daemon binary can publish
+///   either. At most one of the two is ever present: the daemon attaches
+///   exactly one carrier (the platform decides which).
+///
+/// Readers must accept v1 (TCP only), v2 (pipe) and v3 (pipe or socket); a
+/// reader that meets an endpoint it does not know must degrade to TCP, never
+/// treat the connection as identical.
+pub const CREDENTIAL_FILE_SCHEMA_VERSION: u32 = 3;
 
 /// Resolve the daemon data directory: `--data-dir`/`DSH_DAEMON_DATA_DIR`
 /// override, then `%APPDATA%\dev.dsh.desktop-shell` / `%LOCALAPPDATA%\...`,
@@ -99,7 +108,7 @@ pub fn data_dir() -> io::Result<PathBuf> {
     }
 }
 
-/// The on-disk credential file (schema `daemon-credential.json`, v2).
+/// The on-disk credential file (schema `daemon-credential.json`, v3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CredentialFile {
@@ -116,6 +125,11 @@ pub struct CredentialFile {
     /// strict-mode control-plane authority requires.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pipe_name: Option<String>,
+    /// Unix domain socket path of the peer-identity carrier (ADR-0022 slice
+    /// 6): the Unix twin of `pipeName`. Present only on Unix, never
+    /// alongside `pipeName`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub socket_path: Option<String>,
     pub credential: FileCredential,
     pub issued_at: String,
 }
@@ -148,6 +162,7 @@ impl CredentialFile {
             claim_port,
             port,
             pipe_name: None,
+            socket_path: None,
             credential: FileCredential {
                 token: token.into(),
                 expires_at: rfc3339(expires_at),
@@ -161,6 +176,14 @@ impl CredentialFile {
     /// peer identity; TCP stays the degradation path.
     pub fn with_pipe_name(mut self, pipe_name: impl Into<String>) -> Self {
         self.pipe_name = Some(pipe_name.into());
+        self
+    }
+
+    /// Record the Unix peer-identity carrier endpoint (ADR-0022 slice 6):
+    /// the Shell prefers the socket, whose connection carries a
+    /// kernel-provided peer identity; TCP stays the degradation path.
+    pub fn with_socket_path(mut self, socket_path: impl Into<String>) -> Self {
+        self.socket_path = Some(socket_path.into());
         self
     }
 
@@ -260,7 +283,7 @@ mod tests {
     fn json_shape_matches_shell_contract() {
         let json = sample().to_json().expect("serializes");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
-        assert_eq!(parsed["schemaVersion"], 2);
+        assert_eq!(parsed["schemaVersion"], 3);
         assert_eq!(parsed["daemonVersion"], "0.1.0");
         assert_eq!(parsed["pid"], 4242);
         assert_eq!(parsed["claimPort"], CLAIM_PORT);
@@ -271,9 +294,11 @@ mod tests {
         );
         assert!(parsed["credential"]["expiresAt"].as_str().is_some());
         assert!(parsed["issuedAt"].as_str().is_some());
-        // No pipe carrier in this sample: the field is omitted entirely
-        // (v1-compatible shape), so there are no unknown keys.
+        // No carrier in this sample: both endpoint fields are omitted
+        // entirely (the v1/v2-compatible shape), so there are no unknown
+        // keys.
         assert!(parsed.get("pipeName").is_none());
+        assert!(parsed.get("socketPath").is_none());
         assert_eq!(parsed.as_object().map(|o| o.len()), Some(7));
     }
 
@@ -284,6 +309,20 @@ mod tests {
         let json = file.to_json().expect("serializes");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
         assert_eq!(parsed["pipeName"], "dsh-desktop-daemon-7-abc");
+        assert_eq!(parsed.as_object().map(|o| o.len()), Some(8));
+        let round_trip = CredentialFile::from_json(&json).expect("parses");
+        assert_eq!(round_trip, file);
+    }
+
+    #[test]
+    fn socket_path_is_published_and_round_trips() {
+        // ADR-0022 slice 6: the Unix peer-identity carrier endpoint travels
+        // in the same file as the Windows pipe name, never alongside it.
+        let file = sample().with_socket_path("/run/user/1000/dsh-daemon.sock");
+        let json = file.to_json().expect("serializes");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+        assert_eq!(parsed["socketPath"], "/run/user/1000/dsh-daemon.sock");
+        assert!(parsed.get("pipeName").is_none());
         assert_eq!(parsed.as_object().map(|o| o.len()), Some(8));
         let round_trip = CredentialFile::from_json(&json).expect("parses");
         assert_eq!(round_trip, file);

@@ -979,11 +979,12 @@ fn tcp_transport(
     )
 }
 
-/// Connect over the preferred carrier (ADR-0022): the named pipe published
-/// in the credential file when present, otherwise the TCP endpoint. Only a
-/// pipe connection carries a kernel-provided peer identity, so under the
-/// daemon strict policy the TCP fallback yields an identity-less
-/// connection that can never hold control-plane authority.
+/// Connect over the preferred carrier (ADR-0022): the peer-identity carrier
+/// published in the credential file when present (a named pipe on Windows, a
+/// domain socket on Unix), otherwise the TCP endpoint. Only a connection over
+/// that carrier carries a kernel-provided peer identity, so under the daemon
+/// strict policy the TCP fallback yields an identity-less connection that can
+/// never hold control-plane authority.
 fn connect_carrier(
     file: &CredentialFile,
     credential: &Credential,
@@ -1005,6 +1006,26 @@ fn connect_carrier(
             Err(error) => {
                 eprintln!(
                     "[daemon-client] named pipe connect failed ({error}); falling back to TCP (identity-less: shell_control requires the pipe under the strict policy)"
+                );
+            }
+        }
+    }
+    #[cfg(unix)]
+    if let Some(socket_path) = file.socket_path.as_deref() {
+        match dsh_local_transport::uds::connect(socket_path) {
+            Ok(stream) => {
+                let peer = PeerDesc::UnixSocket(socket_path.to_string());
+                return LocalClient::connect_stream(
+                    ClientStream::UnixSocket(stream),
+                    peer,
+                    credential,
+                    limits,
+                )
+                .map_err(DaemonStartupError::Transport);
+            }
+            Err(error) => {
+                eprintln!(
+                    "[daemon-client] UDS connect failed ({error}); falling back to TCP (identity-less: shell_control requires the carrier under the strict policy)"
                 );
             }
         }
@@ -1637,25 +1658,26 @@ pub(crate) mod tests {
         std::thread::spawn(move || server.serve_connection(conn));
     }
 
-    /// ADR-0022 slice 5: the Shell prefers the peer-identity carrier. A
-    /// credential file carrying pipeName routes connect_carrier over the
-    /// named pipe, and the daemon-side connection exposes a kernel identity
-    /// - the prerequisite for shell_control under the strict policy.
-    #[cfg(windows)]
+    /// ADR-0022 slice 5/6: the Shell prefers the peer-identity carrier. A
+    /// credential file carrying the published endpoint routes connect_carrier
+    /// over that carrier (named pipe on Windows, domain socket on Unix), and
+    /// the daemon-side connection exposes a kernel identity - the
+    /// prerequisite for shell_control under the strict policy.
+    #[cfg(any(windows, unix))]
     #[test]
-    fn connect_carrier_prefers_the_named_pipe_and_reports_identity() {
+    fn connect_carrier_prefers_the_published_endpoint_and_reports_identity() {
         let daemon = spawn_in_process_daemon(TEST_CLAIM_PORT + 6);
-        let pipe_name = daemon
+        let endpoint = daemon
             .server
-            .pipe_name()
-            .expect("a Windows daemon attaches a pipe carrier")
-            .to_string();
+            .carrier_endpoint()
+            .expect("the daemon attaches a peer-identity carrier")
+            .clone();
 
-        let dir = std::env::temp_dir().join(format!("dsh-client-pipe-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("dsh-client-carrier-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
         let startup = daemon.server.issue_credential(Duration::from_secs(3600));
-        let file = CredentialFile::new(
+        let mut file = CredentialFile::new(
             "0.1.0-test",
             std::process::id(),
             TEST_CLAIM_PORT + 6,
@@ -1663,20 +1685,34 @@ pub(crate) mod tests {
             startup.token(),
             startup.expires_at(),
             SystemTime::now(),
-        )
-        .with_pipe_name(&pipe_name);
+        );
+        match &endpoint {
+            dsh_daemon::server::CarrierEndpoint::NamedPipe(name) => {
+                file = file.with_pipe_name(name);
+            }
+            dsh_daemon::server::CarrierEndpoint::UnixSocket(path) => {
+                file = file.with_socket_path(path.to_string_lossy().into_owned());
+            }
+        }
         file.write_to(&dir).expect("writes credential file");
 
         let read = CredentialFile::read_from(&dir).expect("read credential file");
         let expires_at = parse_rfc3339_utc(&read.credential.expires_at).expect("expiry");
         let credential = Credential::new(read.credential.token.clone(), expires_at);
         let transport = connect_carrier(&read, &credential, &Limits::default())
-            .expect("pipe carrier connect + handshake");
-        assert!(
-            matches!(transport.peer(), PeerDesc::NamedPipe(name) if name == &pipe_name),
-            "connect_carrier must prefer the published pipe: {:?}",
-            transport.peer()
-        );
+            .expect("carrier connect + handshake");
+        match &endpoint {
+            dsh_daemon::server::CarrierEndpoint::NamedPipe(name) => assert!(
+                matches!(transport.peer(), PeerDesc::NamedPipe(seen) if seen == name),
+                "connect_carrier must prefer the published pipe: {:?}",
+                transport.peer()
+            ),
+            dsh_daemon::server::CarrierEndpoint::UnixSocket(path) => assert!(
+                matches!(transport.peer(), PeerDesc::UnixSocket(seen) if seen == &path.to_string_lossy()),
+                "connect_carrier must prefer the published socket: {:?}",
+                transport.peer()
+            ),
+        }
 
         // The daemon side observes the kernel identity on that connection
         // before serving it (identity is what strict policy reads).
@@ -1684,7 +1720,9 @@ pub(crate) mod tests {
         let server = Arc::clone(&daemon.server);
         let flag = Arc::clone(&identity_seen);
         std::thread::spawn(move || {
-            let conn = server.take_connection().expect("pipe connection appears");
+            let conn = server
+                .take_connection()
+                .expect("carrier connection appears");
             if conn.identity().is_some() {
                 flag.store(true, std::sync::atomic::Ordering::SeqCst);
             }
@@ -1692,11 +1730,11 @@ pub(crate) mod tests {
         });
 
         let (client, _events) =
-            DaemonClient::connect_transport(transport).expect("negotiate over the pipe");
+            DaemonClient::connect_transport(transport).expect("negotiate over the carrier");
         assert!(client.activation_id().starts_with("act-"));
         assert!(
             identity_seen.load(std::sync::atomic::Ordering::SeqCst),
-            "the daemon must observe a kernel peer identity on the pipe connection"
+            "the daemon must observe a kernel peer identity on the carrier connection"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
