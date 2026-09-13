@@ -1,0 +1,43 @@
+schema_version: 1
+id: HANDOFF-20260913-M10-WORKBENCH-PHASE1
+work_item: WI-M10-WORKBENCH-GIT
+from: "agent session 20260913"
+to: null
+status: open
+completed:
+  - "GIT-M1（只读 git 面）已合并 main ea0266d：四个只读命令 + Files | Git 切换条（新增 features/workbench-ui 宿主，
+    roving-focus tablist，只挂载当前页）+ 分组状态与计数 + 只读 diff 面板（--wb-diff-* 着色、4000 行渲染上限）
+    + 最近提交/分支两条只读列表 + clean/空/无 diff/降级/失败五类状态。"
+  - "GIT-M2（会写的四个动词）已合并 main ac8a404：git_stage / git_unstage / git_commit / git_discard。
+    run_git_raw 统一进程构造（读固定 GIT_OPTIONAL_LOCKS=0，写保留所需锁，两者都钉 GIT_EDITOR）；
+    unstage 按仓库有无 HEAD 选原语（restore --staged / rm --cached -r -f）并在报告里写明；
+    commit 的空消息、超长消息、无暂存三条守卫都在跑 git 之前；discard 只做 restore --worktree（不碰索引与 HEAD）；
+    每次改动回带新的 status。界面：行内动作 + 改动层全部暂存/取消、常驻底部提交框（Ctrl+Enter、缺哪一条直接说明）、
+    discard 的键入式确认（zh 放弃 / en DISCARD）。"
+  - "三轮视觉验收反馈全部落地：①banner 收小（aecd253）②左右空间用起来 + 去掉切换条副标题（1f2fe21）
+    ③上下顶满 + 描述 12.5→11.5px 且不再被 max-width:40ch 逼成两行（5184e20）。工作台面独立量宽/高度，
+    其余面一律不动。"
+  - "两个真缺陷（都是用户点出来的，都复现→修复→点着验回去）：①FS.roots 把所有已展开根的行收进一个扁平列表、
+    子项从来没挂在各自的根底下（两个根一开就糊成一堆），也没有展开指示符（128daf8，PR #11）；
+    ②预览 fixture 对任何 fs_read_file 都返回写死的 peer.rs，导致"点不同文件右边不更新"的假象（de5d94e，PR #12）。"
+remaining:
+  - "**项目所有者对 GIT-M2 写入界面的验收** → 通过后 WI-M10-WORKBENCH-GIT 转 done，0.3.0 的 workbench Phase 1（文件 + git）完结。"
+  - "把今天的教训写进仓库 AGENTS.md（已提议、用户未拍板）：**给工作台做 UI 证据时，fixture 必须能区分不同输入**
+    （不同文件给不同内容、多个根可展开），否则截图不算证据——今天两次都被不真实的 fixture 骗/ 遮。"
+  - "GIT 侧明确不做、已记进 ROADMAP Deferred backlog：分支切换 / checkout 某个 revision、按 hunk 暂存、--amend、stash、
+    远端与 SSH（0.5.0）。force-push 与历史重写不属于延期，是 Phase 1 出界。"
+  - "工作台视觉规范 §9 的待做项：左栏可拖拽调宽（长仓内路径会中段折行）、多标签文档条、面包屑。"
+verification:
+  - "本地门禁（每次合入前）：cargo fmt / clippy -D warnings / cargo test 197 passed；pnpm check；vitest 136/136；
+    validate-acl 53 commands；validate-specs 89 schemas / 185 fixtures ALL PASS。"
+  - "CI（PR 与 main，全部四 job：ubuntu / macos / windows / live-qa-windows）：GIT-M1 34743750856、main ea0266d 34744029907、
+    banner 34744862279、宽度量 34746980451、顶满 34753167838、GIT-M2 34754007851、main ac8a404 34754306473、
+    FS.roots 34755498019、预览 fixture 34756388492，以及各收尾 docs 提交的 main run —— 均 success。"
+  - "视觉证据 12 张在 D:/DSH_workspace/.wsl-rust/gitm1-evidence/（01-12，含 fs.roots 与文件切换的前后对照）。"
+risks:
+  - "git 调用仍无子进程超时：超大仓库上 status/diff 可能慢，目前只靠参数与输出上限缓解。"
+  - "status 用 porcelain v1 + -z + --no-renames：重命名会呈现为删除+新增。"
+  - "仓库根固定为环境的 harness 仓库路径；多仓库/子模块视图不在本片范围。"
+  - "预览 fixture 仍然是"能跑通"级别的样例（假仓库、单层目录、固定 diff），不能替代真机验证。"
+next_action: "等所有者对 GIT-M2 的写入界面做视觉验收；通过后把 WI-M10-WORKBENCH-GIT 转 done 并关闭 0.3.0 Phase 1。下一个里程碑是 0.4.0 startup rollback（需先写 ADR）。"
+created_at: "2026-09-13T12:30:00Z"

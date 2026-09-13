@@ -8,7 +8,7 @@ owner_role: ui-owner
 claimed_by: "agent session 20260913"
 session: null
 branch_or_worktree: "merged: ea0266d (GIT-M1); branch deleted"
-claim_expires_at: "2026-09-14T02:30:00Z"
+claim_expires_at: "2026-09-15T00:00:00Z"
 dependencies:
   - "WI-M10-WORKBENCH-FS (done 2026-09-13: merged, CI green, accepted)"
 acceptance_criteria:
@@ -44,5 +44,5 @@ evidence:
   - "One real defect the visual pass caught and fixed: the git panel's toolbar repeated the panel subtitle, and the surface header + panel heading both read '工作台' - the fix moved the subtitle into the tab strip and deleted both panels' redundant heading (the FS panel's too, so the two tabs stay consistent)."
 blocked_by: [WI-M10-WORKBENCH-FS]
 next_action: "Both slices are merged: GIT-M1 (ea0266d, owner-accepted after three rounds of visual feedback) and GIT-M2 (ac8a404, PR #9, CI green on all four jobs). The work item is in review pending the owner's acceptance of the mutating UI; once accepted it goes to done and the 0.3.0 workbench Phase 1 (FS + GIT) is complete. Explicitly not in this work item (recorded in the roadmap deferred list): branch switching / checkout of a revision, per-hunk staging, --amend, stash, remote+SSH (0.5.0)."
-handoff: HANDOFF-20260913-M10-WORKBENCH-GIT-M1
+handoff: HANDOFF-20260913-M10-WORKBENCH-PHASE1
 updated_at: "2026-09-13T11:32:00Z"

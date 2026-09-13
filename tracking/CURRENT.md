@@ -1,5 +1,16 @@
 # Current Project State
 
+## 2026-09-13 收工 · 0.3.0 workbench Phase 1 全部落地，等 GIT-M2 界面验收
+
+- 今天从 0.2.1 稳定线走到 0.3.0 Phase 1 完成：WI-M13（Unix UDS 载体，H-2 关闭）→ FS-M1 → FS-M2 →
+  GIT-M1 → GIT-M2（后端 + 界面），全部 squash 合并 main、四 job CI 全绿、分支已删。
+- 收尾状态：**工作树干净、无未合并分支、无 open PR**；`WI-M10-WORKBENCH-GIT` = review（等所有者验收写入界面，
+  通过后转 done 即 0.3.0 Phase 1 完结）；claim 延到 2026-09-15T00:00:00Z；本次交接
+  `HANDOFF-20260913-M10-WORKBENCH-PHASE1.yaml`（已完成/未完成/验证/风险/下一步齐全）。
+- 今天被用户点出来的两个真缺陷都已修复并点着验回去：FS.roots 子项没挂在各自根下、预览 fixture 对任何读文件
+  都返回同一个写死文件。
+- 下个里程碑：0.4.0 startup rollback（**需先写 ADR**）。
+
 ## 2026-09-13 晚 · 预览 fixture 说谎（fix/preview-file-fixture → main de5d94e）
 
 - 用户报「我点了不同文件右边没有自动更新诶」。**产品没问题**：`FileManagerPanel` 是从读取报告驱动视图的

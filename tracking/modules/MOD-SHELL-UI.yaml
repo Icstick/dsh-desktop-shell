@@ -27,8 +27,8 @@ workbench:
     - apps/desktop/features/workbench-ui (Files | Git tab host)
   token_layer: "shell.css .workbench, .file-manager, .git-panel -> --wb-* (docs/roadmap/SPEC-WORKBENCH-VISUAL.md §1, §9)"
   contracts: "apps/desktop/src/contracts.ts (fs.* / git.*), desktop-api.ts, i18n.tsx (zh + en)"
-  status: "FS-M1/FS-M2 done and accepted; GIT-M1 complete on feat/m10-workbench-git-m1 (PR #6) awaiting visual acceptance"
-  next_action: "Land GIT-M1, then GIT-M2 (stage/unstage/commit + typed confirmations)."
+  status: "FS-M1/FS-M2 done and accepted; GIT-M1 (ea0266d) and GIT-M2 (ac8a404) both merged to main with CI green - the mutating git UI awaits the owner's visual acceptance"
+  next_action: "Owner acceptance of the GIT-M2 write UI -> WI-M10-WORKBENCH-GIT to done (0.3.0 workbench Phase 1 complete)."
 
 visual_redesign:
   work_item: WI-M8-DEEPSEEK-UI
