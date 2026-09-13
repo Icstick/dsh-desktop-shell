@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "rootId": "dsh-home",
+  "path": "config.yaml",
+  "size": 12,
+  "encoding": "utf-8",
+  "readOnly": false,
+  "reason": null,
+  "content": "theme: dark\\n"
+}

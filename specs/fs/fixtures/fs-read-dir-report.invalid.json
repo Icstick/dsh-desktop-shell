@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "rootId": "repo",
+  "path": "apps",
+  "truncated": false,
+  "entries": [
+    {
+      "name": "weird",
+      "kind": "socket",
+      "size": 0,
+      "hidden": false
+    }
+  ]
+}

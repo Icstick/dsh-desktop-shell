@@ -13,6 +13,7 @@ const artwork: Record<SurfaceId, string> = {
   terminal: observatoryArtwork,
   runtime: observatoryArtwork,
   settings: workshopArtwork,
+  workbench: workshopArtwork,
   notifications: correspondenceArtwork,
   usage: studyArtwork,
 };

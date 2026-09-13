@@ -629,3 +629,70 @@ export interface BrowserEvent {
   /** Current document title (title_changed events; WI-M9-BROWSER-TABS). */
   title: string | null;
 }
+
+/* ------------------------------------------------------------------ */
+/* File manager (WI-M10-WORKBENCH-FS, FS-M1): read-only surface        */
+/* ------------------------------------------------------------------ */
+
+export interface FsRootsRequest {
+  schemaVersion: 1;
+}
+
+export type FsRootKind = "repository" | "dshHome" | "cwd";
+
+/** One browsable root derived from the active environment. */
+export interface FsRoot {
+  id: string;
+  label: string;
+  kind: FsRootKind;
+  path: string | null;
+  available: boolean;
+  reason: string | null;
+}
+
+export interface FsRootsReport {
+  schemaVersion: 1;
+  environmentId: string | null;
+  roots: FsRoot[];
+}
+
+export interface FsReadDirRequest {
+  schemaVersion: 1;
+  rootId: string;
+  relativePath: string;
+  showHidden?: boolean;
+}
+
+export type FsEntryKind = "dir" | "file" | "link";
+
+export interface FsEntry {
+  name: string;
+  kind: FsEntryKind;
+  size: number;
+  hidden: boolean;
+}
+
+export interface FsDirReport {
+  schemaVersion: 1;
+  rootId: string;
+  path: string;
+  entries: FsEntry[];
+  truncated: boolean;
+}
+
+export interface FsReadFileRequest {
+  schemaVersion: 1;
+  rootId: string;
+  relativePath: string;
+}
+
+export interface FsFileReport {
+  schemaVersion: 1;
+  rootId: string;
+  path: string;
+  size: number;
+  encoding: "utf-8" | "utf-8-bom" | "binary";
+  readOnly: boolean;
+  reason: string | null;
+  content: string;
+}

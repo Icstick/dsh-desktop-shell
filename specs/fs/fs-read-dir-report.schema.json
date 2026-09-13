@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/fs/fs-read-dir-report.schema.json",
+  "title": "FsDirReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rootId",
+    "path",
+    "entries",
+    "truncated"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "rootId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    },
+    "path": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "size",
+          "hidden"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "kind": {
+            "enum": [
+              "dir",
+              "file",
+              "link"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hidden": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

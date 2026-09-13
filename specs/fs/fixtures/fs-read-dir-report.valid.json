@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "rootId": "repo",
+  "path": "apps/desktop",
+  "truncated": false,
+  "entries": [
+    {
+      "name": "src",
+      "kind": "dir",
+      "size": 0,
+      "hidden": false
+    },
+    {
+      "name": "README.md",
+      "kind": "file",
+      "size": 128,
+      "hidden": false
+    }
+  ]
+}

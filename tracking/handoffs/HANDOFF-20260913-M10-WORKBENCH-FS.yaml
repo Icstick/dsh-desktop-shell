@@ -1,0 +1,27 @@
+schema_version: 1
+id: HANDOFF-20260913-M10-WORKBENCH-FS
+work_item: WI-M10-WORKBENCH-FS
+from: "agent session 20260913"
+to: null
+status: open
+completed:
+  - "FS-M1 后端：crates 之外的 apps/desktop/src-tauri/src/file_manager.rs —— 根目录来自激活环境（repo / dsh-home / harness-cwd），containment（validate_relative + 规范化前缀检查）、符号链接只报告不展开、2000 项目录上限、2 MiB 与 UTF-8 只读判定、BOM 检测；7 个单元测试覆盖负向矩阵（..、绝对、盘符、UNC、超长、符号链接逃逸到同前缀兄弟目录）。"
+  - "FS-M1 命令面：fs_list_roots / fs_read_dir / fs_read_file，human-only，ACL 四处同步（build.rs COMMANDS、capabilities/shell.json、lib.rs generate_handler、scripts/validate-acl.mjs）→ validate-acl 43 commands 通过。"
+  - "规格：specs/fs 六个 schema + 十二个 fixture；validate-specs 69 schemas / 145 fixtures ALL PASS。"
+  - "FS-M1 前端：features/file-manager-ui（懒加载树 + 只读视图 + 只读横幅 + 不可用根原因 + 错误 alert），接入工作台 surface（ActivityRail/PageArtwork/ShellApp），contracts/desktop-api/i18n(zh+en) 扩展，四个既有 DesktopApi 测试替身同步补齐。"
+  - "门禁（本地 2026-09-13）：cargo fmt/clippy(-D warnings)/test 全绿；pnpm check 干净；pnpm test 115/115（含 3 个新面板用例）。"
+remaining:
+  - "CI（三平台矩阵 + live-qa-windows）对本分支的验证；随后 squash 合并 main 并删分支。"
+  - "FS-M1 的用户视觉验收（键盘可达、空/降级/错误态、只读横幅）—— 设计文档把视觉验收列为切片门槛。"
+  - "FS-M2：编辑/保存（原子写 + mtime/size 冲突流程，fs_write_file + fs_stat）；GIT-M1/M2 随后。"
+verification:
+  - "cargo test -p dsh-desktop-shell：unit 180（含 file_manager 7 例）+ 各集成套件绿。"
+  - "node scripts/validate-acl.mjs → 43 commands, trusted Shell webview only, no remote access。"
+  - "node scripts/validate-specs.mjs → 69 schemas, 145 fixtures, ALL PASS。"
+  - "cd apps/desktop && pnpm check（tsc）干净；pnpm test → 8 files / 115 tests passed。"
+risks:
+  - "containment 的符号链接用例在无权限创建符号链接的平台上会提前返回（Windows 非管理员）；字符串层负向矩阵始终覆盖。"
+  - "插件目录未作为独立根：它们位于 DSH home 内（profiles/*/node_modules），dsh-home 根已覆盖；若后续需要独立根，要先钉住 DSH 的布局假设。"
+  - "只读视图尚未处理超大文件的增量加载（超 2 MiB 只读并截断到 2 MiB，UI 有横幅说明）。"
+next_action: "push feat/m10-workbench-fs 并盯 CI；绿后请用户做 FS-M1 视觉验收，然后进 FS-M2（编辑/保存）。"
+created_at: "2026-09-13T01:20:00Z"

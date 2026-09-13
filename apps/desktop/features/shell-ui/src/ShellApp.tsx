@@ -23,6 +23,7 @@ import { EnvironmentEditForm } from "../../environment-settings/src/EnvironmentE
 import { EnvironmentList } from "../../environment-settings/src/EnvironmentList";
 import { SetupWizard } from "../../environment-settings/src/SetupWizard";
 import { BrowserPanel } from "../../browser-ui/src/BrowserPanel";
+import { FileManagerPanel } from "../../file-manager-ui/src/FileManagerPanel";
 import { HarnessSurface } from "../../harness-surface/src/HarnessSurface";
 import { TerminalPanel } from "../../terminal-ui/src/TerminalPanel";
 import { ActivityRail, type SurfaceId } from "./ActivityRail";
@@ -818,6 +819,7 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
           {activeSurface === "browser" && <BrowserPanel api={api} />}
           {activeSurface === "notifications" && <NotificationsPanel api={api} />}
           {activeSurface === "usage" && <UsagePanel api={api} />}
+          {activeSurface === "workbench" && <FileManagerPanel api={api} />}
           {activeSurface === "runtime" && (
             <RuntimePanel
               attachedHealth={attachedHealth}
@@ -895,6 +897,7 @@ function surfaceTitle(surface: SurfaceId, t: (key: string) => string) {
   if (surface === "settings") return t("surface.settings");
   if (surface === "notifications") return t("surface.notifications");
   if (surface === "usage") return t("surface.usage");
+  if (surface === "workbench") return t("surface.workbench");
   return t("surface.dsh");
 }
 

@@ -1,6 +1,20 @@
 # Current Project State
 
 
+## 2026-09-13 · WI-M10-WORKBENCH-FS 开工（FS-M1：roots + 树 + 只读视图）
+
+- 后端 `apps/desktop/src-tauri/src/file_manager.rs`：根目录来自激活环境（repo = harness 仓库路径 / dsh-home / harness-cwd）；
+  containment = 先字符串级拒绝（`..`、绝对、盘符、UNC/设备、超长），再 join + canonicalize + **规范化前缀检查**；
+  符号链接只报告不展开；目录 2000 项上限、2 MiB 与 UTF-8 只读判定、BOM 检测。7 个单元测试（含逃逸到同前缀兄弟目录的用例）。
+- 命令面 `fs_list_roots / fs_read_dir / fs_read_file`：human-only，ACL 四处同步（build.rs / capabilities/shell.json / lib.rs / validate-acl.mjs）
+  → **43 commands** 通过；`specs/fs` 六个 schema + 十二 fixture → **69 schemas / 145 fixtures ALL PASS**。
+- 前端 `features/file-manager-ui`：懒加载树 + 只读视图 + 只读横幅 + 不可用根原因 + 错误 alert，接入工作台 surface（rail/artwork/ShellApp）；
+  contracts / desktop-api / i18n(zh+en) 扩展，四个既有 DesktopApi 测试替身补齐。
+- 本地门禁：cargo fmt/clippy(-D warnings)/test 全绿；pnpm check 干净；pnpm test **115/115**。
+- 与设计文档的一处差异（有意记录）：插件目录不单列根——它在 DSH home 内（`profiles/*/node_modules`），dsh-home 根已覆盖。
+- 待办：push + CI → 用户视觉验收 → FS-M2（编辑/保存）。
+
+
 ## 2026-09-13 · WI-M13 Unix UDS 载体（feat/m13-unix-uds-carrier）
 
 - 载体：`crates/local-transport/src/uds.rs`（UdsListener/UdsStream；**无需 acceptor 线程**——UnixListener 支持非阻塞
