@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/git/git-branches-report.schema.json",
+  "title": "GitBranchesReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "root",
+    "branches"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "root": {
+      "type": "string"
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "current": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

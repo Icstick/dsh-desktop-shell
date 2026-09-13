@@ -1,0 +1,23 @@
+schema_version: 1
+id: HANDOFF-20260913-M10-WORKBENCH-GIT-M1
+work_item: WI-M10-WORKBENCH-GIT
+from: "agent session 20260913"
+to: null
+status: open
+completed:
+  - "GIT-M1 后端（apps/desktop/src-tauri/src/git_panel.rs，659 行）：只读 `git_status` / `git_diff` / `git_log` / `git_branches`，全部经单一 `run_git` 辅助函数（不用 shell、`GIT_OPTIONAL_LOCKS=0` 保证读不刷新/不加锁索引、stdout 上限 512 KiB 并带 `truncated`）。仓库根只来自激活环境的 harness 仓库路径，调用方永远不给根；调用方可给的仓内相对路径按文件管理器规则校验，另加一条 git 专属规则——**首字符是 `-` 一律拒绝**，避免路径变成命令行选项。"
+  - "命令面：四个命令在 ACL 四处同步 → validate-acl **49 commands**；`specs/git` 增 8 schema + 16 fixture → validate-specs **81 schemas / 169 fixtures ALL PASS**。"
+  - "测试：`git_panel` 5/5 绿（真实临时 git 仓库）：status 走通 untracked → staged → clean → modified；diff 覆盖工作区与索引并可收窄到单文件；log/branches 描述仓库；路径校验拒绝 `../`、绝对、盘符、前导 `-`、空；无环境/普通目录给出 typed UNAVAILABLE。其中一条测试抓到真缺口：**无提交的仓库**分支头是 `## No commits yet on <branch>`，解析已修（设计文档明确要求这种仓库可用）。"
+remaining:
+  - "GIT-M1 前端：工作台顶部 `Files | Git` 切换；Git 页左侧按 Staged / Unstaged / Untracked 分组并带计数（facet chip），右侧只读 diff 面板（用 `--wb-diff-*` token 着色），空态与降级态（非仓库 / 未装 git）显式呈现；配套 vitest。"
+  - "CI 绿后合并 main；然后 GIT-M2（stage/unstage/commit + 破坏性动词的键入式确认）。"
+verification:
+  - "cargo fmt 干净；cargo build -p dsh-desktop-shell 通过；cargo test -p dsh-desktop-shell --lib git_panel → 5/5。"
+  - "validate-acl 49 commands；validate-specs 81 schemas / 169 fixtures ALL PASS。"
+  - "草稿 PR #6 的 CI 用于验证三平台构建（尤其 macOS/ubuntu 上的 git 调用路径）。"
+risks:
+  - "未实现调用超时：`git` 在超大仓库上可能慢；当前用参数上限（log 上限 200）与输出上限缓解，后续可加子进程超时+kill。"
+  - "status 用 porcelain v1 + -z + --no-renames：重命名会以「删除+新增」呈现，等 GIT-M2 需要精确重命名时再评估 v2。"
+  - "仓库根固定为环境的 harness 仓库路径；多仓库/子模块视图不在本片范围。"
+next_action: "实现 GIT-M1 前端（Files | Git 切换 + 分组状态 + 只读 diff），补 vitest，跑门禁后把草稿 PR 转正并合并。"
+created_at: "2026-09-13T02:45:00Z"

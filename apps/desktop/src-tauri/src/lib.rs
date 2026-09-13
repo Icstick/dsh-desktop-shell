@@ -11,6 +11,7 @@ mod dsh_surface;
 mod dsh_surface_policy;
 mod environment_store;
 mod file_manager;
+mod git_panel;
 mod managed_runtime;
 mod notification;
 mod setup_assist;
@@ -70,6 +71,10 @@ pub fn run() {
             commands::fs_read_file,
             commands::fs_stat,
             commands::fs_write_file,
+            commands::git_status,
+            commands::git_diff,
+            commands::git_log,
+            commands::git_branches,
             commands::mount_dsh_surface,
             commands::pick_directory,
             commands::probe_attached_environment,

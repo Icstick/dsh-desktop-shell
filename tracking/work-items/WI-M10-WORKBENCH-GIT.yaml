@@ -23,8 +23,12 @@ scope:
   - specs/ (git command schemas + fixtures)
   - apps/desktop/src/contracts.ts + i18n.tsx
   - tracking/
-evidence: []
+evidence:
+  - "GIT-M1 backend (apps/desktop/src-tauri/src/git_panel.rs): read-only status / diff / log / branches over the environment-linked repository, driven by the git CLI through one helper that never uses a shell, pins GIT_OPTIONAL_LOCKS=0 (a read must not refresh or lock the index) and caps stdout at 512 KiB with a truncated flag. The repository is exactly the environment's harness repository path - a caller never supplies a root; a caller-supplied repo-relative path is validated with the file manager rules plus a git-specific one (a leading '-' is refused so a path can never become an option)."
+  - "GIT-M1 backend tests (5, all green): status walks untracked -> staged -> clean -> modified in a real temporary git repo; diff covers the worktree and the index and narrows to one path; log and branches describe the repository; path validation refuses ../, absolute, drive, a leading dash and empty; a missing environment or a plain directory degrades with a typed UNAVAILABLE. One test caught a real gap: a repository with no commits reports '## No commits yet on <branch>', which the branch parser now handles (the design doc explicitly requires a no-commit repo to work)."
+  - "Commands git_status / git_diff / git_log / git_branches registered in all four ACL places -> validate-acl 49 commands; specs/git adds 8 schemas + 16 fixtures -> validate-specs 81 schemas / 169 fixtures ALL PASS."
+  - "Slice plan landed before the code: docs/roadmap/PLAN-GIT-M1.md (backend contract, frontend tab shape, tests, explicit deferrals)."
 blocked_by: [WI-M10-WORKBENCH-FS]
-next_action: "GIT-M1 (read-only: status / diff / log / branches over the environment-linked repo) starting 2026-09-13; slice plan in docs/roadmap/PLAN-GIT-M1.md. GIT-M2 (stage/commit + typed confirmations for destructive verbs) follows."
+next_action: "GIT-M1 backend is done and on branch feat/m10-workbench-git-m1 (draft PR #6 for cross-platform CI): the four read-only commands, their tests, ACL and specs are in. Remaining for the slice: the git tab in the workbench (Files | Git strip, staged/unstaged/untracked groups with counts, read-only diff pane using the --wb-diff-* tokens, empty/degraded states) plus its vitest cases; then merge and GIT-M2 (stage/unstage/commit with typed confirmations)."
 handoff: null
-updated_at: "2026-09-13T02:30:00Z"
+updated_at: "2026-09-13T02:45:00Z"

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "root": "D:\\\\repo",
+  "truncated": false,
+  "entries": [
+    {
+      "hash": "abc",
+      "author": "x",
+      "authoredAtUnixMs": 1,
+      "subject": "s"
+    }
+  ]
+}

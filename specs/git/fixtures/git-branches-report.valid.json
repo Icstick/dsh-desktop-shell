@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "root": "D:\\\\repo",
+  "branches": [
+    "main",
+    "feature"
+  ],
+  "current": "main"
+}
