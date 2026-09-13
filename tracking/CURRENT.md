@@ -1,5 +1,18 @@
 # Current Project State
 
+## 2026-09-13 晚 · 预览 fixture 说谎（fix/preview-file-fixture → main de5d94e）
+
+- 用户报「我点了不同文件右边没有自动更新诶」。**产品没问题**：`FileManagerPanel` 是从读取报告驱动视图的
+  （`setFile(report)` / `setDraft(report.content)`），后端也会回显被校验过的相对路径。
+- **是我写的预览 fixture 在骗人**：`fs_read_file` / `fs_stat` 对任何请求都返回同一个写死的 path 和同一段内容，
+  所以预览里根本演不出"换文件"这件事。已改为按路径取内容的映射，`fs_read_dir` 的 size 也从同一张表派生
+  （列出的体积和打开的文件不可能再对不上）。
+- 补一条**针对真实面板**的回归用例：换文件必须同时换掉文档条、编辑器和状态条——正是那条被 fixture 遮住的缝。
+- `pnpm check` 干净、vitest **136/136**；PR #12 CI run 34756388492 四 job 全绿；证据
+  `gitm1-evidence/12-fs-file-switch.png`。
+- **教训**：fixture 太"听话"会把真 bug 藏起来，也会把假 bug 演出来。这已经是同一天里第二次因为预览不够真实
+  而浪费你的时间（上一次是单根看不出 fs.roots 的层级问题）。
+
 ## 2026-09-13 晚 · 文件区根目录树修复（fix/fs-roots-nesting → main 128daf8）
 
 - 用户报「文件区的 fs.roots 这个小框有点问题，自己点一点看一下」——**照着点出来了**：展开两个根之后，树列是
