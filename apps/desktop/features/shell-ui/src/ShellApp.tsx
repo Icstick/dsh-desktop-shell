@@ -766,7 +766,9 @@ export function ShellApp({ api = desktopApi }: ShellAppProps) {
             "shell-header" +
             (activeSurface === "dsh" || activeSurface === "terminal"
               ? " shell-header--compact"
-              : "")
+              : activeSurface === "workbench"
+                ? " shell-header--slim"
+                : "")
           }
         >
           <div>

@@ -2920,6 +2920,22 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .shell-header--compact h1 { font-size: 16px; color: #294669; }
 .shell-header--compact .page-artwork { display: none; }
 .shell-header--compact > .runtime-badge { position: static; margin-left: auto; }
+
+/* Workbench banner (owner acceptance feedback 2026-09-13): the workbench header
+   is a card the reader looks past on the way to the tabs, not a landing page.
+   --slim is the middle step between the full card and --compact, which drops the
+   artwork and the description entirely; this keeps the surface's identity at
+   about two thirds the height. Workbench scope only - no other surface moves. */
+.shell-header--slim {
+  min-height: 150px;
+  padding: 22px 30px;
+  margin-bottom: 18px;
+}
+.shell-header--slim .eyebrow { margin-bottom: 8px; }
+.shell-header--slim h1 { font-size: 24px; letter-spacing: -.4px; }
+.shell-header--slim .shell-header__description { font-size: 12.5px; line-height: 1.65; max-width: 40ch; margin-top: 8px; }
+.shell-header--slim > div:first-child { padding-bottom: 14px; }
+.shell-header--slim > .runtime-badge { left: 30px; bottom: 14px; }
 .shell-content:not(.shell-content--surface) { flex: none; padding-bottom: 25px; }
 .panel, .surface-state, .surface-frame, .browser-panel, .setup-wizard, .environment-edit { background: #fff; border-color: #d7e2ed; box-shadow: 0 4px 18px #233a6304; }
 .panel { padding: clamp(22px, 2.4vw, 32px); }
@@ -2986,6 +3002,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .shell-header--compact { min-height: 34px; padding: 0; }
   .shell-header h1 { font-size: 28px; }
   .shell-header--compact h1 { font-size: 15px; }
+  .shell-header--slim { min-height: 132px; padding: 20px 24px; }
+  .shell-header--slim h1 { font-size: 22px; }
+  .shell-header--slim > .runtime-badge { left: 24px; bottom: 12px; }
 }
 @media (max-width: 780px) {
   .shell-app { grid-template-columns: 58px minmax(0,1fr); }
@@ -3005,6 +3024,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .shell-header--compact > div:first-child { width: auto; align-self: center; }
   .shell-header--compact h1 { font-size: 14px; }
   .shell-header--compact > .runtime-badge { max-width: 100%; }
+  .shell-header--slim { min-height: 118px; padding: 17px 18px; }
+  .shell-header--slim h1 { font-size: 19px; }
+  .shell-header--slim .shell-header__description { font-size: 12px; }
+  .shell-header--slim > .runtime-badge { left: 18px; bottom: 11px; }
   .surface-state { padding: 26px; background-position: 64% center; background-image: linear-gradient(90deg,#edf6fbf5,#edf6fbbb),url("./assets/deepseek-water.webp"); }
   .surface-state h2 { font-size: 30px; }
   .surface-state > p:not(.eyebrow) { max-width: 30ch; }
