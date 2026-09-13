@@ -108,6 +108,27 @@ libproc。再将该 PID 的可执行路径与「期望的 Shell 可执行文件�
 
 - Spike（Windows 半）已完成：`docs/research/SPIKE-PEER-IDENTITY-20260912.md` —— Named Pipe + 现有 framing 兼容、`GetNamedPipeClientProcessId` + 镜像路径解析可用、客户端为独立进程可区分。Unix 半（UDS + SO_PEERCRED）待 CI 矩阵验证。决策 2 的 ①③ 已获证据，② 待补。
 
+## 进展注记（2026-09-13）：决策 4 条件满足 —— H-2 关闭
+
+- **载体与身份（决策 1/2 的 B2 方向全部落地）**：Windows named pipe（`GetNamedPipeClientProcessId` + 镜像路径）与
+  Unix domain socket（Linux `SO_PEERCRED` + `/proc/<pid>/exe`；macOS `getsockopt(LOCAL_PEERPID)` + `proc_pidpath`）
+  都在默认路径上工作；其他 Unix 返回 typed `Unsupported` 并 fail-closed。loopback TCP 保持显式降级：
+  内核对端身份不可得，因此**永远不能**获得控制面（决策 3）。
+- **负向测试（决策 4 的直接条件）**：`crates/daemon/tests/peer_identity_carrier.rs` 的正/负两条腿在
+  **三个平台**的 CI 矩阵上运行——同用户进程、有效一次性凭据、自称 Shell、镜像不匹配 → 无 grant、
+  dispatch `Unauthorized`；镜像匹配 → 保留 `ShellControl`。
+- **daemon 默认姿态**：三平台默认 `strict`（Unix 的平台闸门已移除）；`strict` 而载体未挂载时启动即显式告警。
+- **live QA**：`scripts/qa/live-daemon-qa.mjs` 的载体腿 A19/A20（载体连接携带内核身份；非 Shell 镜像的 Shell
+  声明被判为 `Participant`）与对照腿 B8（真 Shell 在同一 daemon、同一载体上拿到 `ShellControl`，且 `peer=pipe:|uds:`
+  证明走的是载体而非 TCP）。
+- **证据**：CI run `34729017674`（ubuntu + macos + windows 矩阵 + live-qa-windows 全绿）；
+  另有本地证据——Linux 真跑（WSL：全部 UDS 测试通过，SO_PEERCRED 与 `/proc/<pid>/exe` 实测）、
+  Windows 全量套件 + live QA 28/28。
+- **结论**：H-2 由「部分收敛」转为**已关闭**，ADR-0021 决策 5 的约束随之解除；ADR-0021 的 2026-09-12 接受记录
+  （「H-2 未关闭」）保留为历史状态，不原地改写。
+  审计原文 `docs/audits/audit-summary-2026-09-10.md` 不在本仓库（外部引用，无法原地编辑），
+  因此关闭记录落在本 ADR 与 `docs/security/IPC_SECURITY.md`。
+
 ## 参考
 
 - `docs/decisions/ADR-0021-shell-daemon-identity-binding.md`（决策 5 与备选方案 B）

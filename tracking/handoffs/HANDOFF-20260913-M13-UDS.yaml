@@ -1,0 +1,28 @@
+schema_version: 1
+id: HANDOFF-20260913-M13-UDS
+work_item: WI-M13-UNIX-UDS-CARRIER
+from: "agent session 20260913"
+to: null
+status: closed
+completed:
+  - "UDS 载体（crates/local-transport/src/uds.rs）：UdsListener（非阻塞 accept，无需 acceptor 线程）+ 客户端 connect；socket 0600、仅对自建父目录 0700、陈旧 socket 可替换但绝不删除非 socket 文件、sockaddr_un 长度护栏；6 个测试（内核 pid/镜像、读超时、对端关闭即 EOF、陈旧 socket、权限、超长路径）。"
+  - "macOS 对端身份：getsockopt(LOCAL_PEERPID) + proc_pidpath（crate 第二处也是最后一处 unsafe 豁免，逐处 SAFETY 契约）；Linux 保持 nix SO_PEERCRED + /proc 的 unsafe-free 路径；其他 Unix 明示 Unsupported。image_matches 仅在 Windows/macOS 折叠大小写。"
+  - "daemon：CarrierEndpoint(NamedPipe|UnixSocket) 取代 pipe-only 字段；凭证 schema v3（pipeName | socketPath，互斥）；Unix 载体落在数据目录（per-process nonce）；移除 Unix 的策略闸门（三平台默认 strict）；strict 而载体未挂载时显式告警。"
+  - "Shell：ClientStream::UnixSocket + connect_carrier 在 Unix 优先 socket（Windows 优先管道），降级 TCP 写入日志理由。"
+  - "测试：peer_identity_pipe.rs 泛化为 peer_identity_carrier.rs（正向=镜像匹配保留 ShellControl；负向=同用户冒充者无 grant + Unauthorized），三平台跑同一套断言；tests/common 增加载体无关的连接 helper。"
+  - "live QA：A3 升 v3 + 载体端点；A19/A20（载体连接的 kernel 身份 + 自称 Shell 的非 Shell 镜像被降级为 Participant）与 B8 对照腿（真 Shell 同载体拿到 ShellControl，且 peer=pipe:/uds: 证明走的是载体而非 TCP）；B4/B5 改为有界重试（被杀 Shell 的 grant 释放不是瞬时的）。本地连跑两次 28/28。"
+remaining:
+  - "无（收口）：CI run 34729017674 三平台 + live-qa-windows 全绿；H-2 关闭记录已落在 ADR-0022 与 docs/security/IPC_SECURITY.md（被引用的 docs/audits/audit-summary-2026-09-10.md 不在本仓库）。"
+  - "待办：squash 合并 main + 删除分支；随后开 WI-M10-WORKBENCH-FS（0.3.0 FS-M1）。"
+verification:
+  - "Linux 真跑（WSL Ubuntu26 / rustc 1.98.0）：dsh-local-transport 21 lib + 全部集成 + doctest 绿（含 7 个 UDS 测试：SO_PEERCRED 拿到本进程 pid、/proc/<pid>/exe 解析出镜像）；dsh-daemon 全套绿，仅 runtime_integration 两例因 WSL 副本缺 node_modules（managed DSH 运行时起不来）失败——环境缺口，与本次改动无关（CI ubuntu 上通过）。"
+  - "Windows：cargo fmt --check 干净；cargo clippy --workspace --all-targets -D warnings 干净；cargo test --workspace -- --test-threads=1 全绿（含 desktop 173）；live-daemon-qa 28/28（连跑两次）。"
+  - "交叉 clippy：x86_64-unknown-linux-gnu 与 aarch64-apple-darwin 两个 target 下 dsh-local-transport + dsh-daemon --all-targets -D warnings 均干净。"
+  - "CI run 34729017674（PR #3，head b304a92）：test (ubuntu-latest) / test (macos-latest) / test (windows-latest) 与 live-qa-windows 全部 success —— macOS 首次真机验证 LOCAL_PEERPID + proc_pidpath、UDS 载体与 desktop 173；ubuntu 首次真跑 SO_PEERCRED；windows 含 28 项 live QA。"
+  - "本地抓出并修掉两个真 bug：① bind 对已存在目录 chmod（/tmp EPERM、root 下会改坏共享目录）；② expected-Shell 路径 canonicalize 得到 Windows verbatim 形式 → strict 会拒绝真 Shell（正向腿红、冒充者腿仍绿）。两者都补了回归测试并写入 AGENTS.md 教训节。"
+risks:
+  - "macOS 的 LOCAL_PEERPID + proc_pidpath 只能由 CI 验证（本机无 macOS）；若 CI 红，先看 peer_identity_carrier.rs 正向腿的 image path 断言。"
+  - "desktop crate（tauri）无法交叉编译，其 Unix 分支（ClientStream::UnixSocket 那段）只能靠 CI 的 ubuntu/macos 构建验证。"
+  - "本机 .wslconfig 为 mirrored 网络：WSL 运行时 Linux 临时端口段（32768–60999）在宿主侧被保留，Windows 侧绑定该区间会 WSAEADDRINUSE 且 netstat 看不到（desktop 测试固定端口 39101 曾因此全红）。跑 Windows 门禁前先 wsl --shutdown。"
+next_action: "push feat/m13-unix-uds-carrier 并盯 CI；绿后写 ADR-0022 决策 4 满足记录（含 run id）→ squash 合并 main → 删除分支 → 开 WI-M10-WORKBENCH-FS（0.3.0 FS-M1）。"
+created_at: "2026-09-13T00:45:00Z"

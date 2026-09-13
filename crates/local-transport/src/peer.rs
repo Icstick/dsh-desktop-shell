@@ -25,13 +25,18 @@ impl PeerIdentity {
         Self { pid, image_path }
     }
 
-    /// Whether the peer image resolves to exactly the expected path
-    /// (case-insensitive on Windows path semantics, exact elsewhere).
+    /// Whether the peer image resolves to exactly the expected path.
+    ///
+    /// Case is folded on the platforms whose default filesystem does not
+    /// preserve it (Windows, macOS/APFS): there a case difference cannot
+    /// name a different file, so folding only removes false negatives and
+    /// never admits a different binary. Everywhere else the comparison is
+    /// exact.
     pub fn image_matches(&self, expected: &str) -> bool {
         let Some(image) = self.image_path.as_deref() else {
             return false;
         };
-        if cfg!(windows) {
+        if cfg!(any(windows, target_os = "macos")) {
             image.eq_ignore_ascii_case(expected)
         } else {
             image == expected
@@ -40,12 +45,11 @@ impl PeerIdentity {
 }
 
 #[cfg(windows)]
-// SAFETY CONTRACT (ADR-0022): this module is the crate single unsafe
+// SAFETY CONTRACT (ADR-0022): the Windows half of the crate's unsafe
 // exemption. It calls only three read-only Win32 probes on handles the
 // caller owns; no memory is retained, no foreign pointers escape, and the
 // PID/path are treated as untrusted input by every caller.
 #[allow(unsafe_code)]
-#[allow(dead_code)] // FFI surfaces consumed by the named-pipe carrier (next slice)
 mod windows_impl {
     use super::PeerIdentity;
     use std::io;
@@ -104,7 +108,6 @@ mod windows_impl {
 pub(crate) use windows_impl::peer_identity_of_raw_handle;
 
 #[cfg(target_os = "linux")]
-#[allow(dead_code)] // consumed by the UDS carrier (WI-M13-UNIX-UDS-CARRIER)
 mod unix_impl {
     use super::PeerIdentity;
     use std::io;
@@ -113,8 +116,8 @@ mod unix_impl {
     /// (Linux: SO_PEERCRED via nix + /proc/<pid>/exe for the image path).
     ///
     /// nix wraps the getsockopt call safely, so this branch - like the rest
-    /// of the crate - is unsafe-free. Only verifiable on the CI matrix: the
-    /// local development machine is Windows (ADR-0022 spike limitation).
+    /// of the crate - is unsafe-free: Linux is the platform where the crate
+    /// keeps its no-unsafe property end to end.
     pub(crate) fn peer_identity_of_unix_stream(
         stream: &std::os::unix::net::UnixStream,
     ) -> io::Result<PeerIdentity> {
@@ -135,28 +138,104 @@ mod unix_impl {
     }
 }
 
-#[cfg(all(unix, not(target_os = "linux")))]
-#[allow(dead_code)] // consumed by the UDS carrier (WI-M13-UNIX-UDS-CARRIER)
-mod unix_impl {
+#[cfg(target_os = "macos")]
+// SAFETY CONTRACT (ADR-0022): macOS exposes the peer pid only through
+// `getsockopt(LOCAL_PEERPID)` and the peer image only through
+// `proc_pidpath`; neither has a safe wrapper in std, nix or libc. This
+// module performs exactly those two read-only calls on a socket the caller
+// owns, copies the results into owned memory, and lets nothing else escape.
+// It is the second - and last - unsafe exemption of this crate; the first is
+// the Windows named-pipe FFI above.
+#[allow(unsafe_code)]
+mod apple_impl {
+    use super::PeerIdentity;
+    use std::io;
+    use std::os::unix::io::AsRawFd;
+
+    /// `SOL_LOCAL`/`LOCAL_PEERPID` (sys/un.h): the socket-local
+    /// level and the peer-pid option. libc defines both for apple targets;
+    /// they are repeated here with their canonical values so the call site
+    /// reads as one unit.
+    const SOL_LOCAL: libc::c_int = 0;
+    const LOCAL_PEERPID: libc::c_int = 0x002;
+
+    /// Identity of the peer connected to a Unix domain socket stream.
+    ///
+    /// Verified on the CI matrix: the pid comes from the kernel (a same-user
+    /// impostor cannot fake it) and `proc_pidpath` resolves the image
+    /// of our own test process, which is what the strict policy compares
+    /// against the expected Shell binary.
+    pub(crate) fn peer_identity_of_unix_stream(
+        stream: &std::os::unix::net::UnixStream,
+    ) -> io::Result<PeerIdentity> {
+        let mut pid: libc::pid_t = 0;
+        let mut len = std::mem::size_of::<libc::pid_t>() as libc::socklen_t;
+        // SAFETY: read-only getsockopt on a live socket fd; `pid`/`len`
+        // are stack locals and the kernel writes at most `len` bytes.
+        let rc = unsafe {
+            libc::getsockopt(
+                stream.as_raw_fd(),
+                SOL_LOCAL,
+                LOCAL_PEERPID,
+                std::ptr::addr_of_mut!(pid).cast(),
+                &mut len,
+            )
+        };
+        if rc != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if pid <= 0 {
+            return Err(io::Error::other("LOCAL_PEERPID returned no pid"));
+        }
+        let pid = pid as u32;
+        Ok(PeerIdentity::new(pid, image_path_of(pid)))
+    }
+
+    /// Executable path of `pid` via libproc. Returns `None` when the
+    /// kernel refuses (different user, protected process) - callers treat a
+    /// missing image as a failed match, never as a match.
+    fn image_path_of(pid: u32) -> Option<String> {
+        let mut buffer = vec![0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+        // SAFETY: proc_pidpath writes into our buffer, bounded by its length.
+        let written = unsafe {
+            libc::proc_pidpath(
+                pid as libc::c_int,
+                buffer.as_mut_ptr().cast(),
+                buffer.len() as u32,
+            )
+        };
+        if written <= 0 {
+            return None;
+        }
+        buffer.truncate(written as usize);
+        String::from_utf8(buffer).ok()
+    }
+}
+
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
+mod other_unix_impl {
     use super::PeerIdentity;
     use std::io;
 
-    /// macOS/BSD: the carrier exists, but PID extraction needs LOCAL_PEERPID
-    /// (macOS) and has not been verified yet - it is part of the CI-matrix
-    /// slice of ADR-0022. Fail closed with a typed error instead of
-    /// pretending the connection is identity-less.
+    /// Other Unix (BSD family): the carrier works, but kernel PID extraction
+    /// has neither a verification path nor a CI target here. Fail closed
+    /// with a typed error instead of pretending the connection is
+    /// identity-less.
     pub(crate) fn peer_identity_of_unix_stream(
         _stream: &std::os::unix::net::UnixStream,
     ) -> io::Result<PeerIdentity> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "peer identity extraction is not implemented on this platform yet (ADR-0022 CI slice)",
+            "peer identity extraction is not implemented on this platform",
         ))
     }
 }
 
-#[cfg(unix)]
-#[allow(unused_imports)] // consumed by the UDS carrier (WI-M13-UNIX-UDS-CARRIER)
+#[cfg(target_os = "macos")]
+pub(crate) use apple_impl::peer_identity_of_unix_stream;
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
+pub(crate) use other_unix_impl::peer_identity_of_unix_stream;
+#[cfg(target_os = "linux")]
 pub(crate) use unix_impl::peer_identity_of_unix_stream;
 
 #[cfg(test)]
@@ -170,13 +249,14 @@ mod tests {
     }
 
     #[test]
-    fn image_matches_handles_case_on_windows() {
-        let identity = PeerIdentity::new(42, Some("C:\\App\\shell.exe".to_string()));
-        if cfg!(windows) {
-            assert!(identity.image_matches("c:\\app\\SHELL.EXE"));
-            assert!(!identity.image_matches("C:\\App\\other.exe"));
+    fn image_matches_folds_case_only_where_the_filesystem_does() {
+        let identity = PeerIdentity::new(42, Some("/opt/dsh/shell".to_string()));
+        assert!(identity.image_matches("/opt/dsh/shell"));
+        assert!(!identity.image_matches("/opt/dsh/other"));
+        if cfg!(any(windows, target_os = "macos")) {
+            assert!(identity.image_matches("/OPT/DSH/SHELL"));
         } else {
-            assert!(identity.image_matches("C:\\App\\shell.exe"));
+            assert!(!identity.image_matches("/OPT/DSH/SHELL"));
         }
     }
 }

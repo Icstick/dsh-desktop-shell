@@ -151,6 +151,9 @@ pub enum ClientStream {
     /// Windows named pipe stream (peer-identity carrier).
     #[cfg(windows)]
     NamedPipe(crate::named_pipe::PipeStream),
+    /// Unix domain socket stream (peer-identity carrier).
+    #[cfg(unix)]
+    UnixSocket(std::os::unix::net::UnixStream),
 }
 
 impl Read for ClientStream {
@@ -159,6 +162,8 @@ impl Read for ClientStream {
             Self::Tcp(stream) => stream.read(buf),
             #[cfg(windows)]
             Self::NamedPipe(stream) => stream.read(buf),
+            #[cfg(unix)]
+            Self::UnixSocket(stream) => stream.read(buf),
         }
     }
 }
@@ -169,6 +174,8 @@ impl Write for ClientStream {
             Self::Tcp(stream) => stream.write(buf),
             #[cfg(windows)]
             Self::NamedPipe(stream) => stream.write(buf),
+            #[cfg(unix)]
+            Self::UnixSocket(stream) => stream.write(buf),
         }
     }
 
@@ -177,6 +184,8 @@ impl Write for ClientStream {
             Self::Tcp(stream) => stream.flush(),
             #[cfg(windows)]
             Self::NamedPipe(stream) => stream.flush(),
+            #[cfg(unix)]
+            Self::UnixSocket(stream) => stream.flush(),
         }
     }
 }
@@ -192,6 +201,8 @@ impl CarrierStream for ClientStream {
             Self::Tcp(stream) => CarrierStream::set_read_timeout(stream, timeout),
             #[cfg(windows)]
             Self::NamedPipe(stream) => CarrierStream::set_read_timeout(stream, timeout),
+            #[cfg(unix)]
+            Self::UnixSocket(stream) => CarrierStream::set_read_timeout(stream, timeout),
         }
     }
 
@@ -200,6 +211,8 @@ impl CarrierStream for ClientStream {
             Self::Tcp(stream) => CarrierStream::set_write_timeout(stream, timeout),
             #[cfg(windows)]
             Self::NamedPipe(stream) => CarrierStream::set_write_timeout(stream, timeout),
+            #[cfg(unix)]
+            Self::UnixSocket(stream) => CarrierStream::set_write_timeout(stream, timeout),
         }
     }
 }

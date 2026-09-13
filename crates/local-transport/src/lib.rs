@@ -5,9 +5,11 @@
 //!
 //! ## Scope
 //!
-//! - **Carrier**: loopback TCP on `127.0.0.1` with a random port. The
-//!   framing codec works over any `std::io::Read + Write` stream, which is
-//!   the extension point reserved for Named Pipe / UDS carriers (ADR-0007).
+//! - **Carrier**: loopback TCP on `127.0.0.1` (fixed port in the daemon;
+//!   random in library use) as the degradation carrier, plus the
+//!   peer-identity carriers that let the server ask the kernel which process
+//!   connected: Windows named pipes (`named_pipe`) and Unix domain sockets
+//!   (`uds`). The framing codec is carrier-agnostic (ADR-0007/ADR-0022).
 //! - **Owns**: endpoint lifecycle, ACL/mode, ephemeral credentials,
 //!   framing/reconnect supervision.
 //! - **Does not own**: capability semantics, plugin identity proof.
@@ -53,12 +55,16 @@
 //! - `server`: listener, accept loop, supervision and stats.
 
 // Unsafe code stays EXCLUDED as a default and is allowed only where the
-// platform demands raw FFI and no safe wrapper exists: today that is exactly
-// the Windows side of the peer-identity carrier - the Win32 probes in
-// `peer` (GetNamedPipeClientProcessId + QueryFullProcessImageNameW) and the
-// named-pipe endpoint in `named_pipe`. ADR-0022 (accepted) authorizes this
-// module-contract widening; every other module stays unsafe-free, and each
-// exemption is documented at the call site.
+// platform demands raw FFI and no safe wrapper exists. ADR-0022 (accepted)
+// authorizes exactly two exemptions, both inside the peer-identity carrier:
+//   - Windows: the Win32 probes in `peer` (GetNamedPipeClientProcessId +
+//     QueryFullProcessImageNameW) and the named-pipe endpoint in
+//     `named_pipe`;
+//   - macOS: the two read-only libproc/socket calls in `peer`
+//     (getsockopt(LOCAL_PEERPID) + proc_pidpath) that have no safe wrapper.
+// Linux needs neither (SO_PEERCRED goes through `nix` and /proc), so the
+// Unix-safe half of the carrier stays unsafe-free. Every other module stays
+// unsafe-free, and each exemption is documented at the call site.
 #![deny(unsafe_code)]
 
 pub mod carrier;
@@ -72,6 +78,8 @@ pub mod limits;
 pub mod named_pipe;
 pub mod peer;
 pub mod server;
+#[cfg(unix)]
+pub mod uds;
 
 pub use carrier::{CarrierListener, CarrierStream, ClientStream, PeerDesc};
 pub use client::LocalClient;

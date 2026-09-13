@@ -4,11 +4,11 @@ name: "local-transport"
 path: "crates/local-transport"
 owner_role: runtime-and-security-owner
 status: verified
-milestone: M2
+milestone: M13
 interfaces:
   - IF-NEGOTIATION
   - IF-INVOCATION
 depends_on: []
 security_review: passed
-updated_at: "2026-08-29T10:05:00Z"
-next_action: "M2-C 完成：crates/local-transport 提供 loopback TCP 认证载体与 framing/limits（AC-IPC-001/002，29 tests）；Named Pipe/UDS 为 trait 扩展点，留待 daemon 阶段（ADR-0007/0008）。"
+updated_at: "2026-09-13T00:45:00Z"
+next_action: "M13（WI-M13）落地 peer-identity 载体族：loopback TCP（显式降级、内核对端身份不可得）、Windows named pipe、Unix domain socket（Linux SO_PEERCRED + /proc/<pid>/exe；macOS LOCAL_PEERPID + proc_pidpath；其他 Unix 明示 Unsupported 并 fail-closed）。carrier 抽象与对端身份见 ADR-0022；unsafe 仅限 Windows/macOS FFI 两处（crate 级 deny，逐处写明契约）。Windows 侧已合并 main（dca033b），Unix 侧随 WI-M13 推进。"

@@ -34,6 +34,15 @@ use dsh_daemon::server::{DaemonServer, PeerIdentityPolicy};
 use dsh_daemon::singleton::{EXIT_ALREADY_RUNNING, EXIT_LOCK_CONFLICT, InstanceGuard};
 use dsh_local_transport::Limits;
 
+/// Shell binary names as they sit next to this daemon, in both layouts:
+/// the cargo dev layout (binary name from the crate) and the installed
+/// bundle (main binary named after the tauri productName, with the daemon
+/// sidecar beside it). Windows adds the `.exe` suffix.
+#[cfg(windows)]
+const SHELL_BINARY_CANDIDATES: [&str; 2] = ["dsh-desktop-shell.exe", "DSH Desktop Shell.exe"];
+#[cfg(not(windows))]
+const SHELL_BINARY_CANDIDATES: [&str; 2] = ["dsh-desktop-shell", "DSH Desktop Shell"];
+
 /// Expected Shell image path for the strict peer-identity policy (ADR-0022).
 ///
 /// Order: the explicit `DSH_SHELL_EXPECTED_PATH` override, then the Shell
@@ -48,9 +57,18 @@ fn expected_shell_path() -> Option<String> {
     }
     let exe = env::current_exe().ok()?;
     let dir = exe.parent()?;
-    for candidate in ["dsh-desktop-shell.exe", "DSH Desktop Shell.exe"] {
+    for candidate in SHELL_BINARY_CANDIDATES {
         let path = dir.join(candidate);
         if path.is_file() {
+            // Deliberately NOT canonicalized: the peer identity arrives from
+            // the kernel in the platform's own path form
+            // (QueryFullProcessImageNameW answers with a DOS path, while
+            // /proc/pid/exe and proc_pidpath answer with the real path), and
+            // canonicalize would rewrite it on Windows into the verbatim
+            // `\\?\\`-prefixed form - a string no kernel API ever returns,
+            // which would make every Shell claim fail closed. The comparison
+            // stays literal (case-folded where the filesystem folds case; see
+            // PeerIdentity::image_matches).
             return Some(path.to_string_lossy().into_owned());
         }
     }
@@ -144,22 +162,16 @@ fn main() -> ExitCode {
     let claim_port = claim_port_override.unwrap_or(CLAIM_PORT);
 
     // ADR-0022: the production entry point defaults to the strict
-    // peer-identity policy where the peer-identity carrier exists (Windows
-    // named pipe). On Unix the UDS carrier is still slice 6: strict there
-    // would refuse every Shell claim and break the control plane, so the
-    // Unix default stays Off with an explicit notice until that slice lands.
-    // Off is otherwise an explicit opt-out (tests/debugging).
+    // peer-identity policy. The peer-identity carrier (Windows named pipe /
+    // Unix domain socket) is attached by the server next to the TCP
+    // endpoint, so strict is the correct default on every platform that has
+    // one; Off is an explicit opt-out for tests and debugging.
     let policy = if policy_off {
         PeerIdentityPolicy::Off
-    } else if cfg!(windows) {
+    } else {
         PeerIdentityPolicy::Strict {
             expected_shell: expected_shell_path(),
         }
-    } else {
-        eprintln!(
-            "dsh-desktop-daemon: note: no peer-identity carrier on this platform yet (ADR-0022 slice 6 pending); running with peer-identity policy off - the Shell claim is credential-only here"
-        );
-        PeerIdentityPolicy::Off
     };
     if matches!(
         policy,
@@ -207,6 +219,21 @@ fn main() -> ExitCode {
         }
     };
 
+    // A strict policy without a carrier can never admit a Shell claim: say
+    // so once, loudly, instead of leaving the operator with a silent
+    // control-plane refusal (the credential file then carries no endpoint
+    // either, so the Shell connects over identity-less TCP).
+    if server.carrier_endpoint().is_none()
+        && matches!(
+            server.peer_identity_policy(),
+            PeerIdentityPolicy::Strict { .. }
+        )
+    {
+        eprintln!(
+            "dsh-desktop-daemon: warning: strict peer-identity policy is active but no peer-identity carrier is attached; every Shell claim degrades to Participant (fail closed, ADR-0022)"
+        );
+    }
+
     // --- 2) start lock file (stale-tolerant; the port bind above is the
     // authoritative single-instance check) ---
     let _guard = match InstanceGuard::acquire(&data_dir) {
@@ -245,9 +272,14 @@ fn main() -> ExitCode {
         data_dir.join(CREDENTIAL_FILE_NAME).display()
     );
     println!("  data dir:     {}", data_dir.display());
-    match server.pipe_name() {
-        Some(pipe) => println!("  peer pipe:    \\\\.\\pipe\\{pipe} (peer-identity carrier)"),
-        None => println!("  peer pipe:    - (no peer-identity carrier on this platform)"),
+    match server.carrier_endpoint() {
+        Some(endpoint) => println!(
+            "  peer carrier: {} (kernel peer identity; ADR-0022)",
+            endpoint.describe()
+        ),
+        None => {
+            println!("  peer carrier: - (not attached; Shell claims degrade to credential-only)")
+        }
     }
     match server.peer_identity_policy() {
         PeerIdentityPolicy::Off => {

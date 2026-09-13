@@ -1,14 +1,14 @@
 schema_version: 1
 id: WI-M13-UNIX-UDS-CARRIER
-title: "Unix UDS peer-identity carrier + live-QA pipe leg (ADR-0022 slice 6)"
-status: ready
+title: "Unix UDS peer-identity carrier + live-QA carrier leg (ADR-0022 slice 6)"
+status: done
 milestone: M13
 module: MOD-LOCAL-TRANSPORT
 owner_role: runtime-and-security-owner
-claimed_by: null
+claimed_by: "agent session 20260913"
 session: null
-branch_or_worktree: null
-claim_expires_at: null
+branch_or_worktree: feat/m13-unix-uds-carrier
+claim_expires_at: "2026-09-14T01:00:00Z"
 dependencies:
   - "ADR-0022 accepted; Windows carrier merged to main (dca033b)"
 acceptance_criteria:
@@ -17,17 +17,29 @@ acceptance_criteria:
   - "Unix default policy returns to strict once the carrier lands (remove the platform gate in main.rs)."
   - "CI matrix (ubuntu + macos) green including the carrier tests; the same-user impostor negative test runs on Unix."
   - "scripts/qa/live-daemon-qa.mjs gains a peer-identity-carrier leg (connect over the pipe/UDS, assert control-plane authority)."
-  - "H-2 flips to closed in docs/audits/audit-summary-2026-09-10.md; ADR-0022 decision 4 conditions recorded as satisfied."
+  - "H-2 closure recorded where this repository can hold it: ADR-0022 records decision 4 as satisfied (CI run id as evidence) and docs/security/IPC_SECURITY.md states the control-plane identity requirement. NOTE 2026-09-13: the audit summary ADR-0021/0022 cite (docs/audits/audit-summary-2026-09-10.md) is NOT in this repository - it is an external reference and cannot be edited here, so the closure lives in the two in-repo documents."
 security_impact: "Extends the H-2 fix to Unix platforms with the same fail-closed semantics; no new trust boundary beyond the carrier."
-compatibility_impact: "New carrier; credential file gains a Unix socket path field; TCP remains the documented degradation."
+compatibility_impact: "New carrier; credential file v3 adds an optional socketPath next to the v2 pipeName (the daemon attaches exactly one carrier, so a file never carries both); TCP remains the documented degradation."
 scope:
   - crates/local-transport/ (uds carrier)
   - crates/daemon/ (carrier attach + platform policy gate removal)
   - apps/desktop/src-tauri/src/daemon_client.rs (carrier preference)
   - scripts/qa/ + CI matrix
   - tracking/ + docs/audits
-evidence: []
+evidence:
+  - "UDS carrier (crates/local-transport/src/uds.rs): UdsListener bind/accept/peer_identity over UnixStream - no acceptor thread needed because UnixListener honours non-blocking accept; socket 0600, a parent directory it creates 0700 (an existing one is left alone); stale socket replaced but a real file at that path never deleted; path-length guard for sockaddr_un. Six tests: round trip with kernel pid + resolved image path, read deadline as WouldBlock, peer close surfaces as EOF (parity with the named pipe regression), stale-socket replacement, owner-only modes, overlong path."
+  - "macOS peer identity (crates/local-transport/src/peer.rs): getsockopt(LOCAL_PEERPID) + proc_pidpath behind the crate's second documented unsafe exemption (Linux stays unsafe-free through nix SO_PEERCRED + /proc); other Unix keeps a typed Unsupported error and therefore fails closed. image_matches now folds case only on Windows and macOS (case-preserving filesystems elsewhere)."
+  - "Daemon (crates/daemon/src/server.rs, main.rs, credential.rs): CarrierEndpoint (NamedPipe | UnixSocket) replaces the pipe-only field; credential schema v3 publishes pipeName or socketPath; the Unix carrier binds in the data directory with a per-process nonce; the Unix policy gate is gone so strict is the default on every platform; a strict policy with no carrier attached now warns explicitly."
+  - "Shell (apps/desktop/src-tauri/src/daemon_client.rs): ClientStream::UnixSocket + connect_carrier prefers the published socket on Unix (named pipe on Windows) and falls back to identity-less TCP with a logged reason."
+  - "Tests: crates/daemon/tests/peer_identity_pipe.rs became the platform-generic peer_identity_carrier.rs - positive leg (matching image keeps ShellControl and dispatch succeeds) and the H-2 impostor leg (same user, valid credential, Shell claim, different image -> no grant, Unauthorized) now run on all three CI platforms; tests/common gains carrier-generic connect helpers."
+  - "Live QA (scripts/qa/live-daemon-qa.mjs): A3 upgraded to credential v3 + carrier endpoint; new A3b (a connection over the carrier reports the kernel identity of the connecting process, asserted from the daemon audit log) and A3c (the same process claiming the Shell from a non-Shell image is degraded - authority=Participant, no grant, Unauthorized dispatch). A4/B4 share a fresh-credential retry helper because the carrier leg consumes the one-time file token."
+  - "Local evidence 2026-09-13: Linux crate suite green in WSL Ubuntu26 (rustc 1.98.0) - all six UDS tests pass together with the existing suite; clippy -D warnings clean on Linux; Windows clippy clean with daemon/desktop suites green."
+  - "Bug found by the Linux run (fixed): UdsListener::bind re-moded an existing parent directory, which fails with EPERM on /tmp and would quietly wreck a shared directory when run as root. It now only creates + restricts a directory it creates; regression test an_existing_parent_directory_is_left_alone."
+  - "Bug found by the positive carrier leg (fixed): canonicalizing the expected Shell path returns the Windows verbatim \\\\?\\\\-prefixed form, which no kernel API reports - under the strict policy every real Shell claim would have been refused while the impostor leg still passed. The daemon and the test now use the literal kernel-form path; the reasoning is documented at both sites."
+  - "CI iteration 1 (run 34728149972, macOS): both carrier tests failed because carrier_endpoint() was None - the daemon refused a 104-byte socket path against a flat 100-byte guard, while macOS sun_path allows 104 bytes including the NUL and the runner temp directory is deep. Fixed: the guard is now the platform's real capacity minus the NUL (103 macOS / 107 elsewhere) and endpoint names are short (d-<pid>-<12hex>.sock; the Windows pipe uses the same pid+clock tag). The UDS read-deadline test now accepts WouldBlock or TimedOut, because which one a socket timeout surfaces as is platform-specific and the supervision loop treats both as an expiry."
+  - "CI iteration 2 (run 34728479814, macOS): the two UDS unit tests failed while the daemon-level carrier tests passed - BSD accept() inherits the listener O_NONBLOCK, so a stream taken straight from UdsListener::accept answers reads with EWOULDBLOCK (instant timeout, and an error where EOF was expected). The production path is unaffected because the supervision loop restores blocking I/O through CarrierStream::prepare_accepted; the tests now do the same, the contract is documented in the module, and test socket paths are short with an explicit length assertion."
+  - "CI iteration 3/4 (runs 34728714202 -> 34729017674): after the blocking-I/O restore and the deadline-ordering fix, the whole matrix is green - ubuntu, macos and windows test jobs plus live-qa-windows (28/28). That run is the first evidence that macOS really delivers LOCAL_PEERPID + proc_pidpath (the positive carrier leg passes there), that the Shell Unix carrier path compiles and works (desktop 173 on macOS), and that the Unix leg runs on real CI Linux (SO_PEERCRED). Also established: Darwin refuses SO_RCVTIMEO on a UDS whose peer already closed (EINVAL) but accepts it on a live peer - production order is unaffected, and the EOF test now keeps that order."
 blocked_by: []
-next_action: "Implement the UDS carrier mirroring named_pipe.rs (listener acceptor thread + stream with read deadlines), wire daemon/Shell, verify on the CI matrix, then the live-QA leg and the H-2 status flip."
+next_action: "Done 2026-09-13: PR #3 (CI run 34729017674) green on all three platforms plus live QA; ADR-0022 records decision 4 as satisfied with that run id and docs/security/IPC_SECURITY.md states the control-plane identity requirement. Remaining: squash-merge to main, delete the branch, then open WI-M10-WORKBENCH-FS (0.3.0 FS-M1)."
 handoff: null
-updated_at: "2026-09-12T14:05:00.000Z"
+updated_at: "2026-09-13T01:00:00Z"
