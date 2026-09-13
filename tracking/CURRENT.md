@@ -27,6 +27,10 @@
 - **验收反馈（2026-09-13）**：「工作台的 banner 可以小一点，其他的没有问题」。工作台页头新增 `--slim` 修饰
   （222 → 150 px、标题 32 → 24 px、内边距 34/38 → 22/30，插画与描述保留；不用 `--compact`——那是 dsh/terminal 的扁平条，
   会把两者都去掉），**只作用于工作台面**，1050/780 断点同步收小。截图：`gitm1-evidence/04-workbench-slim-banner.png`。
+- **验收第二轮（2026-09-13）**：「左右的空间也用起来吧，另外副标题的小字可以拿掉」。工作台面加 `shell-workspace--wide`
+  （放开 1200 px 量宽，页头与内容同宽）；切换条右端的副标题小字删除，`fs.subtitle`/`git.subtitle` 一并清掉。
+  1920 / 2560 px 实渲染验证（预览窗口只有 1280，故用定尺寸 iframe 探针）。证据：
+  `gitm1-evidence/05-workbench-wide-1920.png`、`06-git-wide-1920.png`。
 - NEXT：GIT-M2（stage / unstage / commit + 破坏性动词的键入式确认）。
 
 

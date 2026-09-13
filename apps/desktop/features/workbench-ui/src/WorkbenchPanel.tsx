@@ -70,9 +70,6 @@ export function WorkbenchPanel({ api }: WorkbenchPanelProps) {
             {t(entry.labelKey)}
           </button>
         ))}
-        <span className="workbench__subtitle" data-testid="wb-subtitle">
-          {tab === "files" ? t("fs.subtitle") : t("git.subtitle")}
-        </span>
       </div>
       <div
         aria-labelledby={"workbench-tab-" + tab}
