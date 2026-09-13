@@ -696,3 +696,33 @@ export interface FsFileReport {
   reason: string | null;
   content: string;
 }
+
+/* FS-M2: the editor's write path. */
+
+export interface FsStatRequest {
+  schemaVersion: 1;
+  rootId: string;
+  relativePath: string;
+}
+
+/** The conflict baseline the editor records on open and compares on save. */
+export interface FsStatReport {
+  schemaVersion: 1;
+  rootId: string;
+  path: string;
+  size: number;
+  modifiedUnixMs: number;
+  editable: boolean;
+  reason: string | null;
+}
+
+export interface FsWriteFileRequest {
+  schemaVersion: 1;
+  rootId: string;
+  relativePath: string;
+  content: string;
+  expectedSize?: number;
+  expectedModifiedUnixMs?: number;
+  /** Only ever set after the user answered the overwrite prompt. */
+  force?: boolean;
+}

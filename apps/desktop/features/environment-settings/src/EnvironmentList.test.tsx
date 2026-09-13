@@ -77,6 +77,8 @@ function makeApi(): DesktopApi {
     fsListRoots: vi.fn(),
     fsReadDir: vi.fn(),
     fsReadFile: vi.fn(),
+    fsStat: vi.fn(),
+    fsWriteFile: vi.fn(),
   };
 }
 

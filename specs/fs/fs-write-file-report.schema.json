@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/fs/fs-write-file-report.schema.json",
+  "title": "FsWriteFileReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rootId",
+    "path",
+    "size",
+    "modifiedUnixMs",
+    "editable"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "rootId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    },
+    "path": {
+      "type": "string"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "modifiedUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "editable": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -378,6 +378,8 @@ function createApi(): DesktopApi {
     }),
     fsReadDir: vi.fn(),
     fsReadFile: vi.fn(),
+    fsStat: vi.fn(),
+    fsWriteFile: vi.fn(),
     validateEnvironment: vi.fn().mockResolvedValue({
       valid: true,
       issues: [],

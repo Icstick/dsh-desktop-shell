@@ -10,6 +10,8 @@ const COMMANDS: &[&str] = &[
     "fs_list_roots",
     "fs_read_dir",
     "fs_read_file",
+    "fs_stat",
+    "fs_write_file",
     "get_dsh_surface_status",
     "get_dsh_surface_policy",
     "get_environment_catalog",

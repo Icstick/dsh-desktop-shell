@@ -21,7 +21,7 @@
 //! conflict detection) land in FS-M2.
 
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
@@ -61,6 +61,9 @@ pub(crate) enum FsError {
     Malformed(&'static str),
     /// The path does not exist / is not what the request assumed.
     Unavailable(&'static str),
+    /// The file changed underneath the editor and the caller did not force
+    /// the write; the UI answers this with overwrite / discard / keep editing.
+    Conflict,
     /// Filesystem failure outside the containment model.
     Io(String),
 }
@@ -70,6 +73,7 @@ impl FsError {
         match self {
             Self::Malformed(_) => "MALFORMED_MESSAGE",
             Self::Unavailable(_) => "UNAVAILABLE",
+            Self::Conflict => "CONFLICT",
             Self::Io(_) => "UNAVAILABLE",
         }
     }
@@ -77,6 +81,7 @@ impl FsError {
     pub(crate) fn message(&self) -> String {
         match self {
             Self::Malformed(reason) | Self::Unavailable(reason) => (*reason).to_string(),
+            Self::Conflict => "the file changed on disk since it was opened".to_string(),
             Self::Io(message) => message.clone(),
         }
     }
@@ -493,6 +498,169 @@ fn relative_path_string(_absolute: &Path, relative: &str) -> String {
     }
     normalized.trim_start_matches('/').to_string()
 }
+/// Conflict baseline / post-write state of one file (FS-M2).
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FsStatReport {
+    schema_version: u8,
+    root_id: String,
+    path: String,
+    size: u64,
+    modified_unix_ms: u64,
+    editable: bool,
+    reason: Option<&'static str>,
+}
+
+/// [stat_in] against the roots of the active environment.
+pub(crate) fn stat(
+    environment: Option<&DshEnvironment>,
+    root_id: &str,
+    relative: &str,
+) -> Result<FsStatReport, FsError> {
+    stat_in(&root_path(environment, root_id)?, root_id, relative)
+}
+
+/// Stat one file: the baseline the editor records on open and compares on save.
+pub(crate) fn stat_in(root: &Path, root_id: &str, relative: &str) -> Result<FsStatReport, FsError> {
+    let (_, path) = resolve_in(root, relative)?;
+    let metadata = fs::metadata(&path).map_err(|error| FsError::Io(error.to_string()))?;
+    if !metadata.is_file() {
+        return Err(FsError::Unavailable("the path is not a regular file"));
+    }
+    let (editable, reason) = editability(&path, metadata.len())?;
+    Ok(FsStatReport {
+        schema_version: FS_SCHEMA_VERSION,
+        root_id: root_id.to_string(),
+        path: relative_path_string(&path, relative),
+        size: metadata.len(),
+        modified_unix_ms: modified_millis(&metadata),
+        editable,
+        reason,
+    })
+}
+
+/// Whether the read path would hand this file to an editor, and why not.
+fn editability(path: &Path, size: u64) -> Result<(bool, Option<&'static str>), FsError> {
+    if size > MAX_EDITABLE_BYTES {
+        return Ok((
+            false,
+            Some("the file is larger than the 2 MiB editing limit"),
+        ));
+    }
+    // Sniff the head for UTF-8. A truncated multi-byte tail is not an error:
+    // the point is to reject binary content, not to validate the whole file
+    // (the write path re-checks the bytes it is about to persist).
+    let probe = read_prefix(path, 8 * 1024)?;
+    match std::str::from_utf8(strip_bom(&probe)) {
+        Ok(_) => Ok((true, None)),
+        Err(error) if error.error_len().is_none() => Ok((true, None)),
+        Err(_) => Ok((false, Some("the file is not valid UTF-8"))),
+    }
+}
+
+fn modified_millis(metadata: &fs::Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since| since.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Write one file atomically (FS-M2).
+///
+/// The write path is the read path plus two gates: the target must already
+/// exist as a regular file and must be editable (editing is never a way to
+/// create files - that is save-as), and the recorded baseline must still match
+/// the file on disk unless `force` is set, which is how the UI's explicit
+/// "overwrite" answer arrives here.
+pub(crate) fn write_file(
+    environment: Option<&DshEnvironment>,
+    root_id: &str,
+    relative: &str,
+    content: &str,
+    expected: Option<WriteBaseline>,
+    force: bool,
+) -> Result<FsStatReport, FsError> {
+    write_file_in(
+        &root_path(environment, root_id)?,
+        root_id,
+        relative,
+        content,
+        expected,
+        force,
+    )
+}
+
+/// The size/mtime pair the editor recorded when it opened the file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WriteBaseline {
+    pub(crate) size: u64,
+    pub(crate) modified_unix_ms: u64,
+}
+
+/// [write_file] against an explicit root (the testable core).
+pub(crate) fn write_file_in(
+    root: &Path,
+    root_id: &str,
+    relative: &str,
+    content: &str,
+    expected: Option<WriteBaseline>,
+    force: bool,
+) -> Result<FsStatReport, FsError> {
+    if content.len() as u64 > MAX_EDITABLE_BYTES {
+        return Err(FsError::Malformed(
+            "the content is larger than the 2 MiB editing limit",
+        ));
+    }
+    let (_, path) = resolve_in(root, relative)?;
+    let metadata = fs::metadata(&path).map_err(|error| FsError::Io(error.to_string()))?;
+    if !metadata.is_file() {
+        return Err(FsError::Unavailable("the path is not a regular file"));
+    }
+    let (editable, reason) = editability(&path, metadata.len())?;
+    if !editable {
+        return Err(FsError::Malformed(
+            reason.unwrap_or("the file is not editable through this surface"),
+        ));
+    }
+    let current = WriteBaseline {
+        size: metadata.len(),
+        modified_unix_ms: modified_millis(&metadata),
+    };
+    if !force
+        && let Some(expected) = expected
+        && expected != current
+    {
+        return Err(FsError::Conflict);
+    }
+
+    let temp = temp_sibling(&path, "dsh-write");
+    let write = (|| -> io::Result<()> {
+        let mut file = fs::File::create(&temp)?;
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temp, &path)
+    })();
+    if let Err(error) = write {
+        let _ = fs::remove_file(&temp);
+        return Err(FsError::Io(format!("cannot write the file: {error}")));
+    }
+    stat_in(root, root_id, relative)
+}
+
+/// Temp path next to the target: same directory, so the rename stays on one
+/// filesystem (a cross-device rename is not atomic).
+fn temp_sibling(path: &Path, tag: &str) -> PathBuf {
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file".to_string());
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    dir.join(format!(".{name}.{tag}.{}", std::process::id()))
+}
+
 /// Request: list the roots of the active environment.
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -555,6 +723,79 @@ impl FsReadFileRequest {
 
     pub(crate) fn relative_path(&self) -> &str {
         &self.relative_path
+    }
+}
+
+/// Request: stat one file (the editor's conflict baseline).
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct FsStatRequest {
+    schema_version: u8,
+    root_id: String,
+    relative_path: String,
+}
+
+impl FsStatRequest {
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == FS_SCHEMA_VERSION && valid_root_id(&self.root_id)
+    }
+
+    pub(crate) fn root_id(&self) -> &str {
+        &self.root_id
+    }
+
+    pub(crate) fn relative_path(&self) -> &str {
+        &self.relative_path
+    }
+}
+
+/// Request: write one file (FS-M2). The optional baseline is what the editor
+/// recorded when it opened the file; `force` is the user's explicit overwrite.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct FsWriteFileRequest {
+    schema_version: u8,
+    root_id: String,
+    relative_path: String,
+    content: String,
+    #[serde(default)]
+    expected_size: Option<u64>,
+    #[serde(default)]
+    expected_modified_unix_ms: Option<u64>,
+    #[serde(default)]
+    force: bool,
+}
+
+impl FsWriteFileRequest {
+    pub(crate) fn is_valid(&self) -> bool {
+        self.schema_version == FS_SCHEMA_VERSION && valid_root_id(&self.root_id)
+    }
+
+    pub(crate) fn root_id(&self) -> &str {
+        &self.root_id
+    }
+
+    pub(crate) fn relative_path(&self) -> &str {
+        &self.relative_path
+    }
+
+    pub(crate) fn content(&self) -> &str {
+        &self.content
+    }
+
+    /// The recorded baseline, when the editor supplied both halves of it.
+    pub(crate) fn baseline(&self) -> Option<WriteBaseline> {
+        match (self.expected_size, self.expected_modified_unix_ms) {
+            (Some(size), Some(modified_unix_ms)) => Some(WriteBaseline {
+                size,
+                modified_unix_ms,
+            }),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn force(&self) -> bool {
+        self.force
     }
 }
 
@@ -758,6 +999,153 @@ mod tests {
             matches!(root_path(None, "repo"), Err(FsError::Unavailable(_))),
             "without an environment every root is unavailable"
         );
+    }
+
+    #[test]
+    fn stat_reports_the_baseline_and_editability() {
+        let root = TempRoot::new("stat");
+        root.write("a.txt", b"hello");
+        let report = stat_in(root.path(), "repo", "a.txt").expect("stat");
+        assert_eq!(report.size, 5);
+        assert!(report.editable, "utf-8 text under the cap is editable");
+        assert!(report.reason.is_none());
+        assert!(report.modified_unix_ms > 0, "mtime is recorded");
+
+        root.write("big.txt", &vec![b'a'; (MAX_EDITABLE_BYTES + 1) as usize]);
+        let big = stat_in(root.path(), "repo", "big.txt").expect("stat big");
+        assert!(!big.editable);
+        assert!(big.reason.is_some());
+
+        root.write("bin.dat", &[0xff, 0xfe, 0x00, 0x01]);
+        let bin = stat_in(root.path(), "repo", "bin.dat").expect("stat bin");
+        assert!(!bin.editable, "binary content is never editable");
+    }
+
+    #[test]
+    fn write_is_atomic_and_reports_the_new_state() {
+        let root = TempRoot::new("write");
+        root.write("a.txt", b"old");
+        let before = stat_in(root.path(), "repo", "a.txt").expect("stat");
+        let after = write_file_in(
+            root.path(),
+            "repo",
+            "a.txt",
+            "new content",
+            Some(WriteBaseline {
+                size: before.size,
+                modified_unix_ms: before.modified_unix_ms,
+            }),
+            false,
+        )
+        .expect("write");
+        assert_eq!(after.size, "new content".len() as u64);
+        assert_eq!(
+            fs::read_to_string(root.path().join("a.txt")).expect("read"),
+            "new content"
+        );
+        // The temp file is renamed away, never left behind.
+        let leftovers: Vec<String> = fs::read_dir(root.path())
+            .expect("list")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.contains("dsh-write"))
+            .collect();
+        assert!(leftovers.is_empty(), "temp file cleaned up: {leftovers:?}");
+    }
+
+    #[test]
+    fn write_refuses_a_stale_baseline_and_force_wins() {
+        let root = TempRoot::new("conflict");
+        root.write("a.txt", b"one");
+        let baseline = stat_in(root.path(), "repo", "a.txt").expect("stat");
+        // Someone else changes the file after the editor opened it.
+        root.write("a.txt", b"changed by someone else");
+        let stale = WriteBaseline {
+            size: baseline.size,
+            modified_unix_ms: baseline.modified_unix_ms,
+        };
+        let error = write_file_in(root.path(), "repo", "a.txt", "mine", Some(stale), false)
+            .expect_err("stale baseline must conflict");
+        assert_eq!(error, FsError::Conflict);
+        assert_eq!(
+            fs::read_to_string(root.path().join("a.txt")).expect("read"),
+            "changed by someone else",
+            "the conflict leaves the file untouched"
+        );
+        let forced = write_file_in(root.path(), "repo", "a.txt", "mine", Some(stale), true)
+            .expect("force overwrites");
+        assert_eq!(forced.size, 4);
+        assert_eq!(
+            fs::read_to_string(root.path().join("a.txt")).expect("read"),
+            "mine"
+        );
+    }
+
+    #[test]
+    fn write_refuses_missing_targets_readonly_files_and_big_content() {
+        let root = TempRoot::new("write-refusals");
+        root.write("bin.dat", &[0xff, 0xfe, 0x00]);
+        root.write("dir/inner.txt", b"x");
+
+        assert!(
+            matches!(
+                write_file_in(root.path(), "repo", "new.txt", "x", None, false),
+                Err(FsError::Unavailable(_))
+            ),
+            "writing never creates a file - that is save-as"
+        );
+        assert!(
+            matches!(
+                write_file_in(root.path(), "repo", "bin.dat", "x", None, false),
+                Err(FsError::Malformed(_))
+            ),
+            "binary files stay read-only"
+        );
+        assert!(
+            matches!(
+                write_file_in(root.path(), "repo", "dir", "x", None, false),
+                Err(FsError::Unavailable(_))
+            ),
+            "directories are not files"
+        );
+        let huge = "a".repeat((MAX_EDITABLE_BYTES + 1) as usize);
+        assert!(
+            matches!(
+                write_file_in(root.path(), "repo", "dir/inner.txt", &huge, None, false),
+                Err(FsError::Malformed(_))
+            ),
+            "content over the cap is refused"
+        );
+    }
+
+    #[test]
+    fn write_keeps_the_containment_rules() {
+        let root = TempRoot::new("write-escape");
+        let sibling = TempRoot::new("write-escape-sibling");
+        sibling.write("secret.txt", b"not yours");
+        let link = root.path().join("link");
+        if create_dir_symlink(&sibling.0, &link) {
+            assert!(
+                matches!(
+                    write_file_in(root.path(), "repo", "link/secret.txt", "owned", None, true),
+                    Err(FsError::Malformed(_))
+                ),
+                "a symlink cannot move the write outside the root"
+            );
+            assert_eq!(
+                fs::read_to_string(sibling.path().join("secret.txt")).expect("read"),
+                "not yours"
+            );
+        }
+        for relative in ["../outside.txt", "/abs.txt", "C:/abs.txt"] {
+            assert!(
+                matches!(
+                    write_file_in(root.path(), "repo", relative, "x", None, true),
+                    Err(FsError::Malformed(_))
+                ),
+                "{relative} must be refused"
+            );
+        }
     }
 
     #[test]
