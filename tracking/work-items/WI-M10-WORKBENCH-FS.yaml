@@ -1,13 +1,13 @@
 schema_version: 1
 id: WI-M10-WORKBENCH-FS
 title: "Dev workbench Phase 1: file manager surface"
-status: review
+status: done
 milestone: M10
 module: MOD-SHELL-UI
 owner_role: ui-owner
 claimed_by: "agent session 20260913"
 session: null
-branch_or_worktree: "merged: 1b293fa (feat/m10-workbench-fs deleted)"
+branch_or_worktree: "merged: 1b293fa (FS-M1), 9e0a1b0 (FS-M2); both branches deleted"
 claim_expires_at: "2026-09-14T01:30:00Z"
 dependencies:
   - "Design doc 2026-09-12: docs/roadmap/DESIGN-WORKBENCH-PHASE1.md"
@@ -35,7 +35,8 @@ evidence:
   - "FS-M2 (edit/save) implemented on branch feat/m10-workbench-fs2: fs_stat + fs_write_file (atomic same-directory temp + sync_all + rename, temp cleaned on failure; refuses missing targets, non-regular files, binary/over-2 MiB targets and over-2 MiB content; a stale size+mtime baseline returns the new CONFLICT code unless force is set, which the UI only sends after the user answers the overwrite prompt). Commands registered in all four ACL places (validate-acl: 45 commands); specs/fs grows 4 schemas + 8 fixtures (validate-specs: 73 schemas / 153 fixtures ALL PASS)."
   - "FS-M2 frontend: FileManagerPanel rebuilt to docs/roadmap/SPEC-WORKBENCH-VISUAL.md - compact toolbar (refresh / hidden / collapse-all + inline save shortcut hint), filter box over the tree with a teaching placeholder and an N/M count, a document bar (path + dirty/encoding/read-only chips), a textarea editor (Ctrl/Cmd+S, read-only files are not writable), a bottom status strip (path · encoding · size with Save at its right end), the conflict dialog (overwrite / discard mine / keep editing) and an unsaved-changes confirm when opening another file. The workbench semantic tokens (--wb-*) landed with the diff colours pre-registered for GIT-M1."
   - "FS-M2 tests: cargo file_manager 12/12 (five new: baseline, atomic round trip + temp cleanup, stale baseline + force, refusal matrix, write-path containment incl. symlink escape); vitest FileManagerPanel 6/6 (filter + count, dirty + save request shape including the baseline, conflict flow with force=true, discard re-reads instead of overwriting, read-only disables saving, unsaved-switch confirm); the four existing DesktopApi doubles gained fsStat/fsWriteFile."
+  - "Merged and accepted (2026-09-13): FS-M1 @ 1b293fa (four GUI smoke captures for visual acceptance), FS-M2 @ 9e0a1b0 (PR #5 CI run 34742054197 green on ubuntu/macos/windows plus live-qa-windows; main CI 34742327324 green). The project owner accepted FS-M2 on 2026-09-13, which closes the design doc's visual-acceptance gate for this work item."
 blocked_by: []
-next_action: "FS-M1 is merged (1b293fa); FS-M2 (edit/save) is implemented on feat/m10-workbench-fs2 and locally green - awaiting CI, then merge and the user's visual acceptance (editor, conflict dialog, bottom status strip). After that: GIT-M1 (status/diff/log read-only, reusing this slice's table shape and the --wb-diff-* tokens)."
+next_action: "Done 2026-09-13: the file-manager surface (FS-M1 read-only tree + FS-M2 edit/save with the atomic write and conflict baseline) is merged to main, CI green on all three platforms and accepted by the project owner. The git surface is a separate work item: WI-M10-WORKBENCH-GIT (GIT-M1 status/diff/log read-only)."
 handoff: null
-updated_at: "2026-09-13T02:20:00Z"
+updated_at: "2026-09-13T02:30:00Z"
