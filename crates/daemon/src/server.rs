@@ -264,14 +264,30 @@ impl CarrierEndpoint {
     }
 }
 
-/// Per-process nonce for carrier endpoint names: keeps two daemons of the
-/// same pid (tests) apart and keeps the endpoint from being guessable. Not a
-/// secret - the token plus the kernel identity remain the actual gate.
-fn carrier_nonce() -> u128 {
-    SystemTime::now()
+/// Per-instance tag for carrier endpoint names.
+///
+/// Two properties matter: the tag must differ between daemons sharing a pid
+/// (tests bind several servers in one process), and it must stay SHORT - a
+/// Unix socket path is capped by `sockaddr_un.sun_path` (104 bytes on macOS)
+/// and the data directory already consumes most of that there (2026-09-13: a
+/// 104-byte path made the daemon attach no carrier on the CI macOS runner).
+/// So: pid plus the low 48 bits of the nanosecond clock - unique within a
+/// process (binds are microseconds apart) and effectively unique across
+/// processes.
+///
+/// The endpoint is not a secret: it is published in the credential file
+/// (0600), and the one-time token plus the kernel peer identity remain the
+/// actual gate.
+fn carrier_instance_tag() -> String {
+    let nanos = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_nanos())
-        .unwrap_or(0)
+        .unwrap_or(0);
+    format!(
+        "{}-{:x}",
+        std::process::id(),
+        (nanos & 0xffff_ffff_ffff) as u64
+    )
 }
 
 /// Attach the peer-identity carrier next to the TCP endpoint (ADR-0022).
@@ -285,11 +301,7 @@ fn attach_peer_identity_carrier(
     limits: Limits,
     _dir: Option<&Path>,
 ) -> io::Result<Option<CarrierEndpoint>> {
-    let name = format!(
-        "dsh-desktop-daemon-{}-{:x}",
-        std::process::id(),
-        carrier_nonce()
-    );
+    let name = format!("dsh-desktop-daemon-{}", carrier_instance_tag());
     let listener = dsh_local_transport::named_pipe::NamedPipeListener::bind(&name, &limits)?;
     transport.attach_carrier(listener);
     Ok(Some(CarrierEndpoint::NamedPipe(name)))
@@ -312,11 +324,10 @@ fn attach_peer_identity_carrier(
     let Some(dir) = dir else {
         return Ok(None);
     };
-    let path = dir.join(format!(
-        "daemon-{}-{:x}.sock",
-        std::process::id(),
-        carrier_nonce()
-    ));
+    // Short name on purpose: a Unix socket path is length-capped (104 bytes
+    // on macOS, NUL included) and the data directory already takes most of
+    // that budget there.
+    let path = dir.join(format!("d-{}.sock", carrier_instance_tag()));
     match dsh_local_transport::uds::UdsListener::bind(&path, &limits) {
         Ok(listener) => {
             transport.attach_carrier(listener);

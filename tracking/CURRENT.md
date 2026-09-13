@@ -22,7 +22,11 @@
   ① `UdsListener::bind` 对**已存在**的父目录也 chmod → /tmp 上直接 EPERM（以 root 跑会毁掉共享目录）→ 只对自己创建的目录 chmod + 回归测试；
   ② 期望 Shell 路径做 `canonicalize` → Windows 返回 `\\?\` verbatim 形式（内核从不这样报）→ strict 会**拒绝真 Shell**
   而冒充者腿依旧绿（正向腿红灯才暴露）。已改为不 canonicalize，两处都写明理由。
-- 待办：push → CI 三平台 + live-qa-windows → H-2 翻 closed（带 run id）→ 合并 main。
+- CI 第 1 轮（run 34728149972，PR #3）：windows/ubuntu 绿，**macOS 红**——载体没挂上：socket 路径 104 字节撞上我写的固定 100 字节护栏
+  （macOS `sun_path` 本就是 104 含 NUL，且 runner 临时目录很深）。修：护栏改为平台真实容量 − NUL（macOS 103 / 其他 107），
+  端点名改短（`d-<pid>-<12hex>.sock`；Windows 管道用同一 pid+时钟 tag），并把 UDS 读超时断言放宽为 WouldBlock|TimedOut
+  （BSD 上超时的 errno 可能是 ETIMEDOUT，服务端两者都按到期处理）。修复后本地全绿（desktop 173、live QA 28/28）。
+- 待办：push 修复 → CI 三平台 + live-qa-windows → H-2 翻 closed（带 run id）→ 合并 main。
 
 ## 2026-09-13 早 · 合并后 CI 修复（三条，全部本地复现）
 

@@ -18,6 +18,10 @@
 //! - The socket file is removed on drop, and a stale socket left behind by a
 //!   crashed daemon is replaced on bind. A non-socket file at the same path
 //!   is never removed - replacing it would be a destructive surprise.
+//! - Path length is a hard platform constraint (`sockaddr_un.sun_path` is 104
+//!   bytes on macOS, NUL included), so callers keep the endpoint name short:
+//!   a deep data directory plus a long name can exceed it. See
+//!   [MAX_SOCKET_PATH_BYTES].
 #![cfg(unix)]
 
 use std::fs;
@@ -31,13 +35,20 @@ use crate::carrier::{CarrierListener, PeerDesc};
 use crate::limits::Limits;
 use crate::peer::PeerIdentity;
 
-/// Longest socket path this carrier accepts.
+/// Longest socket path this carrier accepts: the platform's
+/// `sockaddr_un.sun_path` capacity minus the terminating NUL.
 ///
-/// `sockaddr_un.sun_path` is 108 bytes on Linux and 104 on macOS, both
-/// including the terminating NUL; the limit stays below both so a too-long
-/// path fails early and explicitly instead of being truncated by the
-/// kernel.
-pub const MAX_SOCKET_PATH_BYTES: usize = 100;
+/// Linux allows 108 bytes and macOS 104 (both including the NUL), so the
+/// usable path is one byte shorter on each. Sitting exactly at the kernel
+/// limit keeps the failure mode honest: this carrier refuses a path the
+/// kernel would otherwise truncate, with a typed `InvalidInput` the daemon
+/// can report - and it no longer refuses paths the kernel would have
+/// accepted (2026-09-13: a flat 100-byte limit made the daemon attach no
+/// carrier at all on the CI macOS runner, whose temp directory is deep).
+#[cfg(target_os = "macos")]
+pub const MAX_SOCKET_PATH_BYTES: usize = 103;
+#[cfg(not(target_os = "macos"))]
+pub const MAX_SOCKET_PATH_BYTES: usize = 107;
 
 /// Owner-only parent directory mode: nobody but the owning user can even
 /// reach the socket.
@@ -284,7 +295,17 @@ mod tests {
         let started = Instant::now();
         let mut buf = [0u8; 8];
         let error = server_stream.read(&mut buf).expect_err("deadline expires");
-        assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+        // The supervision loop treats both kinds as a deadline expiry
+        // (is_timeout_kind), and which one a socket timeout surfaces as is
+        // platform-specific: Linux answers EAGAIN (WouldBlock) while BSD
+        // varieties have historically been allowed to answer ETIMEDOUT.
+        assert!(
+            matches!(
+                error.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+            ),
+            "deadline must surface as a timeout kind, got {error:?}"
+        );
         assert!(started.elapsed() >= Duration::from_millis(100));
         drop(client);
     }
