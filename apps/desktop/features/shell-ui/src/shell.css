@@ -3129,6 +3129,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 .file-manager__root-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   align-self: flex-start;
   border: 0;
   background: none;
@@ -3138,6 +3141,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   padding: 2px 4px;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* A root's rows belong to that root: indent them so the hierarchy is visible
+   even with several roots open. */
+.file-manager__root .file-manager__rows {
+  padding-left: 10px;
 }
 
 .file-manager__root-label:hover {

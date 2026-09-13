@@ -91,6 +91,37 @@ async function openReadme(api: DesktopApi) {
 }
 
 describe("FileManagerPanel (FS-M2)", () => {
+  it("keeps each root's entries inside that root", async () => {
+    const api = fakeApi({
+      fsListRoots: vi.fn(
+        async (): Promise<FsRootsReport> => ({
+          schemaVersion: 1,
+          environmentId: "local-dsh",
+          roots: [
+            { id: "repo", label: "Repository", kind: "repository", path: "/repo", available: true, reason: null },
+            { id: "dsh-home", label: "DSH home", kind: "dshHome", path: "/home", available: true, reason: null },
+          ],
+        }),
+      ),
+    });
+    renderPanel(api);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Repository" }));
+    await userEvent.click(screen.getByRole("button", { name: "DSH home" }));
+
+    // One list per root, each nested in its own root block. A flat list put both
+    // roots' rows in a single indistinguishable pile at the bottom.
+    const blocks = Array.from(document.querySelectorAll(".file-manager__root"));
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) {
+      const list = block.querySelector(".file-manager__rows");
+      expect(list).not.toBeNull();
+      expect(list?.textContent).toContain("README.md");
+    }
+    expect(blocks[0].textContent).toContain("Repository");
+    expect(blocks[1].textContent).toContain("DSH home");
+  });
+
   it("filters the loaded rows and reports the count", async () => {
     const api = fakeApi();
     renderPanel(api);
