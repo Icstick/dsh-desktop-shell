@@ -7,7 +7,7 @@ module: MOD-SHELL-UI
 owner_role: ui-owner
 claimed_by: "agent session 20260913"
 session: null
-branch_or_worktree: feat/m10-workbench-git-m1
+branch_or_worktree: "merged: ea0266d (GIT-M1); branch deleted"
 claim_expires_at: "2026-09-14T02:30:00Z"
 dependencies:
   - "WI-M10-WORKBENCH-FS (done 2026-09-13: merged, CI green, accepted)"
@@ -34,8 +34,9 @@ evidence:
   - "GIT-M1 frontend tests: vitest GitPanel 7/7 (facet counts + the exact git_diff request shape, a staged entry asks the index, clean state, UNAVAILABLE reason, untracked has no diff, filter narrows + reports the count, disclosures render the log and mark the current branch) and WorkbenchPanel 2/2 (Files is the default, the body swaps on tab click and no git command runs before the tab is opened, arrow keys move selection and focus). The four existing DesktopApi test doubles gained the four git stubs so the interface addition keeps the whole workspace type-checking."
   - "Gates 2026-09-13 (GIT-M1 frontend): pnpm check clean; pnpm test 10 files / 127 tests green (118 before); validate-acl 49 commands; validate-specs 81 schemas / 169 fixtures ALL PASS. No Rust file changed in the frontend commits - the backend half is green on CI run 34742913424 (ubuntu + macos + windows + live-qa-windows)."
   - "GIT-M1 visual evidence (2026-09-13, this machine): the repo's own visual preview (features/shell-ui/preview) was extended with workbench fixtures (fake repo, status, diff, log, branches) and driven in a browser - Files tab (toolbar, tree, unavailable root with its reason, empty view, bottom status strip), Git tab (facets with counts, document bar chips), a selected changed file showing the tinted diff with the +5 / -2 chips and the scope toggle, and the expanded recent-commits and branches sections. Screenshots: D:/DSH_workspace/.wsl-rust/gitm1-evidence/01-files-tab.png, 02-git-tab-diff.png, 03-git-history-branches.png."
+  - "Merged (2026-09-13): PR #6 squash-merged to main as ea0266d after CI run 34743750856 (ubuntu / macos / windows + live-qa-windows all success). main CI on the merge commit, run 34744029907, is also green on all four jobs. One follow-up commit went in before the merge: every tab's aria-controls now points at the single mounted 'workbench-panel' region instead of an id that only existed for the active tab."
   - "One real defect the visual pass caught and fixed: the git panel's toolbar repeated the panel subtitle, and the surface header + panel heading both read '工作台' - the fix moved the subtitle into the tab strip and deleted both panels' redundant heading (the FS panel's too, so the two tabs stay consistent)."
 blocked_by: [WI-M10-WORKBENCH-FS]
-next_action: "GIT-M1 is complete on feat/m10-workbench-git-m1 (frontend landed 2026-09-13, PR #6 taken out of draft once CI is green): backend + tab host + git panel + tests + visual evidence are in. Remaining for the work item: the project owner's visual acceptance of the git tab, then GIT-M2 (stage/unstage/commit with typed confirmations for the destructive verbs)."
+next_action: "GIT-M1 is merged (main ea0266d, CI green) and waiting on the project owner's visual acceptance of the git tab (screenshots in D:/DSH_workspace/.wsl-rust/gitm1-evidence; the preview harness at http://localhost:5173/features/shell-ui/preview/index.html renders it with fixtures). Next slice: GIT-M2 (stage/unstage/commit with typed confirmations for the destructive verbs), which is what still keeps this work item open."
 handoff: HANDOFF-20260913-M10-WORKBENCH-GIT-M1
-updated_at: "2026-09-13T06:50:00Z"
+updated_at: "2026-09-13T07:06:00Z"

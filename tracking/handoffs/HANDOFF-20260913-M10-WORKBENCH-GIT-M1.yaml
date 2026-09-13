@@ -16,11 +16,12 @@ remaining:
 verification:
   - "pnpm check 干净；pnpm test **10 files / 127 tests** 全绿；validate-acl 49 commands；validate-specs 81/169 ALL PASS。"
   - "前端提交未改 Rust；后端半片证据为 CI run 34742913424（ubuntu + macos + windows + live-qa-windows）全绿。"
-  - "本片前端提交的 CI 见 PR #6 新 run。"
+  - "合并：PR #6 squash → main ea0266d，合并前 CI run 34743750856 四 job（ubuntu/macos/windows/live-qa-windows）全绿；
+    main 上 run 34744029907 同四 job 全绿；分支已删。"
 risks:
   - "未实现调用超时：`git` 在超大仓库上可能慢；当前用参数上限（log 上限 200）与输出上限缓解，后续可加子进程超时+kill。"
   - "status 用 porcelain v1 + -z + --no-renames：重命名会以「删除+新增」呈现，等 GIT-M2 需要精确重命名时再评估 v2。"
   - "仓库根固定为环境的 harness 仓库路径；多仓库/子模块视图不在本片范围。"
   - "git 页左栏固定 220–320 px，长仓内路径会中段折行；可拖拽调宽记在视觉规范 §9 的待做项里。"
-next_action: "把草稿 PR #6 转正 → CI 绿后 squash 合并 main 并删分支 → 交给用户做 git 页视觉验收 → 开 GIT-M2。"
+next_action: "交给用户做 git 页视觉验收（截图见 D:/DSH_workspace/.wsl-rust/gitm1-evidence，或用视觉预览 http://localhost:5173/features/shell-ui/preview/index.html）→ 开 GIT-M2。"
 created_at: "2026-09-13T02:45:00Z"

@@ -21,8 +21,11 @@
   `D:/DSH_workspace/.wsl-rust/gitm1-evidence/`（01 文件页 / 02 git 页着色 diff / 03 历史与分支展开）。
 - 记录：视觉规范三个开放项按「照默认」拍板并落地（`SPEC-WORKBENCH-VISUAL.md` §9）；
   `PLAN-GIT-M1.md` 补「As built」节（含与计划的差异及理由）。
-- NEXT：PR #6 转正 → CI 绿 → squash 合并 main + 删分支 → 用户做 git 页视觉验收 →
-  GIT-M2（stage / unstage / commit + 破坏性动词的键入式确认）。
+- **已合并**：PR #6 → main **ea0266d**（合并前 CI run 34743750856 四 job 全绿；main 上 run 34744029907 亦四 job 全绿），
+  分支已删。合并前补了一个提交：每个 tab 的 `aria-controls` 都指向唯一的 `workbench-panel`（此前非活动 tab 指向一个
+  并未挂载的 id）。
+- NEXT：用户做 git 页视觉验收（截图见 `D:/DSH_workspace/.wsl-rust/gitm1-evidence/`，或用视觉预览
+  `http://localhost:5173/features/shell-ui/preview/index.html`）→ GIT-M2（stage / unstage / commit + 破坏性动词的键入式确认）。
 
 
 ## 2026-09-13 · WI-M10-WORKBENCH-FS 开工（FS-M1：roots + 树 + 只读视图）
