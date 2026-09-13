@@ -5,19 +5,22 @@ from: "agent session 20260913"
 to: null
 status: open
 completed:
-  - "GIT-M1 后端（apps/desktop/src-tauri/src/git_panel.rs，659 行）：只读 `git_status` / `git_diff` / `git_log` / `git_branches`，全部经单一 `run_git` 辅助函数（不用 shell、`GIT_OPTIONAL_LOCKS=0` 保证读不刷新/不加锁索引、stdout 上限 512 KiB 并带 `truncated`）。仓库根只来自激活环境的 harness 仓库路径，调用方永远不给根；调用方可给的仓内相对路径按文件管理器规则校验，另加一条 git 专属规则——**首字符是 `-` 一律拒绝**，避免路径变成命令行选项。"
-  - "命令面：四个命令在 ACL 四处同步 → validate-acl **49 commands**；`specs/git` 增 8 schema + 16 fixture → validate-specs **81 schemas / 169 fixtures ALL PASS**。"
-  - "测试：`git_panel` 5/5 绿（真实临时 git 仓库）：status 走通 untracked → staged → clean → modified；diff 覆盖工作区与索引并可收窄到单文件；log/branches 描述仓库；路径校验拒绝 `../`、绝对、盘符、前导 `-`、空；无环境/普通目录给出 typed UNAVAILABLE。其中一条测试抓到真缺口：**无提交的仓库**分支头是 `## No commits yet on <branch>`，解析已修（设计文档明确要求这种仓库可用）。"
+  - "GIT-M1 后端（apps/desktop/src-tauri/src/git_panel.rs）：只读 `git_status` / `git_diff` / `git_log` / `git_branches`，全部经单一 `run_git` 辅助函数（不用 shell、`GIT_OPTIONAL_LOCKS=0` 保证读不刷新/不加锁索引、stdout 上限 512 KiB 并带 `truncated`）。仓库根只来自激活环境的 harness 仓库路径，调用方永远不给根；调用方可给的仓内相对路径按文件管理器规则校验，另加一条 git 专属规则——**首字符是 `-` 一律拒绝**，避免路径变成命令行选项。"
+  - "命令面：四个命令在 ACL 四处同步 → validate-acl **49 commands**；`specs/git` 增 8 schema + 16 fixture → validate-specs **81 schemas / 169 fixtures ALL PASS**。后端测试 5/5（真实临时 git 仓库，含「无提交的仓库」分支头解析）。"
+  - "GIT-M1 前端（2026-09-13）：新增 `features/workbench-ui`（Files | Git 宿主，roving-focus tablist，只挂载当前页）与 `features/git-panel-ui`（分组状态 + 计数、文档条根/分支/只读 chip、客户端过滤 N/M、只读 diff 面板、最近提交与分支两条只读列表、五类显式状态）。token 层提升到 `.workbench, .file-manager, .git-panel`；两个面板去掉重复的面板标题，副标题移到切换条右端。"
+  - "前端测试：vitest GitPanel 7/7 + WorkbenchPanel 2/2；四个既有 DesktopApi 替身补齐 git 桩。"
+  - "可视化验收素材：视觉预览（features/shell-ui/preview）补工作台 fixture 后用浏览器实跑，截图存 D:/DSH_workspace/.wsl-rust/gitm1-evidence（01 文件页 / 02 git 页含着色 diff / 03 历史与分支展开）。"
 remaining:
-  - "GIT-M1 前端：工作台顶部 `Files | Git` 切换；Git 页左侧按 Staged / Unstaged / Untracked 分组并带计数（facet chip），右侧只读 diff 面板（用 `--wb-diff-*` token 着色），空态与降级态（非仓库 / 未装 git）显式呈现；配套 vitest。"
-  - "CI 绿后合并 main；然后 GIT-M2（stage/unstage/commit + 破坏性动词的键入式确认）。"
+  - "项目所有者对 git 页的视觉验收（截图已就绪）。"
+  - "GIT-M2：stage/unstage/commit，以及 checkout/reset 等破坏性动词的键入式确认；再往后是 0.4.0 startup rollback 与 0.5.0 SSH。"
 verification:
-  - "cargo fmt 干净；cargo build -p dsh-desktop-shell 通过；cargo test -p dsh-desktop-shell --lib git_panel → 5/5。"
-  - "validate-acl 49 commands；validate-specs 81 schemas / 169 fixtures ALL PASS。"
-  - "草稿 PR #6 的 CI 用于验证三平台构建（尤其 macOS/ubuntu 上的 git 调用路径）。"
+  - "pnpm check 干净；pnpm test **10 files / 127 tests** 全绿；validate-acl 49 commands；validate-specs 81/169 ALL PASS。"
+  - "前端提交未改 Rust；后端半片证据为 CI run 34742913424（ubuntu + macos + windows + live-qa-windows）全绿。"
+  - "本片前端提交的 CI 见 PR #6 新 run。"
 risks:
   - "未实现调用超时：`git` 在超大仓库上可能慢；当前用参数上限（log 上限 200）与输出上限缓解，后续可加子进程超时+kill。"
   - "status 用 porcelain v1 + -z + --no-renames：重命名会以「删除+新增」呈现，等 GIT-M2 需要精确重命名时再评估 v2。"
   - "仓库根固定为环境的 harness 仓库路径；多仓库/子模块视图不在本片范围。"
-next_action: "实现 GIT-M1 前端（Files | Git 切换 + 分组状态 + 只读 diff），补 vitest，跑门禁后把草稿 PR 转正并合并。"
+  - "git 页左栏固定 220–320 px，长仓内路径会中段折行；可拖拽调宽记在视觉规范 §9 的待做项里。"
+next_action: "把草稿 PR #6 转正 → CI 绿后 squash 合并 main 并删分支 → 交给用户做 git 页视觉验收 → 开 GIT-M2。"
 created_at: "2026-09-13T02:45:00Z"

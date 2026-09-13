@@ -17,6 +17,19 @@ security_review: in_progress
 updated_at: "2026-08-29T10:05:00Z"
 next_action: "M3-A 完成：Notification service（AC-NOT-001/002，10 tests）与通知面板；继续维护 native Surface 门禁。"
 
+workbench:
+  work_items:
+    - WI-M10-WORKBENCH-FS
+    - WI-M10-WORKBENCH-GIT
+  feature_packages:
+    - apps/desktop/features/file-manager-ui (FS-M1 read-only tree + FS-M2 edit/save)
+    - apps/desktop/features/git-panel-ui (GIT-M1 read-only status/diff/log/branches)
+    - apps/desktop/features/workbench-ui (Files | Git tab host)
+  token_layer: "shell.css .workbench, .file-manager, .git-panel -> --wb-* (docs/roadmap/SPEC-WORKBENCH-VISUAL.md §1, §9)"
+  contracts: "apps/desktop/src/contracts.ts (fs.* / git.*), desktop-api.ts, i18n.tsx (zh + en)"
+  status: "FS-M1/FS-M2 done and accepted; GIT-M1 complete on feat/m10-workbench-git-m1 (PR #6) awaiting visual acceptance"
+  next_action: "Land GIT-M1, then GIT-M2 (stage/unstage/commit + typed confirmations)."
+
 visual_redesign:
   work_item: WI-M8-DEEPSEEK-UI
   status: review

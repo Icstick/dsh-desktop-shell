@@ -119,6 +119,10 @@ function makeApi(overrides: Partial<DesktopApi> = {}): DesktopApi {
     fsReadFile: vi.fn(),
     fsStat: vi.fn(),
     fsWriteFile: vi.fn(),
+    gitStatus: vi.fn(),
+    gitDiff: vi.fn(),
+    gitLog: vi.fn(),
+    gitBranches: vi.fn(),
     ...overrides,
   };
 }

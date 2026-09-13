@@ -726,3 +726,82 @@ export interface FsWriteFileRequest {
   /** Only ever set after the user answered the overwrite prompt. */
   force?: boolean;
 }
+
+/* ------------------------------------------------------------------ */
+/* Git panel (WI-M10-WORKBENCH-GIT, GIT-M1): read-only repository view  */
+/* ------------------------------------------------------------------ */
+
+export interface GitStatusRequest {
+  schemaVersion: 1;
+}
+
+/** One porcelain-v1 entry: the index/worktree columns plus derived flags. */
+export interface GitStatusEntry {
+  path: string;
+  indexStatus: string;
+  worktreeStatus: string;
+  staged: boolean;
+  unstaged: boolean;
+  untracked: boolean;
+}
+
+export interface GitStatusReport {
+  schemaVersion: 1;
+  root: string;
+  /** Null on a detached HEAD. */
+  branch?: string | null;
+  detached: boolean;
+  clean: boolean;
+  truncated: boolean;
+  entries: GitStatusEntry[];
+}
+
+export interface GitDiffRequest {
+  schemaVersion: 1;
+  path?: string;
+  /** Read the index instead of the worktree. */
+  staged?: boolean;
+}
+
+export type GitDiffScope = "worktree" | "staged";
+
+export interface GitDiffReport {
+  schemaVersion: 1;
+  root: string;
+  scope: GitDiffScope;
+  path?: string | null;
+  text: string;
+  additions: number;
+  deletions: number;
+  truncated: boolean;
+}
+
+export interface GitLogRequest {
+  schemaVersion: 1;
+  limit?: number;
+}
+
+export interface GitLogEntry {
+  hash: string;
+  author: string;
+  authoredAtUnixMs: number;
+  subject: string;
+}
+
+export interface GitLogReport {
+  schemaVersion: 1;
+  root: string;
+  truncated: boolean;
+  entries: GitLogEntry[];
+}
+
+export interface GitBranchesRequest {
+  schemaVersion: 1;
+}
+
+export interface GitBranchesReport {
+  schemaVersion: 1;
+  root: string;
+  branches: string[];
+  current?: string | null;
+}

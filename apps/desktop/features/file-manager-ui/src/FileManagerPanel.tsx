@@ -177,14 +177,6 @@ export function FileManagerPanel({ api }: FileManagerPanelProps) {
 
   return (
     <section className="panel file-manager" aria-label={t("surface.workbench")}>
-      <header className="panel__heading panel__heading--split">
-        <div>
-          <p className="eyebrow">{t("rail.workbench")}</p>
-          <h2>{t("surface.workbench")}</h2>
-        </div>
-        <span className="file-manager__meta">{t("fs.subtitle")}</span>
-      </header>
-
       <div className="file-manager__toolbar" data-testid="fm-toolbar">
         <button className="file-manager__action" onClick={() => void reloadRoots()} type="button">
           {t("fs.toolbar.refresh")}

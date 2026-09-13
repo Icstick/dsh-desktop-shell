@@ -15,8 +15,128 @@ const example: DshEnvironment = {
 const catalog: EnvironmentCatalog = {schemaVersion:1, revision:1, activeEnvironmentId:null, environments:[example]};
 let notifications: NotificationReport[] = [];
 const usage: UsageSnapshot = {schemaVersion:1, generatedAtUnixMs:1788696000000, records:[{schemaVersion:1,source:"dsh · 示例会话 / Sample session",period:{start:"2026-09-06T12:00:00Z",end:"2026-09-06T13:00:00Z"},inputTokens:128640,outputTokens:24680,cost:3.72,currency:"CNY",isEstimate:false,recordedAtUnixMs:1788696000000}], totals:{inputTokens:128640,outputTokens:24680,estimateCount:0,cost:3.72,currency:"CNY"}};
-mockIPC((command) => {
+
+/* --- Workbench fixtures (WI-M10-WORKBENCH-FS / -GIT): a small fake repo so
+   the visual preview can show both tabs without a desktop backend. --- */
+const repoRoot = "D:/Example/deepseek-harness";
+const workbenchRoots = {
+  schemaVersion: 1,
+  environmentId: example.id,
+  roots: [
+    { id: "repo", label: "Repository · deepseek-harness", kind: "repository", path: repoRoot, available: true, reason: null },
+    { id: "dsh-home", label: "DSH home", kind: "dshHome", path: "D:/Example/dsh-home", available: true, reason: null },
+    { id: "cwd", label: "Harness cwd", kind: "cwd", path: null, available: false, reason: "the directory does not exist" },
+  ],
+};
+const dirs: Record<string, Array<{ name: string; kind: string; size: number; hidden: boolean }>> = {
+  "": [
+    { name: "crates", kind: "dir", size: 0, hidden: false },
+    { name: "apps", kind: "dir", size: 0, hidden: false },
+    { name: "AGENTS.md", kind: "file", size: 3388, hidden: false },
+    { name: "README.md", kind: "file", size: 1204, hidden: false },
+  ],
+  "crates": [
+    { name: "dsh-daemon", kind: "dir", size: 0, hidden: false },
+    { name: "local-transport", kind: "dir", size: 0, hidden: false },
+  ],
+  "crates/local-transport": [
+    { name: "src", kind: "dir", size: 0, hidden: false },
+    { name: "Cargo.toml", kind: "file", size: 612, hidden: false },
+  ],
+  "crates/local-transport/src": [
+    { name: "lib.rs", kind: "file", size: 2044, hidden: false },
+    { name: "peer.rs", kind: "file", size: 9123, hidden: false },
+    { name: "uds.rs", kind: "file", size: 14802, hidden: false },
+  ],
+};
+const sampleSource = [
+  "//! Windows named-pipe peer identity (preview fixture).",
+  "",
+  "pub(crate) fn peer_process_id(handle: RawHandle) -> io::Result<u32> {",
+  "    let info = query_pipe_peer(handle)?;",
+  "    Ok(info.process_id)",
+  "}",
+  "",
+  "fn query_pipe_peer(handle: RawHandle) -> io::Result<PeerInfo> {",
+  "    // GetNamedPipeClientProcessId is the only reliable source here.",
+  "    unsafe { PEER.with(|cell| cell.get(handle)) }",
+  "}",
+  "",
+].join("\n");
+const sampleDiff = [
+  "diff --git a/crates/local-transport/src/peer.rs b/crates/local-transport/src/peer.rs",
+  "index 3f9a1c2..8b41e77 100644",
+  "--- a/crates/local-transport/src/peer.rs",
+  "+++ b/crates/local-transport/src/peer.rs",
+  "@@ -14,8 +14,11 @@ fn query_pipe_peer(handle: RawHandle) -> io::Result<PeerInfo> {",
+  "     let mut pid = 0u32;",
+  "-    let ok = unsafe { GetNamedPipeClientProcessId(handle, &mut pid) };",
+  "+    // The pipe handle is only valid until the peer closes it.",
+  "+    let ok = unsafe { GetNamedPipeClientProcessId(handle, &mut pid) };",
+  "     if ok == 0 {",
+  "-        return Err(io::Error::last_os_error());",
+  "+        let error = io::Error::last_os_error();",
+  "+        return Err(error);",
+  "     }",
+  "     Ok(PeerInfo { process_id: pid })",
+  " }",
+  "@@ -30,3 +33,4 @@ pub(crate) fn verify(peer: &PeerInfo) -> bool {",
+  "     peer.process_id != std::process::id()",
+  " }",
+  "+// end of file",
+  "",
+].join("\n");
+const workbenchStatus = {
+  schemaVersion: 1,
+  root: repoRoot,
+  branch: "feat/m10-workbench-git-m1",
+  detached: false,
+  clean: false,
+  truncated: false,
+  entries: [
+    { path: "crates/local-transport/src/peer.rs", indexStatus: "M", worktreeStatus: " ", staged: true, unstaged: false, untracked: false },
+    { path: "apps/desktop/features/git-panel-ui/src/GitPanel.tsx", indexStatus: "A", worktreeStatus: "M", staged: true, unstaged: true, untracked: false },
+    { path: "apps/desktop/features/shell-ui/src/shell.css", indexStatus: " ", worktreeStatus: "M", staged: false, unstaged: true, untracked: false },
+    { path: "apps/desktop/features/workbench-ui/src/WorkbenchPanel.tsx", indexStatus: "A", worktreeStatus: " ", staged: true, unstaged: false, untracked: false },
+    { path: "docs/roadmap/PLAN-GIT-M1.md", indexStatus: "?", worktreeStatus: "?", staged: false, unstaged: false, untracked: true },
+  ],
+};
+const workbenchLog = {
+  schemaVersion: 1,
+  root: repoRoot,
+  truncated: false,
+  entries: [
+    { hash: "d0bf7e3a1c9e4f2b8d6a5c3e1f0b9a8d7c6e5f41", author: "Mikage", authoredAtUnixMs: 1789251600000, subject: "fix(workbench): clippy needless-borrow in the git panel" },
+    { hash: "957765f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6", author: "Mikage", authoredAtUnixMs: 1789248000000, subject: "feat(workbench): GIT-M1 backend - read-only status/diff/log/branches" },
+    { hash: "fac107c9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3", author: "Mikage", authoredAtUnixMs: 1789161600000, subject: "docs(tracking): WI-M10-WORKBENCH-FS done; claim WORKBENCH-GIT" },
+  ],
+};
+const workbenchBranches = {
+  schemaVersion: 1,
+  root: repoRoot,
+  branches: ["main", "feat/m10-workbench-fs", "feat/m10-workbench-git-m1"],
+  current: "feat/m10-workbench-git-m1",
+};
+
+mockIPC((command, payload) => {
   switch(command) {
+    case "fs_list_roots": return workbenchRoots;
+    case "fs_read_dir": {
+      const request = (payload as { request?: { relativePath?: string } } | undefined)?.request;
+      const relative = request?.relativePath ?? "";
+      return { schemaVersion: 1, rootId: "repo", path: relative, truncated: false, entries: dirs[relative] ?? [] };
+    }
+    case "fs_read_file":
+      return { schemaVersion: 1, rootId: "repo", path: "crates/local-transport/src/peer.rs", size: 9123, encoding: "utf-8", readOnly: false, reason: null, content: sampleSource };
+    case "fs_stat":
+      return { schemaVersion: 1, rootId: "repo", path: "crates/local-transport/src/peer.rs", size: 9123, modifiedUnixMs: 1789251600000, editable: true, reason: null };
+    case "git_status": return workbenchStatus;
+    case "git_diff": {
+      const request = (payload as { request?: { path?: string; staged?: boolean } } | undefined)?.request;
+      return { schemaVersion: 1, root: repoRoot, scope: request?.staged ? "staged" : "worktree", path: request?.path ?? null, text: sampleDiff, additions: 5, deletions: 2, truncated: false };
+    }
+    case "git_log": return workbenchLog;
+    case "git_branches": return workbenchBranches;
     case "get_shell_snapshot": return {phase:"shell-mvp",runtimeState:"unconfigured",environmentId:null,generation:0};
     case "get_environment_catalog": return catalog;
     case "get_usage_snapshot": return usage;
