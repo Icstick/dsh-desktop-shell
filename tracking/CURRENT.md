@@ -44,7 +44,11 @@
   面板不再自称只读（去掉只读 chip、工具条提示改写）。vitest **134/134**（新增 7 条 M2 用例）；
   视觉走查抓到并修掉两处：禁用按钮看不出禁用、行内动作把路径列挤没了（列宽 240–360 + 动作字号下调）。
   证据 `gitm1-evidence/09-git-m2-controls-1920.png`。
-- NEXT：把 PR #9 转正 → CI 绿后合并 main → WI-M10-WORKBENCH-GIT 收口（0.3.0 的 workbench Phase 1 完结）。
+- **GIT-M2 已合并**：PR #9 → main **ac8a404**（CI run 34754007851 四 job 全绿；main run 34754306473 亦全绿），分支已删
+  （合并前 rebase 到 main，单提交无冲突，push 用 `--force-with-lease`）。`WI-M10-WORKBENCH-GIT` → **review**：
+  两片都落地且证据齐全，等所有者验收；验收后转 done，0.3.0 的 workbench Phase 1（文件 + git）即完结。
+- 明确不做（已记进 ROADMAP 的 Deferred backlog，不让它蒸发）：分支切换 / checkout 某个 revision（WI 原文提到的
+  "checkout"）、按 hunk 暂存、`--amend`、stash、远端与 SSH（0.5.0）。**force-push 与历史重写不在延期里——那是 Phase 1 出界。**
 
 
 ## 2026-09-13 · WI-M10-WORKBENCH-FS 开工（FS-M1：roots + 树 + 只读视图）

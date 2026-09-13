@@ -73,3 +73,8 @@ and evidence plan; the ordering above is a queue, not a commitment.
 - Terminal automation for agents (M3 debt; agent-safety design).
 - Concurrent multi-profile B2 (M10+).
 - Artwork commercial authorization (awaiting upstream reply; not blocking).
+- Workbench git, the verbs GIT-M2 deliberately left out: branch switching and
+  checking out a revision (the WI text names "checkout"; the destructive verb
+  that shipped is discard, which is the one that can lose work), per-hunk
+  staging, --amend, stash. No force-push and no history rewriting in Phase 1 -
+  that one is not deferred, it is out of scope.
