@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "local-dsh",
+  "roots": [
+    {
+      "id": "repo",
+      "label": "Repository",
+      "kind": "repository",
+      "path": "D:\\\\repo",
+      "available": true,
+      "reason": null
+    },
+    {
+      "id": "dsh-home",
+      "label": "DSH home",
+      "kind": "dshHome",
+      "path": "D:\\\\dsh",
+      "available": true,
+      "reason": null
+    }
+  ]
+}

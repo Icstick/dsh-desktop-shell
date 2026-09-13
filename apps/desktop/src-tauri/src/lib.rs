@@ -10,6 +10,7 @@ mod discovery;
 mod dsh_surface;
 mod dsh_surface_policy;
 mod environment_store;
+mod file_manager;
 mod managed_runtime;
 mod notification;
 mod setup_assist;
@@ -64,6 +65,9 @@ pub fn run() {
             commands::get_managed_runtime_status,
             commands::get_shell_snapshot,
             commands::get_usage_snapshot,
+            commands::fs_list_roots,
+            commands::fs_read_dir,
+            commands::fs_read_file,
             commands::mount_dsh_surface,
             commands::pick_directory,
             commands::probe_attached_environment,

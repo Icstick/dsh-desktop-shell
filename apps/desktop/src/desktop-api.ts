@@ -36,6 +36,12 @@ import type {
   DiscoverProfilesRequest,
   EnvironmentCatalog,
   EnvironmentValidation,
+  FsDirReport,
+  FsFileReport,
+  FsReadDirRequest,
+  FsReadFileRequest,
+  FsRootsReport,
+  FsRootsRequest,
   HarnessDiscoveryReport,
   HarnessDiscoveryRequest,
   ProbePortReport,
@@ -92,6 +98,9 @@ export interface DesktopApi {
   unmountDshSurface(request: DshSurfaceUnmountRequest): Promise<DshSurfaceStatus>;
   updateDshSurfaceLayout(request: DshSurfaceLayoutRequest): Promise<DshSurfaceStatus>;
   validateEnvironment(environment: DshEnvironment): Promise<EnvironmentValidation>;
+  fsListRoots(request: FsRootsRequest): Promise<FsRootsReport>;
+  fsReadDir(request: FsReadDirRequest): Promise<FsDirReport>;
+  fsReadFile(request: FsReadFileRequest): Promise<FsFileReport>;
 }
 
 export const desktopApi: DesktopApi = {
@@ -137,6 +146,9 @@ export const desktopApi: DesktopApi = {
   getShellSnapshot: () => invoke<ShellSnapshot>("get_shell_snapshot"),
   getUsageSnapshot: (request) =>
     invoke<UsageSnapshot>("get_usage_snapshot", { request }),
+  fsListRoots: (request) => invoke<FsRootsReport>("fs_list_roots", { request }),
+  fsReadDir: (request) => invoke<FsDirReport>("fs_read_dir", { request }),
+  fsReadFile: (request) => invoke<FsFileReport>("fs_read_file", { request }),
   mountDshSurface: (request) =>
     invoke<DshSurfaceStatus>("mount_dsh_surface", { request }),
   probeAttachedEnvironment: (request) =>

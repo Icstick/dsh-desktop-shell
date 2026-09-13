@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fs-list-roots"
+description = "Enables the fs_list_roots command without any pre-configured scope."
+commands.allow = ["fs_list_roots"]
+
+[[permission]]
+identifier = "deny-fs-list-roots"
+description = "Denies the fs_list_roots command without any pre-configured scope."
+commands.deny = ["fs_list_roots"]

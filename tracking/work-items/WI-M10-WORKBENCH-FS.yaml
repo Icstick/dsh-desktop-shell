@@ -1,15 +1,16 @@
 schema_version: 1
 id: WI-M10-WORKBENCH-FS
 title: "Dev workbench Phase 1: file manager surface"
-status: planned
+status: in_progress
 milestone: M10
 module: MOD-SHELL-UI
 owner_role: ui-owner
-claimed_by: null
+claimed_by: "agent session 20260913"
 session: null
-branch_or_worktree: null
-claim_expires_at: null
-dependencies: []
+branch_or_worktree: feat/m10-workbench-fs
+claim_expires_at: "2026-09-14T01:30:00Z"
+dependencies:
+  - "Design doc 2026-09-12: docs/roadmap/DESIGN-WORKBENCH-PHASE1.md"
 acceptance_criteria:
   - "File tree + text view with lightweight edit/save over environment-linked roots (env repo path, dshHome, plugin dirs)."
   - "Human-only surface; every new command registered in the ACL manifest/capability; no agent bridge."
@@ -22,8 +23,14 @@ scope:
   - specs/ (fs command schemas + fixtures)
   - apps/desktop/src/contracts.ts + i18n.tsx
   - tracking/
-evidence: []
+evidence:
+  - "FS-M1 backend (apps/desktop/src-tauri/src/file_manager.rs): roots derived from the active environment (repo = harness repository path, dsh-home, harness-cwd), containment core = validate_relative (rejects `..`, absolute, drive-relative, UNC/device and over-long paths before any filesystem call) + join/canonicalize/prefix check on the canonical forms, symlinks reported as links and never followed for expansion, 2000-entry listing cap with an explicit truncated flag, 2 MiB edit cap and non-UTF-8 detection (both open read-only with a reason), UTF-8 BOM detection. Seven unit tests: the negative containment matrix, escape through a symlink into a sibling whose name shares the root prefix, listing order/hidden filter, file-vs-directory errors, encoding/truncation/read-only reporting, unknown roots, the closed root-id vocabulary."
+  - "FS-M1 command surface: fs_list_roots / fs_read_dir / fs_read_file as Tauri commands (human-only, ACL-registered in all four places: build.rs COMMANDS, capabilities/shell.json permissions, lib.rs generate_handler, scripts/validate-acl.mjs). validate-acl.mjs passes with 43 commands. Containment failures map to MALFORMED_MESSAGE and missing paths to UNAVAILABLE; no absolute path ever crosses the boundary."
+  - "Specs: specs/fs/ gains six schemas plus twelve fixtures (roots request/report, read-dir request/report, read-file request/report); scripts/validate-specs.mjs reports 69 schemas, 145 fixtures, ALL PASS."
+  - "FS-M1 frontend (apps/desktop/features/file-manager-ui/): lazy tree per root, hidden-entry toggle, read-only text view with size/encoding header and an explicit read-only banner, keyboard-reachable rows, explicit unavailable-root state carrying the reason, containment failures surfaced as an alert. Wired as the workbench surface (ActivityRail entry + artwork + ShellApp). contracts.ts / desktop-api.ts / i18n (zh+en) extended; the four existing DesktopApi test doubles were extended too."
+  - "Gates 2026-09-13: cargo fmt clean; cargo clippy -p dsh-desktop-shell --all-targets -D warnings clean; cargo test -p dsh-desktop-shell green (unit 180 incl. the 7 file-manager tests; integration suites green); pnpm check clean; pnpm test 8 files / 115 tests green (3 new panel tests); validate-acl 43 commands; validate-specs 69/145 ALL PASS."
+  - "Deviation from the design doc, recorded on purpose: the plugin directories are not a separate root - they live inside the DSH home (profiles/*/node_modules), which the dsh-home root already covers; a layout-derived extra root would encode a DSH-layout assumption this module does not own. FS-M2 can add one with the layout pinned."
 blocked_by: []
-next_action: "Design doc landed 2026-09-12 (docs/roadmap/DESIGN-WORKBENCH-PHASE1.md: containment core, tree, edit/save, command surface). Ready to claim for FS-M1 (roots + tree + read-only view)."
+next_action: "FS-M1 (roots + tree + read-only view) implemented and locally green on 2026-09-13; awaiting CI + user visual acceptance. Then FS-M2: edit/save with atomic write and the mtime/size conflict flow (fs_write_file + fs_stat)."
 handoff: null
 updated_at: "2026-09-08T00:00:00.000Z"

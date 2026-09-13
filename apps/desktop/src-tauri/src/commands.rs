@@ -158,6 +158,21 @@ impl DshEnvironment {
         &self.dsh_home
     }
 
+    /// Repository path this environment was created from, when the harness
+    /// source is a repository (the file manager `repo` root). Executable and
+    /// command sources have no repository to browse.
+    pub(crate) fn harness_repository_path(&self) -> Option<&str> {
+        match self.harness.mode {
+            HarnessMode::Repository => Some(self.harness.path.as_str()),
+            HarnessMode::Executable | HarnessMode::Command => None,
+        }
+    }
+
+    /// Working directory the harness runs in, when one is recorded.
+    pub(crate) fn harness_cwd(&self) -> Option<&str> {
+        self.harness.cwd.as_deref().filter(|cwd| !cwd.is_empty())
+    }
+
     pub(crate) fn id(&self) -> &str {
         &self.id
     }
@@ -217,6 +232,32 @@ impl CommandError {
     }
     fn malformed_setup_assist() -> Self {
         Self::unavailable("Setup assistance request is malformed.", false)
+    }
+
+    /// A file-manager request that fails validation: wrong schema version,
+    /// unknown root id, or a path the surface never offers (absolute, UNC,
+    /// `..`, or one that escapes its root). Containment failures are
+    /// deliberately malformed-request shaped - they are never retryable and
+    /// never reach the filesystem.
+    fn malformed_fs_request() -> Self {
+        Self {
+            code: "MALFORMED_MESSAGE",
+            message: "File manager request is malformed.".into(),
+            retryable: false,
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
+    }
+
+    /// Map a [file_manager::FsError] onto the wire error shape.
+    fn from_fs(error: crate::file_manager::FsError) -> Self {
+        Self {
+            code: error.code(),
+            message: truncate_error(&error.message(), 512),
+            retryable: error.retryable(),
+            correlation_id: next_correlation_id(),
+            issues: Vec::new(),
+        }
     }
 
     fn setup_assist_io() -> Self {
@@ -1725,6 +1766,64 @@ fn active_environment_dsh_home(app: &AppHandle) -> Option<std::path::PathBuf> {
     Some(std::path::PathBuf::from(
         catalog.active_environment()?.dsh_home(),
     ))
+}
+
+/// FS-M1 (WI-M10-WORKBENCH-FS): the roots the file manager may browse for
+/// the active environment. The roots are derived from the environment
+/// catalog - the caller never supplies a path.
+#[tauri::command]
+pub fn fs_list_roots(
+    app: AppHandle,
+    request: crate::file_manager::FsRootsRequest,
+) -> Result<crate::file_manager::FsRootsReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    Ok(crate::file_manager::list_roots(
+        catalog.active_environment(),
+    ))
+}
+
+/// FS-M1: list one directory inside a root (read-only).
+#[tauri::command]
+pub fn fs_read_dir(
+    app: AppHandle,
+    request: crate::file_manager::FsReadDirRequest,
+) -> Result<crate::file_manager::FsDirReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::file_manager::read_dir(
+        catalog.active_environment(),
+        request.root_id(),
+        request.relative_path(),
+        request.show_hidden(),
+    )
+    .map_err(CommandError::from_fs)
+}
+
+/// FS-M1: read one text file inside a root for the view pane (read-only;
+/// FS-M2 adds the write path).
+#[tauri::command]
+pub fn fs_read_file(
+    app: AppHandle,
+    request: crate::file_manager::FsReadFileRequest,
+) -> Result<crate::file_manager::FsFileReport, CommandError> {
+    if !request.is_valid() {
+        return Err(CommandError::malformed_fs_request());
+    }
+    let catalog =
+        environment_store::load_catalog(&catalog_path(&app)?).map_err(CommandError::from_store)?;
+    crate::file_manager::read_file(
+        catalog.active_environment(),
+        request.root_id(),
+        request.relative_path(),
+    )
+    .map_err(CommandError::from_fs)
 }
 
 #[cfg(test)]

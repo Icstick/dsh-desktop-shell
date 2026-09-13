@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-desktop.local/specs/fs/fs-read-file-report.schema.json",
+  "title": "FsFileReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rootId",
+    "path",
+    "size",
+    "encoding",
+    "readOnly",
+    "content"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "rootId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    },
+    "path": {
+      "type": "string"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "encoding": {
+      "enum": [
+        "utf-8",
+        "utf-8-bom",
+        "binary"
+      ]
+    },
+    "readOnly": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content": {
+      "type": "string"
+    }
+  }
+}

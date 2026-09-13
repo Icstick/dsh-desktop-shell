@@ -371,6 +371,13 @@ function createApi(): DesktopApi {
       ),
       bounds: request.bounds,
     })),
+    fsListRoots: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      environmentId: null,
+      roots: [],
+    }),
+    fsReadDir: vi.fn(),
+    fsReadFile: vi.fn(),
     validateEnvironment: vi.fn().mockResolvedValue({
       valid: true,
       issues: [],

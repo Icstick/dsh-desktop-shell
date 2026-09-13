@@ -74,6 +74,9 @@ function makeApi(): DesktopApi {
     stopManagedEnvironment: vi.fn(),
     restartManagedEnvironment: vi.fn(),
     validateEnvironment: vi.fn(),
+    fsListRoots: vi.fn(),
+    fsReadDir: vi.fn(),
+    fsReadFile: vi.fn(),
   };
 }
 

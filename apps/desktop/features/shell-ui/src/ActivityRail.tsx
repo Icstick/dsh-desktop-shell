@@ -5,6 +5,7 @@ export type SurfaceId =
   | "dsh"
   | "browser"
   | "terminal"
+  | "workbench"
   | "runtime"
   | "settings"
   | "notifications"
@@ -70,6 +71,14 @@ function RailIcon({ id }: { id: RailItem["id"] }) {
           <path d="M6 21v-6M12 21v-11M18 21v-8" />
         </svg>
       );
+    case "workbench":
+      // Folder with a code line: the file manager / dev workbench.
+      return (
+        <svg {...ICON_ATTRS}>
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+          <path d="m10 13 2 2-2 2M14 17h4" />
+        </svg>
+      );
     case "timer":
       return (
         <svg {...ICON_ATTRS}>
@@ -102,6 +111,7 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
     { id: "dsh", label: t("rail.dsh"), enabled: true },
     { id: "browser", label: t("rail.browser"), enabled: true },
     { id: "terminal", label: t("rail.terminal"), enabled: true },
+    { id: "workbench", label: t("rail.workbench"), enabled: true },
     { id: "notifications", label: t("rail.notifications"), enabled: true },
     { id: "usage", label: t("rail.usage"), enabled: true },
     { id: "timer", label: t("rail.timer"), enabled: false },
