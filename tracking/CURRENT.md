@@ -1,5 +1,15 @@
 # Current Project State
 
+## 2026-09-13 晚 · 文件区根目录树修复（fix/fs-roots-nesting → main 128daf8）
+
+- 用户报「文件区的 fs.roots 这个小框有点问题，自己点一点看一下」——**照着点出来了**：展开两个根之后，树列是
+  `三个根按钮 → 一堆子项 → 又一堆子项`，两棵树的子项堆在一起分不清谁是谁；根按钮还没有展开指示符。
+- 根因：FS-M1 把所有已展开根的行走一遍收进**一个扁平列表**，渲染在所有根之后——子项从来没挂在各自的根下面。
+- 修：行按根分组并**渲染在该根的块内**；根按钮补上 `▸/▾`；根的子树加缩进；过滤空态的判据改为过滤后计数。
+- 验证：预览里逐个点（两根并开、嵌套 `crates/` 展开在各自根内、全部折叠）；新增 vitest 断言两个可用根展开成
+  两个各自嵌套的列表。`pnpm check` 干净、vitest **135/135**；PR #11 CI run 34755498019 四 job 全绿。
+- 证据：`gitm1-evidence/10-fs-roots-before.png`、`11-fs-roots-after.png`。
+
 ## 2026-09-13 下午 · WI-M10-WORKBENCH-GIT / GIT-M1（feat/m10-workbench-git-m1）
 
 - 后端（先行落地）：`git_panel.rs` 四个只读命令（status / diff / log / branches），全部经单一 `run_git`
